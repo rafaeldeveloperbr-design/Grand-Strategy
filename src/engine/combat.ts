@@ -210,3 +210,88 @@ export function resolveBattle(
     provinceId: province.id,
   };
 }
+
+/**
+ * Verifica automaticamente combates em todas as províncias
+ * Chamado a cada tick para garantir que exércitos inimigos na mesma província lutem
+ */
+export function checkAllProvinceCombats(
+  armies: Army[],
+  provinces: Province[],
+  wars: Array<{ attacker: string; defender: string }>
+): {
+  armies: Army[];
+  battles: Array<{
+    result: CombatResult;
+    provinceId: string;
+  }>;
+} {
+  const updatedArmies = [...armies];
+  const battles: Array<{ result: CombatResult; provinceId: string }> = [];
+
+  console.log('⚔️ checkAllProvinceCombats: verificando', provinces.length, 'províncias');
+
+  // Percorre todas as províncias
+  for (const province of provinces) {
+    // Encontra todos os exércitos nesta província
+    const armiesInProvince = updatedArmies.filter(a => a.location === province.id);
+
+    if (armiesInProvince.length < 2) continue; // Precisa de pelo menos 2 exércitos
+
+    // Verifica todos os pares de exércitos
+    for (let i = 0; i < armiesInProvince.length; i++) {
+      for (let j = i + 1; j < armiesInProvince.length; j++) {
+        const army1 = armiesInProvince[i];
+        const army2 = armiesInProvince[j];
+
+        // Verifica se estão em guerra
+        const areAtWar = wars.some(
+          w => (w.attacker === army1.owner && w.defender === army2.owner) ||
+               (w.defender === army1.owner && w.attacker === army2.owner)
+        );
+
+        if (!areAtWar) continue;
+
+        console.log('⚔️ Combate automático em', province.name, ':', army1.owner, 'vs', army2.owner);
+
+        // Determina quem é atacante e defensor
+        // Atacante = quem não é dono da província (ou o primeiro se ambos não são donos)
+        let attacker = army1;
+        let defender = army2;
+
+        if (army1.owner === province.owner) {
+          attacker = army2;
+          defender = army1;
+        }
+
+        // Resolve o combate
+        const result = resolveBattle(attacker, defender, province);
+
+        battles.push({ result, provinceId: province.id });
+
+        // Remove os exércitos originais
+        const idx1 = updatedArmies.findIndex(a => a.id === army1.id);
+        const idx2 = updatedArmies.findIndex(a => a.id === army2.id);
+
+        if (idx1 !== -1) updatedArmies.splice(idx1, 1);
+        if (idx2 !== -1) updatedArmies.splice(idx2 - (idx1 < idx2 ? 1 : 0), 1);
+
+        // Adiciona o vencedor (se sobreviveu)
+        if (result.winner === 'attacker' && result.attacker.regiments.length > 0) {
+          updatedArmies.push({ ...result.attacker, location: province.id, destination: null, path: [] });
+          console.log('🏆 Vencedor:', attacker.owner, 'em', province.name);
+        } else if (result.winner === 'defender' && result.defender.regiments.length > 0) {
+          updatedArmies.push({ ...result.defender, location: province.id, destination: null, path: [] });
+          console.log('🏆 Vencedor:', defender.owner, 'em', province.name);
+        }
+
+        // Sai do loop interno pois os exércitos foram processados
+        break;
+      }
+    }
+  }
+
+  console.log('⚔️ checkAllProvinceCombats:', battles.length, 'batalhas resolvidas');
+
+  return { armies: updatedArmies, battles };
+}

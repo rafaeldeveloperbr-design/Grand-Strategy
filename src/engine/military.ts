@@ -86,6 +86,8 @@ export function processRecruitments(
   let updatedArmies = [...armies];
   let updatedCountries = [...countries];
 
+  console.log('🔄 processRecruitments: processando', recruitments.length, 'recrutamentos');
+
   for (const rec of recruitments) {
     const newDays = rec.daysRemaining - 1;
 
@@ -100,6 +102,7 @@ export function processRecruitments(
 
       if (existingArmy) {
         // Adiciona ao exército existente
+        console.log('✅ Adicionando regimento ao exército existente:', existingArmy.id);
         updatedArmies = updatedArmies.map(a =>
           a.id === existingArmy.id
             ? { ...a, regiments: [...a.regiments, regiment] }
@@ -109,6 +112,7 @@ export function processRecruitments(
         // Cria novo exército
         const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
         newArmy.regiments = [regiment];
+        console.log('🎖️ Exército Spawnado:', newArmy);
         updatedArmies.push(newArmy);
       }
     } else {
@@ -116,6 +120,8 @@ export function processRecruitments(
       updatedRecruitments.push({ ...rec, daysRemaining: newDays });
     }
   }
+
+  console.log('📊 processRecruitments: resultado', updatedRecruitments.length, 'recrutamentos restantes,', updatedArmies.length, 'exércitos totais');
 
   return {
     recruitments: updatedRecruitments,

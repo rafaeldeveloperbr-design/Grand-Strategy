@@ -35,7 +35,7 @@ import {
   splitArmyHalf,
   generateRecruitmentId,
 } from './engine/military';
-import { resolveBattle, calculateArmySize } from './engine/combat';
+import { resolveBattle, calculateArmySize, checkAllProvinceCombats } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import {
@@ -304,8 +304,10 @@ const App: React.FC = () => {
     setAllCountries(updatedCountries);
 
     // 3. Processa recrutamentos
+    console.log('📋 Tick: processando recrutamentos, fila atual:', currentRecruitments.length);
     const { recruitments: updatedRecruitments, armies: armiesAfterRecruit } =
       processRecruitments(currentRecruitments, currentArmies, updatedCountries);
+    console.log('📋 Tick: recrutamentos processados, exércitos após recrutamento:', armiesAfterRecruit.length);
     setRecruitments(updatedRecruitments);
 
     // 4. Processa movimentação
@@ -417,7 +419,63 @@ const App: React.FC = () => {
       }
     }
 
+    // 5.5. Verificação automática de combate em todas as províncias
+    console.log('⚔️ Tick: verificando combates automáticos, exércitos antes:', finalArmies.length);
+    const { armies: armiesAfterAutoCombat, battles: autoBattles } = 
+      checkAllProvinceCombats(finalArmies, currentProvinces, currentWars);
+    
+    // Processa resultados das batalhas automáticas
+    if (autoBattles.length > 0) {
+      console.log('⚔️ Tick:', autoBattles.length, 'batalhas automáticas resolvidas');
+      
+      for (const battle of autoBattles) {
+        const province = currentProvinces.find(p => p.id === battle.provinceId);
+        if (!province) continue;
+
+        // Atualiza baixas na guerra
+        setWars(prevWars => prevWars.map(w => {
+          if ((w.attacker === battle.result.attacker.owner && w.defender === battle.result.defender.owner) ||
+              (w.defender === battle.result.attacker.owner && w.attacker === battle.result.defender.owner)) {
+            const isAttacker = w.attacker === battle.result.attacker.owner;
+            return {
+              ...w,
+              attackerCasualties: w.attackerCasualties + (isAttacker ? battle.result.attackerCasualties : battle.result.defenderCasualties),
+              defenderCasualties: w.defenderCasualties + (isAttacker ? battle.result.defenderCasualties : battle.result.attackerCasualties)
+            };
+          }
+          return w;
+        }));
+
+        // Se o atacante venceu e a província é inimiga, conquista
+        if (battle.result.winner === 'attacker' && province.owner !== battle.result.attacker.owner) {
+          const oldOwner = province.owner;
+          setProvinces((prev) =>
+            prev.map((p) =>
+              p.id === province.id ? { ...p, owner: battle.result.attacker.owner } : p
+            )
+          );
+          setAllCountries((prev) =>
+            prev.map((c) => {
+              if (c.tag === battle.result.attacker.owner) {
+                return { ...c, provinces: [...c.provinces, province.id] };
+              }
+              if (c.tag === oldOwner) {
+                return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+              }
+              return c;
+            })
+          );
+          addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+        } else if (battle.result.winner === 'defender') {
+          addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
+        }
+      }
+    }
+    
+    finalArmies = armiesAfterAutoCombat;
+
     setArmies(finalArmies);
+    console.log('✅ Tick: exércitos atualizados, total:', finalArmies.length);
 
     // 6. Processa diplomacia (tick diário)
     setDiplomaticRelations(prev => processDiplomacyTick(prev));
@@ -445,7 +503,7 @@ const App: React.FC = () => {
     // 8. Processa IA dos bots (a cada 10 ticks para performance)
     const currentDate = date;
     setAllCountries(prevCountries => {
-      let currentArmies = armiesRef.current;
+      let currentArmies = finalArmies; // Usa os exércitos atualizados, não o ref!
       let currentRelations = diplomaticRelationsRef.current;
       let currentWars = warsRef.current;
       let currentProvinces = provincesRef.current;
