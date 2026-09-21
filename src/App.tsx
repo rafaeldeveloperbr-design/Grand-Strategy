@@ -17,6 +17,7 @@ import { DiplomacyPanel } from './components/DiplomacyPanel';
 import { WarPanel } from './components/WarPanel';
 import { BattleReportModal } from './components/BattleReportModal';
 import { BattleHistoryModal } from './components/BattleHistoryModal';
+import { TechnologyModal } from './components/TechnologyModal';
 import { provincesData } from './data/provinces';
 import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
@@ -35,6 +36,14 @@ import { resolveBattle, calculateArmySize, checkAllProvinceCombats } from './eng
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import {
+  processDailyTechProgress,
+  startNationalFocus,
+  startTechnologyResearch,
+  calculateTechBonuses,
+  createInitialTechState,
+} from './engine/technology';
+import { NATIONAL_FOCUSES, TECHNOLOGIES } from './data/technologies';
+import {
   BuildingType,
   Country,
   Province,
@@ -44,6 +53,7 @@ import {
   UnitType,
   CombatResult,
 } from './types';
+import { CountryTechState } from './types/technology';
 import { DiplomaticRelation, War } from './types/diplomacy';
 import {
   declareWar,
@@ -237,6 +247,25 @@ const App: React.FC = () => {
   /** Modal de histórico de batalhas aberto */
   const [showBattleHistory, setShowBattleHistory] = useState(false);
 
+  /** Modal de tecnologias aberto */
+  const [showTechModal, setShowTechModal] = useState(false);
+
+  /** Estado de tecnologias do jogador */
+  const [playerTechState, setPlayerTechState] = useState<CountryTechState>(() =>
+    createInitialTechState(playerCountryTag)
+  );
+
+  /** Estados de tecnologias dos bots */
+  const [botTechStates, setBotTechStates] = useState<Map<string, CountryTechState>>(() => {
+    const map = new Map<string, CountryTechState>();
+    initialCountries.forEach(country => {
+      if (country.tag !== playerCountryTag) {
+        map.set(country.tag, createInitialTechState(country.tag));
+      }
+    });
+    return map;
+  });
+
   /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
   const provincesRef = useRef(provinces);
@@ -246,6 +275,8 @@ const App: React.FC = () => {
   const warsRef = useRef(wars);
   const diplomaticRelationsRef = useRef(diplomaticRelations);
   const dateRef = useRef(date);
+  const playerTechStateRef = useRef(playerTechState);
+  const botTechStatesRef = useRef(botTechStates);
 
   useEffect(() => { provincesRef.current = provinces; }, [provinces]);
   useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
@@ -254,6 +285,8 @@ const App: React.FC = () => {
   useEffect(() => { warsRef.current = wars; }, [wars]);
   useEffect(() => { diplomaticRelationsRef.current = diplomaticRelations; }, [diplomaticRelations]);
   useEffect(() => { dateRef.current = date; }, [date]);
+  useEffect(() => { playerTechStateRef.current = playerTechState; }, [playerTechState]);
+  useEffect(() => { botTechStatesRef.current = botTechStates; }, [botTechStates]);
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
@@ -509,6 +542,30 @@ const App: React.FC = () => {
     // ===== PASSO E: DIPLOMACIA =====
     relations = processDiplomacyTick(relations);
 
+    // ===== PASSO E.5: TECNOLOGIAS E FOCOS =====
+    let currentPlayerTechState = playerTechState;
+    // Processa progresso de tecnologias do jogador
+    const playerTechResult = processDailyTechProgress(currentPlayerTechState, countries.find(c => c.tag === playerCountryTag)!);
+    currentPlayerTechState = playerTechResult.techState;
+    if (playerTechResult.notifications.length > 0) {
+      playerTechResult.notifications.forEach(notif => addLog(notif));
+    }
+
+    // Processa progresso de tecnologias dos bots
+    let currentBotTechStates = new Map(botTechStates);
+    countries.forEach(country => {
+      if (country.tag !== playerCountryTag) {
+        const botTechState = currentBotTechStates.get(country.tag);
+        if (botTechState) {
+          const botTechResult = processDailyTechProgress(botTechState, country);
+          currentBotTechStates.set(country.tag, botTechResult.techState);
+          if (botTechResult.notifications.length > 0) {
+            botTechResult.notifications.forEach(notif => addLog(`🤖 ${country.name}: ${notif}`));
+          }
+        }
+      }
+    });
+
     // ===== PASSO F: ATUALIZA WAR SCORE =====
     wars = wars.map(war => {
       const attackerProvs = provinces.filter(p => p.owner === war.attacker).length;
@@ -599,6 +656,8 @@ const App: React.FC = () => {
     setWars(wars);
     setDiplomaticRelations(relations);
     setRecruitments(recruitments);
+    setPlayerTechState(currentPlayerTechState);
+    setBotTechStates(currentBotTechStates);
     setDate(prevDate => advanceDate(prevDate));
 
     // Atualiza refs para o próximo tick
@@ -608,6 +667,8 @@ const App: React.FC = () => {
     warsRef.current = wars;
     diplomaticRelationsRef.current = relations;
     recruitmentsRef.current = recruitments;
+    playerTechStateRef.current = currentPlayerTechState;
+    botTechStatesRef.current = currentBotTechStates;
   }, [addLog, playerCountryTag]);
 
   /**
@@ -988,6 +1049,40 @@ const App: React.FC = () => {
     addLog(`🕊️ Paz assinada com ${allCountries.find(c => c.tag === enemy)?.name}`);
   }, [wars, diplomaticRelations, playerCountryTag, allCountries, addLog]);
 
+  const handleStartFocus = useCallback((focusId: string) => {
+    const updatedTechState = startNationalFocus(playerTechState, focusId);
+    if (updatedTechState) {
+      setPlayerTechState(updatedTechState);
+      const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+      if (focus) {
+        addLog(`🎯 Foco iniciado: ${focus.title}`);
+      }
+    }
+  }, [playerTechState, addLog]);
+
+  const handleStartResearch = useCallback((techId: string) => {
+    const { techState: updatedTechState, cost } = startTechnologyResearch(
+      playerTechState,
+      techId,
+      playerCountry
+    );
+    
+    if (updatedTechState) {
+      // Deduz o custo da pesquisa
+      setAllCountries(prev => prev.map(c => 
+        c.tag === playerCountryTag
+          ? { ...c, resources: { ...c.resources, gold: c.resources.gold - cost } }
+          : c
+      ));
+      
+      setPlayerTechState(updatedTechState);
+      const tech = TECHNOLOGIES.find(t => t.id === techId);
+      if (tech) {
+        addLog(`🔬 Pesquisa iniciada: ${tech.title} (💰 ${cost})`);
+      }
+    }
+  }, [playerTechState, playerCountry, playerCountryTag, addLog]);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -998,6 +1093,15 @@ const App: React.FC = () => {
         gameSpeed={gameSpeed}
         onSpeedChange={handleSpeedChange}
       />
+
+      {/* === Botão de Tecnologias === */}
+      <button
+        className="game__tech-button"
+        onClick={() => setShowTechModal(true)}
+        title="Tecnologias e Focos Nacionais"
+      >
+        🔬 Tecnologias
+      </button>
 
       {/* === Área Principal === */}
       <div className="game__main">
@@ -1277,6 +1381,17 @@ const App: React.FC = () => {
               setBattleReport(battle);
               setIsPaused(true);
             }}
+          />
+        )}
+
+        {/* === Modal de Tecnologias === */}
+        {showTechModal && (
+          <TechnologyModal
+            playerCountry={playerCountry}
+            techState={playerTechState}
+            onStartFocus={handleStartFocus}
+            onStartResearch={handleStartResearch}
+            onClose={() => setShowTechModal(false)}
           />
         )}
       </div>

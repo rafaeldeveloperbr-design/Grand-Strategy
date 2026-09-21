@@ -41,7 +41,10 @@ const BALANCE = {
 /**
  * Calcula a renda de ouro de uma província
  */
-export function calculateProvinceGoldIncome(province: Province): number {
+export function calculateProvinceGoldIncome(
+  province: Province,
+  goldIncomeMultiplier: number = 1.0
+): number {
   const devMultiplier = 1 + (province.development - 1) * BALANCE.DEV_TAX_MULTIPLIER;
   let baseIncome = (province.population / 1000) * BALANCE.TAX_PER_POP * devMultiplier;
 
@@ -55,7 +58,8 @@ export function calculateProvinceGoldIncome(province: Province): number {
     }
   }
 
-  return baseIncome;
+  // Aplica multiplicador de renda (tecnologias/focos)
+  return baseIncome * goldIncomeMultiplier;
 }
 
 /**
@@ -163,28 +167,38 @@ export function calculateCountryExpenses(country: Country, provinces: Province[]
  */
 export function processDailyTick(
   country: Country,
-  provinces: Province[]
+  provinces: Province[],
+  techBonuses?: {
+    goldIncomeMultiplier: number;
+    manpowerMultiplier: number;
+    buildCostMultiplier: number;
+    buildTimeMultiplier: number;
+  }
 ): { country: Country; provinces: Province[] } {
   // Calcula economia total do país
   let totalGoldIncome = 0;
   let totalManpowerGain = 0;
 
+  const goldIncomeMultiplier = techBonuses?.goldIncomeMultiplier ?? 1.0;
+  const manpowerMultiplier = techBonuses?.manpowerMultiplier ?? 1.0;
+
   const updatedProvinces = provinces.map((province) => {
-    // Renda desta província
-    const goldIncome = calculateProvinceGoldIncome(province);
+    // Renda desta província (com multiplicador de tecnologia)
+    const goldIncome = calculateProvinceGoldIncome(province, goldIncomeMultiplier);
     totalGoldIncome += goldIncome;
 
-    // Manpower desta província
-    const manpowerGain = calculateProvinceManpowerGain(province);
+    // Manpower desta província (com multiplicador de tecnologia)
+    const manpowerGain = calculateProvinceManpowerGain(province) * manpowerMultiplier;
     totalManpowerGain += manpowerGain;
 
     // Crescimento populacional
     const popGrowth = calculatePopulationGrowth(province, country.resources.stability);
 
-    // Avança construções
+    // Avança construções (com multiplicador de tempo de tecnologia)
+    const buildTimeMultiplier = techBonuses?.buildTimeMultiplier ?? 1.0;
     const updatedBuildings = province.buildings.map((b) => ({
       ...b,
-      daysRemaining: Math.max(0, b.daysRemaining - 1),
+      daysRemaining: Math.max(0, b.daysRemaining - buildTimeMultiplier),
     }));
 
     return {

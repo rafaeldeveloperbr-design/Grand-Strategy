@@ -2191,6 +2191,324 @@ html, body, #root {
   font-family: var(--font-mono);
 }
 
+/* ============================================================
+ * MÓDULO 6 - ESTILOS DO MODAL DE TECNOLOGIAS
+ * ============================================================ */
+
+.tech-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tech-modal__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.tech-modal__container {
+  position: relative;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  background: var(--bg-panel);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tech-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tech-modal__header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tech-modal__close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.tech-modal__close:hover {
+  color: var(--accent-red);
+}
+
+.tech-modal__tabs {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tech-modal__tab {
+  flex: 1;
+  padding: 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-bottom: 3px solid transparent;
+}
+
+.tech-modal__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tech-modal__tab.active {
+  color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold);
+}
+
+.tech-modal__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.tech-modal__content h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tech-modal__categories {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.tech-modal__category h4 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tech-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.tech-modal__card {
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.tech-modal__card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tech-modal__card.completed {
+  border-color: var(--accent-green);
+  background: rgba(46, 204, 113, 0.05);
+}
+
+.tech-modal__card.active {
+  border-color: var(--accent-blue);
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.tech-modal__card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tech-modal__icon {
+  font-size: 32px;
+}
+
+.tech-modal__card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tech-modal__description {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.tech-modal__prerequisites,
+.tech-modal__cost,
+.tech-modal__reward {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tech-modal__prerequisites strong,
+.tech-modal__cost strong,
+.tech-modal__reward strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.tech-modal__prerequisites ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+}
+
+.tech-modal__prerequisites li {
+  margin: 2px 0;
+}
+
+.tech-modal__cost span {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.tech-modal__reward span {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.tech-modal__progress {
+  margin-bottom: 12px;
+}
+
+.tech-modal__progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.tech-modal__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+  transition: width 0.3s ease;
+}
+
+.tech-modal__progress-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.tech-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tech-modal__button {
+  padding: 8px 16px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tech-modal__button:hover:not(:disabled) {
+  background: var(--accent-blue-light);
+  transform: translateY(-1px);
+}
+
+.tech-modal__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tech-modal__status {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tech-modal__status.completed {
+  background: rgba(46, 204, 113, 0.2);
+  color: var(--accent-green);
+}
+
+.tech-modal__status.active {
+  background: rgba(52, 152, 219, 0.2);
+  color: var(--accent-blue);
+}
+
+/* === Botão de Tecnologias === */
+.game__tech-button {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-light));
+  border: 2px solid var(--accent-blue);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.game__tech-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+}
+
 /* Comparativo de Exércitos */
 .battle-report-armies {
   display: flex;

@@ -58,12 +58,32 @@ export function calculateArmyMorale(army: Army): number {
 /**
  * Calcula o poder base de um exército
  * Fórmula: (Infantaria × 1) + (Cavalaria × 1.5) + (Artilharia × 2.0)
+ * Aplica bônus de tecnologia se fornecidos
  */
-export function calculateArmyBasePower(army: Army): number {
+export function calculateArmyBasePower(
+  army: Army,
+  techBonuses?: {
+    infantry: number;
+    cavalry: number;
+    artillery: number;
+  }
+): number {
   let totalPower = 0;
 
   for (const regiment of army.regiments) {
-    const multiplier = UNIT_POWER_MULTIPLIERS[regiment.type];
+    let multiplier = UNIT_POWER_MULTIPLIERS[regiment.type];
+    
+    // Aplica bônus de tecnologia se disponível
+    if (techBonuses) {
+      if (regiment.type === 'infantry') {
+        multiplier *= (1 + techBonuses.infantry);
+      } else if (regiment.type === 'cavalry') {
+        multiplier *= (1 + techBonuses.cavalry);
+      } else if (regiment.type === 'artillery') {
+        multiplier *= (1 + techBonuses.artillery);
+      }
+    }
+    
     const regimentPower = regiment.strength * multiplier;
     
     // Bônus de moral (50-100 = bônus, 0-50 = penalidade)
@@ -79,9 +99,10 @@ export function calculateArmyBasePower(army: Army): number {
  */
 export function calculateDefenderTotalPower(
   army: Army,
-  province: Province
+  province: Province,
+  techBonuses?: { infantry: number; cavalry: number; artillery: number }
 ): { totalPower: number; hasTerritorialBonus: boolean; bonusMultiplier: number } {
-  const basePower = calculateArmyBasePower(army);
+  const basePower = calculateArmyBasePower(army, techBonuses);
   
   let bonusMultiplier = 1.0;
   let hasTerritorialBonus = false;
@@ -152,7 +173,9 @@ export function resolveBattle(
   attacker: Army,
   defender: Army,
   province: Province,
-  currentDate: GameDate
+  currentDate: GameDate,
+  attackerTechBonuses?: { infantry: number; cavalry: number; artillery: number },
+  defenderTechBonuses?: { infantry: number; cavalry: number; artillery: number }
 ): CombatResult {
   // Salva estado original dos exércitos
   const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
@@ -162,9 +185,9 @@ export function resolveBattle(
   const attackerOriginalSize = calculateArmySize(attackerOriginal);
   const defenderOriginalSize = calculateArmySize(defenderOriginal);
 
-  // Calcula poderes
-  const attackerPower = calculateArmyBasePower(attacker);
-  const { totalPower: defenderPower, hasTerritorialBonus } = calculateDefenderTotalPower(defender, province);
+  // Calcula poderes (com bônus de tecnologia se fornecidos)
+  const attackerPower = calculateArmyBasePower(attacker, attackerTechBonuses);
+  const { totalPower: defenderPower, hasTerritorialBonus } = calculateDefenderTotalPower(defender, province, defenderTechBonuses);
 
   // Determina vencedor e ratio
   const winner: 'attacker' | 'defender' = attackerPower > defenderPower ? 'attacker' : 'defender';
@@ -255,7 +278,8 @@ export function checkAllProvinceCombats(
   armies: Army[],
   provinces: Province[],
   wars: Array<{ attacker: string; defender: string }>,
-  currentDate: GameDate
+  currentDate: GameDate,
+  techBonusesByCountry?: Map<string, { infantry: number; cavalry: number; artillery: number }>
 ): {
   armies: Army[];
   battles: Array<{
@@ -301,8 +325,10 @@ export function checkAllProvinceCombats(
           defender = army1;
         }
 
-        // Resolve o combate
-        const result = resolveBattle(attacker, defender, province, currentDate);
+        // Resolve o combate (com bônus de tecnologia se disponíveis)
+        const attackerBonuses = techBonusesByCountry?.get(attacker.owner);
+        const defenderBonuses = techBonusesByCountry?.get(defender.owner);
+        const result = resolveBattle(attacker, defender, province, currentDate, attackerBonuses, defenderBonuses);
 
         battles.push({ result, provinceId: province.id });
 
