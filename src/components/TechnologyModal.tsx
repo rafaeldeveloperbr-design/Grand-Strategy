@@ -37,7 +37,9 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
     
     const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
     if (!focus || focus.completed) return false;
-    if (techState.activeFocusId === focusId) return false;
+    
+    // Se já há um foco ativo, não permite iniciar outro
+    if (techState.activeFocusId !== null) return false;
     
     // Verifica pré-requisitos
     if (focus.prerequisites) {
@@ -54,7 +56,9 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
     
     const tech = TECHNOLOGIES?.find(t => t?.id === techId);
     if (!tech || tech.researched) return false;
-    if (techState.activeResearchId === techId) return false;
+    
+    // Se já há uma pesquisa ativa, não permite iniciar outra
+    if (techState.activeResearchId !== null) return false;
     
     // Verifica pré-requisitos
     const hasPrereqs = tech.prerequisites?.every(prereqId => 

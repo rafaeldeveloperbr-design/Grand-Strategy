@@ -543,19 +543,25 @@ const App: React.FC = () => {
     relations = processDiplomacyTick(relations);
 
     // ===== PASSO E.5: TECNOLOGIAS E FOCOS =====
-    let currentPlayerTechState = playerTechState;
+    // Usa a ref para garantir que está usando o estado mais recente (não o estado do React que pode estar desatualizado)
+    let currentPlayerTechState = playerTechStateRef.current;
+    
     // Processa progresso de tecnologias do jogador
     const playerCountry = countries.find(c => c?.tag === playerCountryTag);
     if (currentPlayerTechState && playerCountry) {
       const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry);
       currentPlayerTechState = playerTechResult.techState;
+      
+      // Atualiza a ref imediatamente com o novo estado
+      playerTechStateRef.current = currentPlayerTechState;
+      
       if (playerTechResult.notifications?.length > 0) {
         playerTechResult.notifications.forEach(notif => addLog(notif));
       }
     }
 
     // Processa progresso de tecnologias dos bots
-    let currentBotTechStates = new Map(botTechStates);
+    let currentBotTechStates = new Map(botTechStatesRef.current);
     countries.forEach(country => {
       if (country?.tag && country.tag !== playerCountryTag) {
         const botTechState = currentBotTechStates.get(country.tag);
@@ -568,6 +574,9 @@ const App: React.FC = () => {
         }
       }
     });
+    
+    // Atualiza a ref dos bots imediatamente
+    botTechStatesRef.current = currentBotTechStates;
 
     // ===== PASSO F: ATUALIZA WAR SCORE =====
     wars = wars.map(war => {
@@ -1061,7 +1070,10 @@ const App: React.FC = () => {
 
     const updatedTechState = startNationalFocus(playerTechState, focusId);
     if (updatedTechState) {
+      // Atualiza AMBOS: estado React E a ref imediatamente
       setPlayerTechState(updatedTechState);
+      playerTechStateRef.current = updatedTechState;
+      
       const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
       if (focus) {
         addLog(`🎯 Foco iniciado: ${focus.title}`);
@@ -1102,7 +1114,10 @@ const App: React.FC = () => {
           : c
       ));
       
+      // Atualiza AMBOS: estado React E a ref imediatamente
       setPlayerTechState(updatedTechState);
+      playerTechStateRef.current = updatedTechState;
+      
       addLog(`🔬 Pesquisa iniciada: ${tech.title} (💰 ${cost})`);
     }
   }, [playerTechState, playerCountry, playerCountryTag, addLog]);

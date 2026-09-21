@@ -26,55 +26,93 @@ export function processDailyTechProgress(
     return { techState: techState || createInitialTechState('UNKNOWN'), notifications };
   }
   
-  let updatedTechState = { ...techState };
+  // Cria uma cópia profunda do estado para evitar mutações
+  let updatedTechState = {
+    ...techState,
+    completedFocuses: [...(techState.completedFocuses || [])],
+    completedTechnologies: [...(techState.completedTechnologies || [])]
+  };
 
   // Processa progresso do foco ativo
   if (updatedTechState.activeFocusId) {
-    const focus = NATIONAL_FOCUSES?.find(f => f?.id === updatedTechState.activeFocusId);
-    if (focus && !focus.completed) {
-      const updatedFocus = { ...focus };
-      updatedFocus.currentProgressDays += 1;
+    const focusIndex = NATIONAL_FOCUSES?.findIndex(f => f?.id === updatedTechState.activeFocusId);
+    
+    if (focusIndex !== undefined && focusIndex !== -1) {
+      const focus = NATIONAL_FOCUSES[focusIndex];
+      
+      if (focus && !focus.completed) {
+        // Incrementa o progresso em +1 dia
+        const newProgressDays = focus.currentProgressDays + 1;
+        
+        // Atualiza o foco no array global
+        NATIONAL_FOCUSES[focusIndex] = {
+          ...focus,
+          currentProgressDays: newProgressDays
+        };
+        
+        console.log(`📊 Foco "${focus.title}": ${newProgressDays}/${focus.durationDays} dias`);
 
-      if (updatedFocus.currentProgressDays >= updatedFocus.durationDays) {
-        // Foco concluído
-        updatedFocus.completed = true;
-        updatedFocus.currentProgressDays = updatedFocus.durationDays;
-        updatedTechState.completedFocuses = [...updatedTechState.completedFocuses, updatedFocus.id];
-        updatedTechState.activeFocusId = null;
-        notifications.push(`✅ Foco concluído: ${updatedFocus.title}`);
-      }
-
-      // Atualiza o foco no array global (necessário para persistência)
-      const focusIndex = NATIONAL_FOCUSES.findIndex(f => f.id === updatedFocus.id);
-      if (focusIndex !== -1) {
-        NATIONAL_FOCUSES[focusIndex] = updatedFocus;
+        // Verifica se o foco foi concluído
+        if (newProgressDays >= focus.durationDays) {
+          // Marca como concluído
+          NATIONAL_FOCUSES[focusIndex] = {
+            ...focus,
+            currentProgressDays: focus.durationDays,
+            completed: true
+          };
+          
+          // Atualiza o estado do país
+          updatedTechState.completedFocuses = [...updatedTechState.completedFocuses, focus.id];
+          updatedTechState.activeFocusId = null;
+          
+          notifications.push(`✅ Foco concluído: ${focus.title}`);
+          console.log(`✅ Foco concluído: ${focus.title}`);
+        }
       }
     }
   }
 
   // Processa progresso da pesquisa ativa
   if (updatedTechState.activeResearchId) {
-    const tech = TECHNOLOGIES?.find(t => t?.id === updatedTechState.activeResearchId);
-    if (tech && !tech.researched) {
-      // Verifica se tem ouro suficiente para continuar pesquisando
-      const dailyCost = tech.costGold / tech.durationDays;
-      if (country.resources?.gold >= dailyCost) {
-        const updatedTech = { ...tech };
-        updatedTech.currentProgressDays += 1;
+    const techIndex = TECHNOLOGIES?.findIndex(t => t?.id === updatedTechState.activeResearchId);
+    
+    if (techIndex !== undefined && techIndex !== -1) {
+      const tech = TECHNOLOGIES[techIndex];
+      
+      if (tech && !tech.researched) {
+        // Verifica se tem ouro suficiente para continuar pesquisando
+        const dailyCost = tech.costGold / tech.durationDays;
+        
+        if (country.resources?.gold >= dailyCost) {
+          // Incrementa o progresso em +1 dia
+          const newProgressDays = tech.currentProgressDays + 1;
+          
+          // Atualiza a tecnologia no array global
+          TECHNOLOGIES[techIndex] = {
+            ...tech,
+            currentProgressDays: newProgressDays
+          };
+          
+          console.log(`📊 Pesquisa "${tech.title}": ${newProgressDays}/${tech.durationDays} dias`);
 
-        if (updatedTech.currentProgressDays >= updatedTech.durationDays) {
-          // Pesquisa concluída
-          updatedTech.researched = true;
-          updatedTech.currentProgressDays = updatedTech.durationDays;
-          updatedTechState.completedTechnologies = [...updatedTechState.completedTechnologies, updatedTech.id];
-          updatedTechState.activeResearchId = null;
-          notifications.push(`🔬 Pesquisa concluída: ${updatedTech.title}`);
-        }
-
-        // Atualiza a tecnologia no array global
-        const techIndex = TECHNOLOGIES.findIndex(t => t.id === updatedTech.id);
-        if (techIndex !== -1) {
-          TECHNOLOGIES[techIndex] = updatedTech;
+          // Verifica se a pesquisa foi concluída
+          if (newProgressDays >= tech.durationDays) {
+            // Marca como pesquisada
+            TECHNOLOGIES[techIndex] = {
+              ...tech,
+              currentProgressDays: tech.durationDays,
+              researched: true
+            };
+            
+            // Atualiza o estado do país
+            updatedTechState.completedTechnologies = [...updatedTechState.completedTechnologies, tech.id];
+            updatedTechState.activeResearchId = null;
+            
+            notifications.push(`🔬 Pesquisa concluída: ${tech.title}`);
+            console.log(`🔬 Pesquisa concluída: ${tech.title}`);
+          }
+        } else {
+          console.warn(`⚠️ Ouro insuficiente para continuar pesquisa "${tech.title}" (necessário: ${dailyCost}/dia)`);
         }
       }
     }
