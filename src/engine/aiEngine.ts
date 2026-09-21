@@ -228,39 +228,165 @@ export function processAITick(
     }
   }
 
-  // 4. Movimentação de Exércitos - Defender ou atacar
+  // 4. Movimentação de Exércitos - State Machine com 3 Prioridades
   const myArmies = updatedArmies.filter(a => a.owner === country.tag && !a.destination);
   
   for (const army of myArmies) {
     if (!army.location) continue;
+    
+    const currentProvince = updatedProvinces.find(p => p.id === army.location);
+    if (!currentProvince) continue;
     
     // Verifica se está em guerra
     const atWarWith = updatedWars.filter(
       w => (w.attacker === country.tag || w.defender === country.tag)
     );
     
-    if (atWarWith.length > 0) {
-      // Está em guerra - move para atacar ou defender
-      const war = atWarWith[0];
-      const enemy = war.attacker === country.tag ? war.defender : war.attacker;
+    if (atWarWith.length === 0) continue; // Não está em guerra, não toma ações militares
+    
+    const war = atWarWith[0];
+    const enemy = war.attacker === country.tag ? war.defender : war.attacker;
+    
+    // === STATE MACHINE: 3 Prioridades Hierárquicas ===
+    
+    // PRIORIDADE 1: Defesa de Pátria
+    // Verifica se há exércitos inimigos em território nacional
+    const enemyArmiesInTerritory = updatedArmies.filter(a => {
+      if (a.owner !== enemy) return false;
+      const armyProvince = updatedProvinces.find(p => p.id === a.location);
+      return armyProvince && armyProvince.owner === country.tag;
+    });
+    
+    if (enemyArmiesInTerritory.length > 0) {
+      console.log('AI DECISION:', army.id, 'DEFENDER - Exércitos inimigos em território nacional');
       
-      // Encontra província inimiga vizinha
-      const currentProvince = updatedProvinces.find(p => p.id === army.location);
-      if (!currentProvince) continue;
+      // Encontra o exército inimigo mais próximo
+      let closestEnemy = enemyArmiesInTerritory[0];
+      let minDistance = Infinity;
       
-      const enemyNeighbor = currentProvince.neighbors.find(nId => {
-        const neighbor = updatedProvinces.find(p => p.id === nId);
-        return neighbor && neighbor.owner === enemy;
-      });
+      for (const enemyArmy of enemyArmiesInTerritory) {
+        const enemyProvince = updatedProvinces.find(p => p.id === enemyArmy.location);
+        if (!enemyProvince) continue;
+        
+        // Calcula distância simples (número de províncias)
+        const distance = calculateDistance(army.location!, enemyArmy.location!, updatedProvinces);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestEnemy = enemyArmy;
+        }
+      }
       
-      if (enemyNeighbor) {
-        // Ataca província inimiga
+      // Move para interceptar o exército inimigo mais próximo
+      const targetProvince = updatedProvinces.find(p => p.id === closestEnemy.location);
+      if (targetProvince && targetProvince.id !== army.location) {
+        // Encontra o vizinho mais próximo do alvo
+        const nextStep = findPathTowards(army.location!, targetProvince.id, updatedProvinces);
+        if (nextStep) {
+          updatedArmies = updatedArmies.map(a => 
+            a.id === army.id
+              ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
+              : a
+          );
+        }
+      }
+      continue; // Prioridade 1 resolvida, próximo exército
+    }
+    
+    // PRIORIDADE 2: Intercepção e Combate
+    // Verifica se há exército inimigo em província vizinha
+    const enemyInNeighbor = currentProvince.neighbors.find(nId => {
+      const neighbor = updatedProvinces.find(p => p.id === nId);
+      if (!neighbor || neighbor.owner !== enemy) return false;
+      
+      // Verifica se há exército inimigo nesta província vizinha
+      return updatedArmies.some(a => a.owner === enemy && a.location === nId);
+    });
+    
+    if (enemyInNeighbor) {
+      // Calcula ratio de força
+      const myStrength = calculateArmySize(army);
+      const enemyArmy = updatedArmies.find(a => a.owner === enemy && a.location === enemyInNeighbor);
+      const enemyStrength = enemyArmy ? calculateArmySize(enemyArmy) : 0;
+      const forceRatio = myStrength / Math.max(1, enemyStrength);
+      
+      console.log('AI DECISION:', army.id, `INTERCEPTAR - Ratio: ${forceRatio.toFixed(2)}`);
+      
+      // Se ratio >= 0.8, ataca
+      if (forceRatio >= 0.8) {
         updatedArmies = updatedArmies.map(a => 
           a.id === army.id
-            ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
+            ? { ...a, destination: enemyInNeighbor, movementProgress: 0, path: [] }
             : a
         );
+        continue; // Prioridade 2 resolvida, próximo exército
       }
+    }
+    
+    // PRIORIDADE 3: Concentração de Forças
+    // Se ratio < 0.6, busca exército aliado para fundir
+    const myStrength = calculateArmySize(army);
+    const allEnemyArmies = updatedArmies.filter(a => a.owner === enemy);
+    const totalEnemyStrength = allEnemyArmies.reduce((sum, a) => sum + calculateArmySize(a), 0);
+    const overallRatio = myStrength / Math.max(1, totalEnemyStrength);
+    
+    if (overallRatio < 0.6) {
+      console.log('AI DECISION:', army.id, `FUNDIR - Ratio muito baixo: ${overallRatio.toFixed(2)}`);
+      
+      // Encontra exército aliado mais próximo
+      const friendlyArmies = updatedArmies.filter(a => 
+        a.owner === country.tag && 
+        a.id !== army.id && 
+        !a.destination &&
+        a.location !== army.location
+      );
+      
+      if (friendlyArmies.length > 0) {
+        let closestFriendly = friendlyArmies[0];
+        let minDistance = Infinity;
+        
+        for (const friendlyArmy of friendlyArmies) {
+          const distance = calculateDistance(army.location!, friendlyArmy.location!, updatedProvinces);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestFriendly = friendlyArmy;
+          }
+        }
+        
+        // Move em direção ao exército aliado mais próximo
+        const nextStep = findPathTowards(army.location!, closestFriendly.location!, updatedProvinces);
+        if (nextStep) {
+          updatedArmies = updatedArmies.map(a => 
+            a.id === army.id
+              ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
+              : a
+          );
+        }
+      }
+      continue; // Prioridade 3 resolvida, próximo exército
+    }
+    
+    // RESTRIÇÃO DE INVASÃO CEGA
+    // Só invade se não houver ameaças e tiver tamanho mínimo sustentável
+    const MIN_ARMY_SIZE_FOR_INVASION = 3000;
+    if (myStrength < MIN_ARMY_SIZE_FOR_INVASION) {
+      console.log('AI DECISION:', army.id, 'AGUARDAR - Exército muito pequeno para invadir');
+      continue; // Exército muito pequeno, não invade
+    }
+    
+    // Se chegou aqui, pode invadir território inimigo
+    console.log('AI DECISION:', army.id, 'INVADIR - Sem ameaças e tamanho adequado');
+    
+    const enemyNeighbor = currentProvince.neighbors.find(nId => {
+      const neighbor = updatedProvinces.find(p => p.id === nId);
+      return neighbor && neighbor.owner === enemy;
+    });
+    
+    if (enemyNeighbor) {
+      updatedArmies = updatedArmies.map(a => 
+        a.id === army.id
+          ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
+          : a
+      );
     }
   }
 
@@ -300,4 +426,69 @@ function getNeighborCountries(
   }
   
   return Array.from(neighborCountries);
+}
+
+/**
+ * Calcula distância entre duas províncias (número de províncias no caminho)
+ * Usa BFS simples para encontrar o caminho mais curto
+ */
+function calculateDistance(
+  fromId: string,
+  toId: string,
+  provinces: Province[]
+): number {
+  if (fromId === toId) return 0;
+  
+  const visited = new Set<string>();
+  const queue: Array<{ id: string; distance: number }> = [{ id: fromId, distance: 0 }];
+  visited.add(fromId);
+  
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    
+    if (current.id === toId) {
+      return current.distance;
+    }
+    
+    const province = provinces.find(p => p.id === current.id);
+    if (!province) continue;
+    
+    for (const neighborId of province.neighbors) {
+      if (!visited.has(neighborId)) {
+        visited.add(neighborId);
+        queue.push({ id: neighborId, distance: current.distance + 1 });
+      }
+    }
+  }
+  
+  return Infinity; // Caminho não encontrado
+}
+
+/**
+ * Encontra o próximo passo no caminho em direção a um destino
+ * Retorna o ID da província vizinha que leva ao destino
+ */
+function findPathTowards(
+  fromId: string,
+  toId: string,
+  provinces: Province[]
+): string | null {
+  if (fromId === toId) return null;
+  
+  const fromProvince = provinces.find(p => p.id === fromId);
+  if (!fromProvince) return null;
+  
+  // Para cada vizinho, calcula distância até o destino
+  let bestNeighbor: string | null = null;
+  let minDistance = Infinity;
+  
+  for (const neighborId of fromProvince.neighbors) {
+    const distance = calculateDistance(neighborId, toId, provinces);
+    if (distance < minDistance) {
+      minDistance = distance;
+      bestNeighbor = neighborId;
+    }
+  }
+  
+  return bestNeighbor;
 }
