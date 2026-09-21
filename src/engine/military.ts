@@ -41,6 +41,7 @@ export function createArmy(owner: string, name: string, location: string): Army 
     movementProgress: 0,
     movementSpeed: 1.0,
     position: null,
+    path: [],
   };
 }
 
@@ -123,7 +124,7 @@ export function processRecruitments(
 }
 
 /**
- * Processa movimentação de exércitos
+ * Processa movimentação de exércitos com suporte a pathfinding
  */
 export function processArmyMovement(
   armies: Army[],
@@ -143,15 +144,35 @@ export function processArmyMovement(
     const newProgress = army.movementProgress + army.movementSpeed;
 
     if (newProgress >= 1.0) {
-      // Chegou ao destino
-      const arrivedArmy: Army = {
-        ...army,
-        location: army.destination,
-        destination: null,
-        movementProgress: 0,
-        position: null,
-      };
-      arrivedArmies.push(arrivedArmy);
+      // Chegou ao próximo waypoint
+      const reachedProvince = army.destination;
+      
+      // Se há mais províncias no path, continua para a próxima
+      if (army.path.length > 0) {
+        const nextDestination = army.path[0];
+        const remainingPath = army.path.slice(1);
+        
+        const continuingArmy: Army = {
+          ...army,
+          location: reachedProvince,
+          destination: nextDestination,
+          movementProgress: 0,
+          position: null,
+          path: remainingPath,
+        };
+        updatedArmies.push(continuingArmy);
+      } else {
+        // Chegou ao destino final
+        const arrivedArmy: Army = {
+          ...army,
+          location: reachedProvince,
+          destination: null,
+          movementProgress: 0,
+          position: null,
+          path: [],
+        };
+        arrivedArmies.push(arrivedArmy);
+      }
     } else {
       // Continua se movendo - calcula posição intermediária
       const originProvince = provinces.find(p => p.id === army.location);
@@ -177,24 +198,44 @@ export function processArmyMovement(
 }
 
 /**
- * Inicia o movimento de um exército para uma província vizinha
+ * Inicia o movimento de um exército para uma província (vizinha ou distante)
+ * Usa pathfinding para destinos não-vizinhos
  */
 export function moveArmy(
   army: Army,
   destinationId: string,
   provinces: Province[]
 ): Army | null {
-  // Verifica se o destino é vizinho
+  if (!army.location) return null;
+  if (army.destination) return null; // Já está se movendo
+
   const originProvince = provinces.find(p => p.id === army.location);
-  if (!originProvince || !originProvince.neighbors.includes(destinationId)) {
-    return null; // Destino não é vizinho
+  if (!originProvince) return null;
+
+  // Se é vizinho direto, move sem pathfinding
+  if (originProvince.neighbors.includes(destinationId)) {
+    return {
+      ...army,
+      destination: destinationId,
+      movementProgress: 0,
+      movementSpeed: calculateArmySpeed(army),
+      path: [],
+    };
   }
+
+  // Usa pathfinding para destino distante
+  const path = findPath(army.location, destinationId, provinces, army.owner);
+  if (path.length === 0) return null; // Caminho não encontrado
+
+  const nextDestination = path[0];
+  const remainingPath = path.slice(1);
 
   return {
     ...army,
-    destination: destinationId,
+    destination: nextDestination,
     movementProgress: 0,
     movementSpeed: calculateArmySpeed(army),
+    path: remainingPath,
   };
 }
 
@@ -274,4 +315,125 @@ export function calculateArmyOffset(
     offsetX: Math.cos(angle) * radius,
     offsetY: Math.sin(angle) * radius,
   };
+}
+
+/**
+ * Algoritmo BFS para encontrar o caminho mais curto entre duas províncias.
+ * Restringe o caminho a províncias permitidas (próprias ou ocupadas).
+ * 
+ * @param startId - ID da província de origem
+ * @param endId - ID da província de destino
+ * @param provinces - Lista de todas as províncias
+ * @param ownerTag - Tag do país dono do exército
+ * @returns Array de IDs de províncias no caminho (excluindo startId, incluindo endId)
+ */
+export function findPath(
+  startId: string,
+  endId: string,
+  provinces: Province[],
+  ownerTag: string
+): string[] {
+  if (startId === endId) return [];
+
+  // Cria mapa de adjacência
+  const adjacencyMap = new Map<string, string[]>();
+  for (const province of provinces) {
+    adjacencyMap.set(province.id, province.neighbors);
+  }
+
+  // BFS
+  const queue: string[] = [startId];
+  const visited = new Set<string>([startId]);
+  const parent = new Map<string, string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    if (current === endId) {
+      // Reconstrói o caminho
+      const path: string[] = [];
+      let node: string | undefined = endId;
+      while (node && node !== startId) {
+        path.unshift(node);
+        node = parent.get(node);
+      }
+      return path;
+    }
+
+    const neighbors = adjacencyMap.get(current) ?? [];
+    for (const neighbor of neighbors) {
+      if (visited.has(neighbor)) continue;
+
+      // Verifica se a província é permitida (própria ou ocupada)
+      const neighborProvince = provinces.find(p => p.id === neighbor);
+      if (!neighborProvince) continue;
+
+      // Permite atravessar províncias próprias ou qualquer província (ocupação militar)
+      // Em jogos reais, você poderia restringir a aliados ou territórios ocupados
+      const isAllowed = neighborProvince.owner === ownerTag || neighbor === endId;
+      
+      if (isAllowed) {
+        visited.add(neighbor);
+        parent.set(neighbor, current);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Caminho não encontrado
+  return [];
+}
+
+/**
+ * Divide um exército em dois, transferindo regimentos específicos.
+ * 
+ * @param sourceArmy - Exército original
+ * @param regimentsToTransfer - Índices dos regimentos a serem transferidos
+ * @param newName - Nome do novo exército
+ * @returns Novo exército com os regimentos transferidos, ou null se inválido
+ */
+export function splitArmy(
+  sourceArmy: Army,
+  regimentsToTransfer: number[],
+  newName: string
+): Army | null {
+  if (regimentsToTransfer.length === 0) return null;
+  if (regimentsToTransfer.length >= sourceArmy.regiments.length) return null;
+
+  // Valida índices
+  for (const idx of regimentsToTransfer) {
+    if (idx < 0 || idx >= sourceArmy.regiments.length) return null;
+  }
+
+  // Separa regimentos
+  const transferredRegiments = regimentsToTransfer.map(idx => ({ ...sourceArmy.regiments[idx] }));
+  const remainingRegiments = sourceArmy.regiments.filter((_, idx) => !regimentsToTransfer.includes(idx));
+
+  // Cria novo exército
+  const newArmy: Army = {
+    id: generateArmyId(),
+    owner: sourceArmy.owner,
+    name: newName,
+    regiments: transferredRegiments,
+    location: sourceArmy.location,
+    destination: null,
+    movementProgress: 0,
+    movementSpeed: calculateArmySpeed({ ...sourceArmy, regiments: transferredRegiments }),
+    position: null,
+    path: [],
+  };
+
+  return newArmy;
+}
+
+/**
+ * Divide um exército ao meio (50% / 50%)
+ */
+export function splitArmyHalf(sourceArmy: Army, newName: string): Army | null {
+  if (sourceArmy.regiments.length < 2) return null;
+
+  const halfIndex = Math.floor(sourceArmy.regiments.length / 2);
+  const indicesToTransfer = Array.from({ length: halfIndex }, (_, i) => i);
+
+  return splitArmy(sourceArmy, indicesToTransfer, newName);
 }

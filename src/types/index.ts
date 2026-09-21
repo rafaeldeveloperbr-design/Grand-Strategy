@@ -240,6 +240,8 @@ export interface Army {
   movementSpeed: number;
   /** Posição visual atual (para animação) */
   position: { x: number; y: number } | null;
+  /** Fila de caminho para pathfinding (províncias a atravessar) */
+  path: string[];
 }
 
 /**

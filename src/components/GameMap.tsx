@@ -285,13 +285,24 @@ export const GameMap: React.FC<MapProps> = ({
         onMouseLeave={handleMouseUp}
         onContextMenu={(e) => {
           e.preventDefault();
-          // Encontra a província sob o cursor
+          
+          // Estratégia 1: Tenta encontrar via closest('[data-province-id]')
+          const target = e.target as SVGElement;
+          const provinceElement = target.closest?.('[data-province-id]');
+          if (provinceElement) {
+            const provinceId = provinceElement.getAttribute('data-province-id');
+            if (provinceId) {
+              onProvinceRightClick(provinceId);
+              return;
+            }
+          }
+          
+          // Estratégia 2 (fallback): Mapeia coordenadas SVG para província
           const rect = svgRef.current?.getBoundingClientRect();
           if (rect) {
             const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
             const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
             const clickedProvince = provinces.find(p => {
-              // Simplificado - usa distância ao centro
               const dx = p.center.x - svgX;
               const dy = p.center.y - svgY;
               return Math.sqrt(dx * dx + dy * dy) < 60;
@@ -336,6 +347,7 @@ export const GameMap: React.FC<MapProps> = ({
                 stroke={isSelected ? '#FFD700' : isHovered ? '#FFFFFF' : '#2a2a2a'}
                 strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
                 className={getProvinceClass(province)}
+                data-province-id={province.id}
                 onMouseEnter={(e) => handleMouseEnter(e, province)}
                 onMouseMove={(e) => handleMouseMove(e, province)}
                 onMouseLeave={handleMouseLeave}
@@ -391,21 +403,30 @@ export const GameMap: React.FC<MapProps> = ({
             </g>
           ))}
 
-        {/* === Linhas de movimento dos exércitos === */}
+        {/* === Linhas de movimento dos exércitos (path completo) === */}
         {armies
           .filter(a => a.destination && a.location)
           .map((army) => {
-            const origin = provinces.find(p => p.id === army.location);
-            const dest = provinces.find(p => p.id === army.destination);
-            if (!origin || !dest) return null;
             const country = countries.find(c => c.tag === army.owner);
+            
+            // Monta o path completo: location -> destination -> path[]
+            const fullPath = [army.location!, army.destination!, ...army.path];
+            const pathPoints = fullPath
+              .map(pid => provinces.find(p => p.id === pid))
+              .filter((p): p is Province => p !== undefined);
+
+            if (pathPoints.length < 2) return null;
+
+            // Cria a string do polyline
+            const pointsStr = pathPoints
+              .map(p => `${p.center.x},${p.center.y}`)
+              .join(' ');
+
             return (
-              <line
+              <polyline
                 key={`route-${army.id}`}
-                x1={origin.center.x}
-                y1={origin.center.y}
-                x2={dest.center.x}
-                y2={dest.center.y}
+                points={pointsStr}
+                fill="none"
                 stroke={country?.colorLight ?? '#FFF'}
                 strokeWidth="2"
                 strokeDasharray="6,3"
@@ -419,7 +440,7 @@ export const GameMap: React.FC<MapProps> = ({
                   dur="1s"
                   repeatCount="indefinite"
                 />
-              </line>
+              </polyline>
             );
           })}
 

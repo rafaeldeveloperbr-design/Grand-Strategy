@@ -31,6 +31,8 @@ import {
   getEnemyArmiesInProvince,
   getFriendlyArmiesInProvince,
   mergeArmies,
+  splitArmy,
+  splitArmyHalf,
   generateRecruitmentId,
 } from './engine/military';
 import { resolveBattle, calculateArmySize } from './engine/combat';
@@ -77,6 +79,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
+      path: [],
     },
     {
       id: 'army_init_2',
@@ -91,6 +94,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
+      path: [],
     },
     {
       id: 'army_init_3',
@@ -105,6 +109,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 0.5,
       position: null,
+      path: [],
     },
     {
       id: 'army_init_4',
@@ -119,6 +124,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 1.5,
       position: null,
+      path: [],
     },
     {
       id: 'army_init_5',
@@ -133,6 +139,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 0.75,
       position: null,
+      path: [],
     },
     {
       id: 'army_init_6',
@@ -147,6 +154,7 @@ function createInitialArmies(): Army[] {
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
+      path: [],
     },
   ];
 }
@@ -544,6 +552,84 @@ const App: React.FC = () => {
     [selectedArmy, playerCountryTag, addLog]
   );
 
+  /** Estado do modal de divisão */
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  /** Índices de regimentos selecionados para transferência */
+  const [splitSelection, setSplitSelection] = useState<Set<number>>(new Set());
+
+  /**
+   * Divide o exército selecionado ao meio
+   */
+  const handleSplitHalf = useCallback(() => {
+    if (!selectedArmy) return;
+    const army = armiesRef.current.find((a) => a.id === selectedArmy);
+    if (!army || army.owner !== playerCountryTag) return;
+    if (army.destination) return;
+
+    const newArmy = splitArmyHalf(army, `${army.name} (Destacamento)`);
+    if (!newArmy) return;
+
+    // Remove regimentos transferidos do exército original
+    const halfIndex = Math.floor(army.regiments.length / 2);
+    const remainingRegiments = army.regiments.slice(halfIndex);
+
+    setArmies((prev) => {
+      const filtered = prev.filter((a) => a.id !== army.id);
+      return [
+        ...filtered,
+        { ...army, regiments: remainingRegiments },
+        newArmy,
+      ];
+    });
+
+    addLog(`✂️ ${army.name} dividido. Novo exército: ${newArmy.name} (${calculateArmySize(newArmy).toLocaleString()} homens)`);
+  }, [selectedArmy, playerCountryTag, addLog]);
+
+  /**
+   * Divide o exército com seleção customizada de regimentos
+   */
+  const handleSplitCustom = useCallback(() => {
+    if (!selectedArmy || splitSelection.size === 0) return;
+    const army = armiesRef.current.find((a) => a.id === selectedArmy);
+    if (!army || army.owner !== playerCountryTag) return;
+    if (army.destination) return;
+
+    const indices = Array.from(splitSelection);
+    const newArmy = splitArmy(army, indices, `${army.name} (Destacamento)`);
+    if (!newArmy) return;
+
+    // Remove regimentos transferidos do exército original
+    const remainingRegiments = army.regiments.filter((_, idx) => !splitSelection.has(idx));
+
+    setArmies((prev) => {
+      const filtered = prev.filter((a) => a.id !== army.id);
+      return [
+        ...filtered,
+        { ...army, regiments: remainingRegiments },
+        newArmy,
+      ];
+    });
+
+    setShowSplitModal(false);
+    setSplitSelection(new Set());
+    addLog(`✂️ ${army.name} dividido. Novo exército: ${newArmy.name} (${calculateArmySize(newArmy).toLocaleString()} homens)`);
+  }, [selectedArmy, splitSelection, playerCountryTag, addLog]);
+
+  /**
+   * Toggle seleção de regimento no modal
+   */
+  const toggleSplitRegiment = useCallback((index: number) => {
+    setSplitSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -607,13 +693,33 @@ const App: React.FC = () => {
                 </span>
               </div>
               {selectedArmyData.destination && (
-                <div className="army-info-panel__stat">
-                  <span>Destino:</span>
-                  <span>
-                    {provinces.find(p => p.id === selectedArmyData.destination)?.name ?? '?'}
-                    {' '}({Math.round(selectedArmyData.movementProgress * 100)}%)
-                  </span>
-                </div>
+                <>
+                  <div className="army-info-panel__stat">
+                    <span>Próximo:</span>
+                    <span>
+                      {provinces.find(p => p.id === selectedArmyData.destination)?.name ?? '?'}
+                      {' '}({Math.round(selectedArmyData.movementProgress * 100)}%)
+                    </span>
+                  </div>
+                  {selectedArmyData.path.length > 0 && (
+                    <div className="army-info-panel__stat">
+                      <span>Rota:</span>
+                      <span className="army-info-panel__path">
+                        {selectedArmyData.path
+                          .map(pid => provinces.find(p => p.id === pid)?.name ?? '?')
+                          .join(' → ')}
+                      </span>
+                    </div>
+                  )}
+                  {selectedArmyData.path.length > 0 && (
+                    <div className="army-info-panel__stat">
+                      <span>Destino Final:</span>
+                      <span>
+                        {provinces.find(p => p.id === selectedArmyData.path[selectedArmyData.path.length - 1])?.name ?? '?'}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
               <div className="army-info-panel__regiments">
                 <strong>Regimentos:</strong>
@@ -627,6 +733,32 @@ const App: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* === Ações: Dividir Exército === */}
+              {selectedArmyData.location && !selectedArmyData.destination && selectedArmyData.regiments.length >= 2 && (
+                <div className="army-info-panel__actions-section">
+                  <strong>✂️ Dividir Exército:</strong>
+                  <div className="army-info-panel__actions-row">
+                    <button
+                      className="army-info-panel__action-btn"
+                      onClick={handleSplitHalf}
+                      title="Dividir ao meio (50% / 50%)"
+                    >
+                      ⚖️ Meio a Meio
+                    </button>
+                    <button
+                      className="army-info-panel__action-btn"
+                      onClick={() => {
+                        setSplitSelection(new Set());
+                        setShowSplitModal(true);
+                      }}
+                      title="Selecionar regimentos para dividir"
+                    >
+                      📋 Customizado
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* === Outros exércitos na mesma província (para fusão) === */}
               {selectedArmyData.location && !selectedArmyData.destination && (() => {
@@ -663,6 +795,75 @@ const App: React.FC = () => {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        )}
+
+        {/* === Modal de Divisão Customizada === */}
+        {showSplitModal && selectedArmyData && (
+          <div className="split-modal-overlay" onClick={() => setShowSplitModal(false)}>
+            <div className="split-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="split-modal__header">
+                <h3>✂️ Dividir: {selectedArmyData.name}</h3>
+                <button onClick={() => setShowSplitModal(false)}>✕</button>
+              </div>
+              <div className="split-modal__content">
+                <p className="split-modal__instruction">
+                  Selecione os regimentos que serão transferidos para o novo exército:
+                </p>
+                <div className="split-modal__regiments">
+                  {selectedArmyData.regiments.map((reg, i) => (
+                    <button
+                      key={i}
+                      className={`split-modal__regiment-btn ${
+                        splitSelection.has(i) ? 'split-modal__regiment-btn--selected' : ''
+                      }`}
+                      onClick={() => toggleSplitRegiment(i)}
+                    >
+                      <span className="split-modal__regiment-icon">
+                        {reg.type === 'infantry' ? '🗡️' : reg.type === 'cavalry' ? '🐎' : '💣'}
+                      </span>
+                      <span className="split-modal__regiment-info">
+                        <span className="split-modal__regiment-type">
+                          {reg.type === 'infantry' ? 'Infantaria' : reg.type === 'cavalry' ? 'Cavalaria' : 'Artilharia'}
+                        </span>
+                        <span className="split-modal__regiment-strength">
+                          {Math.floor(reg.strength)} homens
+                        </span>
+                      </span>
+                      <span className="split-modal__regiment-check">
+                        {splitSelection.has(i) ? '✓' : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {splitSelection.size > 0 && (
+                  <div className="split-modal__summary">
+                    <span>Transferindo: {splitSelection.size} regimento(s)</span>
+                    <span>
+                      ({Array.from(splitSelection)
+                        .map(i => Math.floor(selectedArmyData.regiments[i].strength))
+                        .reduce((a, b) => a + b, 0)
+                        .toLocaleString()} homens)
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="split-modal__footer">
+                <button
+                  className="split-modal__cancel-btn"
+                  onClick={() => setShowSplitModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="split-modal__confirm-btn"
+                  disabled={splitSelection.size === 0 || splitSelection.size >= selectedArmyData.regiments.length}
+                  onClick={handleSplitCustom}
+                >
+                  ✂️ Dividir
+                </button>
+              </div>
             </div>
           </div>
         )}
