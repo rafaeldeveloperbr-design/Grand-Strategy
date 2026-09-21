@@ -7,6 +7,7 @@
  */
 
 import { Army, Province, Country, Recruitment, Regiment, UnitType } from '../types';
+import { War } from '../types/diplomacy';
 import { UNIT_DEFINITIONS } from '../data/units';
 import { provincesData } from '../data/provinces';
 import { calculateArmySize } from './combat';
@@ -204,7 +205,8 @@ export function processArmyMovement(
 export function moveArmy(
   army: Army,
   destinationId: string,
-  provinces: Province[]
+  provinces: Province[],
+  wars?: War[]
 ): Army | null {
   if (!army.location) return null;
   if (army.destination) return null; // Já está se movendo
@@ -224,7 +226,7 @@ export function moveArmy(
   }
 
   // Usa pathfinding para destino distante
-  const path = findPath(army.location, destinationId, provinces, army.owner);
+  const path = findPath(army.location, destinationId, provinces, army.owner, wars);
   if (path.length === 0) return null; // Caminho não encontrado
 
   const nextDestination = path[0];
@@ -331,7 +333,8 @@ export function findPath(
   startId: string,
   endId: string,
   provinces: Province[],
-  ownerTag: string
+  ownerTag: string,
+  wars?: War[]
 ): string[] {
   if (startId === endId) return [];
 
@@ -364,13 +367,26 @@ export function findPath(
     for (const neighbor of neighbors) {
       if (visited.has(neighbor)) continue;
 
-      // Verifica se a província é permitida (própria ou ocupada)
+      // Verifica se a província é permitida
       const neighborProvince = provinces.find(p => p.id === neighbor);
       if (!neighborProvince) continue;
 
-      // Permite atravessar províncias próprias ou qualquer província (ocupação militar)
-      // Em jogos reais, você poderia restringir a aliados ou territórios ocupados
-      const isAllowed = neighborProvince.owner === ownerTag || neighbor === endId;
+      // Permite atravessar:
+      // 1. Províncias próprias
+      // 2. O destino final (sempre permitido)
+      // 3. Províncias de países inimigos (se houver guerra ativa)
+      let isAllowed = neighborProvince.owner === ownerTag || neighbor === endId;
+      
+      // Verifica se há guerra com o dono da província
+      if (!isAllowed && wars && wars.length > 0) {
+        const hasWarWithOwner = wars.some(
+          w => (w.attacker === ownerTag && w.defender === neighborProvince.owner) ||
+               (w.defender === ownerTag && w.attacker === neighborProvince.owner)
+        );
+        if (hasWarWithOwner) {
+          isAllowed = true;
+        }
+      }
       
       if (isAllowed) {
         visited.add(neighbor);

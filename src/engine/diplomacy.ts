@@ -77,6 +77,19 @@ export function areAtWar(
 }
 
 /**
+ * Verifica se uma guerra tem tempo mínimo para fazer paz (30 dias)
+ */
+export function canMakePeace(war: War, currentDate: { year: number; month: number; day: number }): boolean {
+  // Calcula dias desde o início da guerra
+  const startDays = war.startDate.year * 365 + war.startDate.month * 30 + war.startDate.day;
+  const currentDays = currentDate.year * 365 + currentDate.month * 30 + currentDate.day;
+  const daysSinceStart = currentDays - startDays;
+  
+  // Tempo mínimo de guerra: 30 dias
+  return daysSinceStart >= 30;
+}
+
+/**
  * Verifica se dois países têm pacto de não agressão
  */
 export function hasNonAggressionPact(
@@ -298,6 +311,12 @@ export function updateWarScore(
  */
 export function processDiplomacyTick(relations: DiplomaticRelation[]): DiplomaticRelation[] {
   return relations.map(r => {
+    // Não modifica relações em guerra - apenas o jogador ou tratado formal pode encerrar
+    if (r.status === 'war') {
+      return r;
+    }
+    
+    // Pactos de não agressão expiram normalmente
     if (r.pactDaysRemaining > 0) {
       const newDays = r.pactDaysRemaining - 1;
       return {

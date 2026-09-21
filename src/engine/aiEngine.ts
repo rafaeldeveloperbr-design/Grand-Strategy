@@ -13,7 +13,8 @@ import {
   declareWar, 
   improveRelations, 
   areAtWar,
-  getOrCreateRelation 
+  getOrCreateRelation,
+  canMakePeace
 } from './diplomacy';
 import { calculateArmySize } from './combat';
 
@@ -184,7 +185,22 @@ export function processAITick(
       if (!neighborCountry) continue;
       
       // Verifica se já está em guerra
-      if (areAtWar(updatedRelations, country.tag, neighborTag)) continue;
+      if (areAtWar(updatedRelations, country.tag, neighborTag)) {
+        // Está em guerra - verifica se pode fazer paz (mínimo 30 dias)
+        const war = updatedWars.find(
+          w => (w.attacker === country.tag && w.defender === neighborTag) ||
+               (w.defender === country.tag && w.attacker === neighborTag)
+        );
+        
+        if (war && canMakePeace(war, currentDate)) {
+          // Pode considerar fazer paz se estiver perdendo
+          if (war.warScore < -30 && personality.peacefulness > 0.5) {
+            // IA poderia fazer paz aqui, mas deixamos apenas para o jogador
+            // Por enquanto, apenas continua lutando
+          }
+        }
+        continue; // Não toma outras ações diplomáticas durante guerra
+      }
       
       // Avalia se deve declarar guerra
       const myArmies = updatedArmies.filter(a => a.owner === country.tag);

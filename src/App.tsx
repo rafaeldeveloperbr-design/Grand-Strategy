@@ -592,8 +592,14 @@ const App: React.FC = () => {
       const costs = getRecruitmentCost(unitType);
 
       // Verifica recursos
-      if (playerCountry.resources.gold < costs.gold) return;
-      if (playerCountry.resources.manpower < costs.manpower) return;
+      if (playerCountry.resources.gold < costs.gold) {
+        addLog(`❌ Ouro insuficiente para recrutar ${unitType}`);
+        return;
+      }
+      if (playerCountry.resources.manpower < costs.manpower) {
+        addLog(`❌ Manpower insuficiente para recrutar ${unitType}`);
+        return;
+      }
 
       // Deduz recursos
       setAllCountries((prev) =>
@@ -648,14 +654,14 @@ const App: React.FC = () => {
       if (!army || army.owner !== playerCountryTag) return;
       if (army.destination) return; // Já está se movendo
 
-      const moved = moveArmy(army, provinceId, provincesRef.current);
+      const moved = moveArmy(army, provinceId, provincesRef.current, wars);
       if (moved) {
         setArmies((prev) => prev.map((a) => (a.id === army.id ? moved : a)));
         const destProvince = provincesRef.current.find(p => p.id === provinceId);
         addLog(`🚶 ${army.name} marchando para ${destProvince?.name ?? provinceId}`);
       }
     },
-    [selectedArmy, playerCountryTag, addLog]
+    [selectedArmy, playerCountryTag, addLog, wars]
   );
 
   /**

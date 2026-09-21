@@ -47,6 +47,8 @@ export interface War {
   occupiedByAttacker: string[];
   /** Províncias ocupadas pelo defensor */
   occupiedByDefender: string[];
+  /** Dias desde o início da guerra (calculado automaticamente) */
+  daysSinceStart?: number;
 }
 
 /**
