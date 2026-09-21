@@ -43,6 +43,7 @@ export function createArmy(owner: string, name: string, location: string): Army 
     movementSpeed: 1.0,
     position: null,
     path: [],
+    targetArmyId: null,
   };
 }
 

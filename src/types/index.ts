@@ -242,6 +242,8 @@ export interface Army {
   position: { x: number; y: number } | null;
   /** Fila de caminho para pathfinding (províncias a atravessar) */
   path: string[];
+  /** ID do exército alvo (Target Locking - IA mantém foco até eliminar) */
+  targetArmyId?: string | null;
 }
 
 /**

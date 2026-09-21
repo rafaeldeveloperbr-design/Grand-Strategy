@@ -165,7 +165,8 @@ export function processAITick(
             movementProgress: 0,
             movementSpeed: def.mobility,
             position: null,
-            path: []
+            path: [],
+            targetArmyId: null
           });
         }
         log = `🗡️ ${country.name} recrutou ${def.name}`;
@@ -228,7 +229,7 @@ export function processAITick(
     }
   }
 
-  // 4. Movimentação de Exércitos - State Machine com 3 Prioridades
+  // 4. Movimentação de Exércitos - State Machine com Target Locking
   const myArmies = updatedArmies.filter(a => a.owner === country.tag && !a.destination);
   
   for (const army of myArmies) {
@@ -247,10 +248,24 @@ export function processAITick(
     const war = atWarWith[0];
     const enemy = war.attacker === country.tag ? war.defender : war.attacker;
     
-    // === STATE MACHINE: 3 Prioridades Hierárquicas ===
+    // === TARGET LOCKING: Verifica se já tem um alvo travado ===
+    let targetArmy: Army | null = null;
+    if (army.targetArmyId) {
+      targetArmy = updatedArmies.find(a => a.id === army.targetArmyId) || null;
+      
+      // Se o alvo foi eliminado ou não existe mais, limpa o target
+      if (!targetArmy || targetArmy.owner === country.tag) {
+        console.log('AI DECISION:', army.id, 'TARGET LOST - Alvo eliminado ou inexistente');
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id ? { ...a, targetArmyId: null } : a
+        );
+        targetArmy = null;
+      }
+    }
     
-    // PRIORIDADE 1: Defesa de Pátria
-    // Verifica se há exércitos inimigos em território nacional
+    // === STATE MACHINE: 3 Prioridades Hierárquicas com Target Locking ===
+    
+    // PRIORIDADE 1: Defesa de Pátria (com Target Locking)
     const enemyArmiesInTerritory = updatedArmies.filter(a => {
       if (a.owner !== enemy) return false;
       const armyProvince = updatedProvinces.find(p => p.id === a.location);
@@ -258,29 +273,34 @@ export function processAITick(
     });
     
     if (enemyArmiesInTerritory.length > 0) {
-      console.log('AI DECISION:', army.id, 'DEFENDER - Exércitos inimigos em território nacional');
-      
-      // Encontra o exército inimigo mais próximo
-      let closestEnemy = enemyArmiesInTerritory[0];
-      let minDistance = Infinity;
-      
-      for (const enemyArmy of enemyArmiesInTerritory) {
-        const enemyProvince = updatedProvinces.find(p => p.id === enemyArmy.location);
-        if (!enemyProvince) continue;
+      // Se já tem alvo travado E o alvo está em território nacional, mantém o lock
+      if (targetArmy && enemyArmiesInTerritory.some(a => a.id === targetArmy?.id)) {
+        console.log('AI DECISION:', army.id, `DEFENDER (LOCKED) - Mantendo alvo: ${targetArmy.id}`);
+      } else {
+        // Novo alvo - trava no exército inimigo mais próximo
+        let closestEnemy = enemyArmiesInTerritory[0];
+        let minDistance = Infinity;
         
-        // Calcula distância simples (número de províncias)
-        const distance = calculateDistance(army.location!, enemyArmy.location!, updatedProvinces);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestEnemy = enemyArmy;
+        for (const enemyArmy of enemyArmiesInTerritory) {
+          const distance = calculateDistance(army.location!, enemyArmy.location!, updatedProvinces);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestEnemy = enemyArmy;
+          }
         }
+        
+        targetArmy = closestEnemy;
+        console.log('AI DECISION:', army.id, `DEFENDER (NEW LOCK) - Novo alvo: ${targetArmy.id}`);
+        
+        // Salva o target lock
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id ? { ...a, targetArmyId: targetArmy!.id } : a
+        );
       }
       
-      // Move para interceptar o exército inimigo mais próximo
-      const targetProvince = updatedProvinces.find(p => p.id === closestEnemy.location);
-      if (targetProvince && targetProvince.id !== army.location) {
-        // Encontra o vizinho mais próximo do alvo
-        const nextStep = findPathTowards(army.location!, targetProvince.id, updatedProvinces);
+      // Move em direção ao alvo travado
+      if (targetArmy && targetArmy.location !== army.location) {
+        const nextStep = findPathTowards(army.location!, targetArmy.location!, updatedProvinces);
         if (nextStep) {
           updatedArmies = updatedArmies.map(a => 
             a.id === army.id
@@ -289,41 +309,48 @@ export function processAITick(
           );
         }
       }
-      continue; // Prioridade 1 resolvida, próximo exército
+      continue;
     }
     
-    // PRIORIDADE 2: Intercepção e Combate
-    // Verifica se há exército inimigo em província vizinha
+    // PRIORIDADE 2: Intercepção e Combate (com Target Locking)
     const enemyInNeighbor = currentProvince.neighbors.find(nId => {
       const neighbor = updatedProvinces.find(p => p.id === nId);
       if (!neighbor || neighbor.owner !== enemy) return false;
-      
-      // Verifica se há exército inimigo nesta província vizinha
       return updatedArmies.some(a => a.owner === enemy && a.location === nId);
     });
     
     if (enemyInNeighbor) {
-      // Calcula ratio de força
       const myStrength = calculateArmySize(army);
       const enemyArmy = updatedArmies.find(a => a.owner === enemy && a.location === enemyInNeighbor);
       const enemyStrength = enemyArmy ? calculateArmySize(enemyArmy) : 0;
       const forceRatio = myStrength / Math.max(1, enemyStrength);
       
-      console.log('AI DECISION:', army.id, `INTERCEPTAR - Ratio: ${forceRatio.toFixed(2)}`);
+      // Se já tem alvo travado E o alvo está na província vizinha, mantém o lock
+      if (targetArmy && targetArmy.location === enemyInNeighbor) {
+        console.log('AI DECISION:', army.id, `INTERCEPTAR (LOCKED) - Mantendo alvo: ${targetArmy.id}`);
+      } else if (forceRatio >= 0.8) {
+        // Novo alvo - trava no exército inimigo vizinho
+        targetArmy = enemyArmy!;
+        console.log('AI DECISION:', army.id, `INTERCEPTAR (NEW LOCK) - Ratio: ${forceRatio.toFixed(2)}, Alvo: ${targetArmy.id}`);
+        
+        // Salva o target lock
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id ? { ...a, targetArmyId: targetArmy!.id } : a
+        );
+      }
       
-      // Se ratio >= 0.8, ataca
-      if (forceRatio >= 0.8) {
+      // Ataca se ratio >= 0.8 OU se já tem target lock
+      if (forceRatio >= 0.8 || (targetArmy && targetArmy.location === enemyInNeighbor)) {
         updatedArmies = updatedArmies.map(a => 
           a.id === army.id
             ? { ...a, destination: enemyInNeighbor, movementProgress: 0, path: [] }
             : a
         );
-        continue; // Prioridade 2 resolvida, próximo exército
+        continue;
       }
     }
     
-    // PRIORIDADE 3: Concentração de Forças
-    // Se ratio < 0.6, busca exército aliado para fundir
+    // PRIORIDADE 3: Concentração de Forças (SEM fuga aleatória)
     const myStrength = calculateArmySize(army);
     const allEnemyArmies = updatedArmies.filter(a => a.owner === enemy);
     const totalEnemyStrength = allEnemyArmies.reduce((sum, a) => sum + calculateArmySize(a), 0);
@@ -361,16 +388,55 @@ export function processAITick(
               : a
           );
         }
+      } else {
+        // NÃO HÁ ALIADOS PRÓXIMOS - MANTÉM POSIÇÃO (SEM FUGA ALEATÓRIA)
+        console.log('AI DECISION:', army.id, 'STAY/DEFEND - Sem aliados próximos, mantendo posição defensiva');
+        // Não faz nada - mantém a posição atual
       }
-      continue; // Prioridade 3 resolvida, próximo exército
+      continue;
+    }
+    
+    // ENGAJAMENTO FORÇADO: Se está adjacente ao jogador e sem rota de fuga
+    const playerArmies = updatedArmies.filter(a => a.owner === enemy);
+    const adjacentPlayerArmy = playerArmies.find(pa => {
+      if (!pa.location) return false;
+      return currentProvince.neighbors.includes(pa.location);
+    });
+    
+    if (adjacentPlayerArmy) {
+      // Verifica se tem rota de fuga segura (província própria ou vazia)
+      const hasEscapeRoute = currentProvince.neighbors.some(nId => {
+        const neighbor = updatedProvinces.find(p => p.id === nId);
+        if (!neighbor) return false;
+        // Rota segura se for território próprio ou neutro (não inimigo)
+        return neighbor.owner === country.tag || neighbor.owner !== enemy;
+      });
+      
+      if (!hasEscapeRoute) {
+        // ENCURRALADO - Força engajamento
+        console.log('AI DECISION:', army.id, 'FORCED ENGAGE - Encurralado, forçando combate');
+        
+        const enemyNeighbor = currentProvince.neighbors.find(nId => {
+          const neighbor = updatedProvinces.find(p => p.id === nId);
+          return neighbor && neighbor.owner === enemy;
+        });
+        
+        if (enemyNeighbor) {
+          updatedArmies = updatedArmies.map(a => 
+            a.id === army.id
+              ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
+              : a
+          );
+        }
+        continue;
+      }
     }
     
     // RESTRIÇÃO DE INVASÃO CEGA
-    // Só invade se não houver ameaças e tiver tamanho mínimo sustentável
     const MIN_ARMY_SIZE_FOR_INVASION = 3000;
     if (myStrength < MIN_ARMY_SIZE_FOR_INVASION) {
       console.log('AI DECISION:', army.id, 'AGUARDAR - Exército muito pequeno para invadir');
-      continue; // Exército muito pequeno, não invade
+      continue;
     }
     
     // Se chegou aqui, pode invadir território inimigo

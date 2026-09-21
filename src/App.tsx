@@ -90,6 +90,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 1.0,
       position: null,
       path: [],
+      targetArmyId: null,
     },
     {
       id: 'army_init_2',
@@ -105,6 +106,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 1.0,
       position: null,
       path: [],
+      targetArmyId: null,
     },
     {
       id: 'army_init_3',
@@ -120,6 +122,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 0.5,
       position: null,
       path: [],
+      targetArmyId: null,
     },
     {
       id: 'army_init_4',
@@ -135,6 +138,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 1.5,
       position: null,
       path: [],
+      targetArmyId: null,
     },
     {
       id: 'army_init_5',
@@ -150,6 +154,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 0.75,
       position: null,
       path: [],
+      targetArmyId: null,
     },
     {
       id: 'army_init_6',
@@ -165,6 +170,7 @@ function createInitialArmies(): Army[] {
       movementSpeed: 1.0,
       position: null,
       path: [],
+      targetArmyId: null,
     },
   ];
 }
@@ -528,6 +534,58 @@ const App: React.FC = () => {
 
       return aiResult.country;
     });
+
+    // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
+    // Fusão física de exércitos da mesma nação na mesma província
+    const armiesToMerge = new Map<string, Army[]>(); // provinceId -> armies
+    
+    // Agrupa exércitos da IA por província
+    for (const army of armies) {
+      if (army.owner === playerCountryTag) continue; // Ignora exércitos do jogador
+      if (!army.location) continue;
+      
+      const key = `${army.owner}_${army.location}`;
+      if (!armiesToMerge.has(key)) {
+        armiesToMerge.set(key, []);
+      }
+      armiesToMerge.get(key)!.push(army);
+    }
+    
+    // Funde exércitos quando há 2+ na mesma província
+    for (const [key, armiesInProvince] of armiesToMerge) {
+      if (armiesInProvince.length < 2) continue;
+      
+      const [primaryArmy, ...secondaryArmies] = armiesInProvince;
+      
+      // Soma todos os regimentos dos exércitos secundários ao primário
+      const mergedRegiments = [...primaryArmy.regiments];
+      for (const secondaryArmy of secondaryArmies) {
+        for (const regiment of secondaryArmy.regiments) {
+          // Tenta encontrar regimento do mesmo tipo para somar
+          const existingRegiment = mergedRegiments.find(r => r.type === regiment.type);
+          if (existingRegiment) {
+            existingRegiment.strength += regiment.strength;
+            existingRegiment.morale = (existingRegiment.morale + regiment.morale) / 2;
+          } else {
+            mergedRegiments.push({ ...regiment });
+          }
+        }
+      }
+      
+      // Atualiza o exército primário com os regimentos fundidos
+      const updatedPrimaryArmy = {
+        ...primaryArmy,
+        regiments: mergedRegiments,
+        targetArmyId: null // Limpa target lock após fusão
+      };
+      
+      // Remove exércitos secundários e atualiza o primário
+      const secondaryIds = secondaryArmies.map(a => a.id);
+      armies = armies.filter(a => !secondaryIds.includes(a.id));
+      armies = armies.map(a => a.id === primaryArmy.id ? updatedPrimaryArmy : a);
+      
+      console.log(`🔀 [MERGE] ${primaryArmy.owner} fundiu ${secondaryArmies.length + 1} exércitos em ${primaryArmy.location}`);
+    }
 
     // ===== APLICA TODAS AS ATUALIZAÇÕES DE UMA VEZ =====
     console.log('✅ [TICK END] Estado final:', {
