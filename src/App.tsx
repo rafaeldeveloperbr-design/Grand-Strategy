@@ -47,6 +47,21 @@ import {
   Recruitment,
   UnitType,
 } from './types';
+import { DiplomaticRelation, War } from './types/diplomacy';
+import {
+  declareWar,
+  makePeace,
+  improveRelations,
+  offerNonAggressionPact,
+  getOrCreateRelation,
+  areAtWar,
+  processDiplomacyTick,
+  updateWarScore,
+  DIPLOMATIC_COSTS
+} from './engine/diplomacy';
+import { processAITick } from './engine/aiEngine';
+import { DiplomacyPanel } from './components/DiplomacyPanel';
+import { WarPanel } from './components/WarPanel';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -197,6 +212,18 @@ const App: React.FC = () => {
   /** Log de eventos (combate, conquistas) */
   const [eventLog, setEventLog] = useState<string[]>([]);
 
+  /** Relações diplomáticas */
+  const [diplomaticRelations, setDiplomaticRelations] = useState<DiplomaticRelation[]>([]);
+
+  /** Guerras ativas */
+  const [wars, setWars] = useState<War[]>([]);
+
+  /** País alvo do painel de diplomacia */
+  const [diplomacyTarget, setDiplomacyTarget] = useState<string | null>(null);
+
+  /** Painel de guerras aberto */
+  const [showWarPanel, setShowWarPanel] = useState(false);
+
   /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
   const provincesRef = useRef(provinces);
@@ -281,63 +308,86 @@ const App: React.FC = () => {
 
     let finalArmies = movingArmies;
 
-    // 5. Processa chegadas e combate
+    // 5. Processa chegadas e combate (apenas se estiver em guerra)
     if (arrivedArmies.length > 0) {
       for (const arrived of arrivedArmies) {
+        const province = currentProvinces.find(p => p.id === arrived.location);
+        if (!province) {
+          finalArmies.push(arrived);
+          continue;
+        }
+
+        // Verifica se está em guerra com o dono da província
+        const isInWar = wars.some(
+          w => (w.attacker === arrived.owner && w.defender === province.owner) ||
+               (w.defender === arrived.owner && w.attacker === province.owner)
+        );
+
+        // Se não está em guerra, não pode atacar
+        if (province.owner !== arrived.owner && !isInWar) {
+          finalArmies.push(arrived);
+          continue;
+        }
+
         // Verifica se há inimigos na província
         const enemies = getEnemyArmiesInProvince(finalArmies, arrived.location!, arrived.owner);
 
         if (enemies.length > 0) {
           // COMBATE!
-          const province = currentProvinces.find(p => p.id === arrived.location);
-          if (province) {
-            // Combate contra o primeiro exército inimigo
-            const enemy = enemies[0];
-            const result = resolveBattle(arrived, enemy, province);
+          const enemy = enemies[0];
+          const result = resolveBattle(arrived, enemy, province);
 
-            // Atualiza exércitos após combate
-            finalArmies = finalArmies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
+          // Atualiza exércitos após combate
+          finalArmies = finalArmies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
 
-            if (result.winner === 'attacker') {
-              // Atacante venceu
-              if (result.attacker.regiments.length > 0) {
-                finalArmies.push({ ...result.attacker, location: arrived.location });
-              }
-              // Conquista a província!
-              const oldOwner = province.owner;
-              setProvinces((prev) =>
-                prev.map((p) =>
-                  p.id === province.id ? { ...p, owner: arrived.owner } : p
-                )
-              );
-              // Atualiza listas de províncias dos países
-              setAllCountries((prev) =>
-                prev.map((c) => {
-                  if (c.tag === arrived.owner) {
-                    return { ...c, provinces: [...c.provinces, province.id] };
-                  }
-                  if (c.tag === oldOwner) {
-                    return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
-                  }
-                  return c;
-                })
-              );
-              addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
-            } else {
-              // Defensor venceu
-              if (result.defender.regiments.length > 0) {
-                finalArmies.push({ ...result.defender, location: arrived.location });
-              }
-              addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
+          // Atualiza baixas na guerra
+          setWars(prevWars => prevWars.map(w => {
+            if ((w.attacker === arrived.owner && w.defender === enemy.owner) ||
+                (w.defender === arrived.owner && w.attacker === enemy.owner)) {
+              const isAttacker = w.attacker === arrived.owner;
+              return {
+                ...w,
+                attackerCasualties: w.attackerCasualties + (isAttacker ? result.attackerCasualties : result.defenderCasualties),
+                defenderCasualties: w.defenderCasualties + (isAttacker ? result.defenderCasualties : result.attackerCasualties)
+              };
             }
+            return w;
+          }));
+
+          if (result.winner === 'attacker') {
+            if (result.attacker.regiments.length > 0) {
+              finalArmies.push({ ...result.attacker, location: arrived.location });
+            }
+            // Conquista a província!
+            const oldOwner = province.owner;
+            setProvinces((prev) =>
+              prev.map((p) =>
+                p.id === province.id ? { ...p, owner: arrived.owner } : p
+              )
+            );
+            setAllCountries((prev) =>
+              prev.map((c) => {
+                if (c.tag === arrived.owner) {
+                  return { ...c, provinces: [...c.provinces, province.id] };
+                }
+                if (c.tag === oldOwner) {
+                  return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+                }
+                return c;
+              })
+            );
+            addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
+          } else {
+            if (result.defender.regiments.length > 0) {
+              finalArmies.push({ ...result.defender, location: arrived.location });
+            }
+            addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
           }
         } else {
-          // Sem inimigos - simplesmente ocupa a província
+          // Sem inimigos - ocupa a província (se em guerra)
           finalArmies.push(arrived);
 
-          // Se a província é inimiga (sem defensores), conquista automaticamente
-          const province = currentProvinces.find(p => p.id === arrived.location);
-          if (province && province.owner !== arrived.owner) {
+          if (province.owner !== arrived.owner && isInWar) {
             const oldOwner = province.owner;
             setProvinces((prev) =>
               prev.map((p) =>
@@ -362,6 +412,68 @@ const App: React.FC = () => {
     }
 
     setArmies(finalArmies);
+
+    // 6. Processa diplomacia (tick diário)
+    setDiplomaticRelations(prev => processDiplomacyTick(prev));
+
+    // 7. Atualiza War Score baseado em províncias ocupadas
+    setWars(prevWars => {
+      const currentProvinces = provincesRef.current;
+      return prevWars.map(war => {
+        const attackerProvinces = currentProvinces.filter(p => p.owner === war.attacker).map(p => p.id);
+        const defenderProvinces = currentProvinces.filter(p => p.owner === war.defender).map(p => p.id);
+        
+        // Províncias originalmente do atacante/defensor (simplificado: todas as atuais)
+        const occupiedByAttacker = defenderProvinces.filter(
+          pId => !currentProvinces.find(p => p.id === pId && p.owner === war.defender)
+        );
+        
+        return {
+          ...war,
+          occupiedByAttacker: currentProvinces.filter(p => p.owner === war.attacker && war.defender === 'IMP' ? false : true).map(p => p.id).slice(0, 0), // Simplificado
+          warScore: attackerProvinces.length - defenderProvinces.length
+        };
+      });
+    });
+
+    // 8. Processa IA dos bots (a cada 10 ticks para performance)
+    const currentDate = date;
+    setAllCountries(prevCountries => {
+      let currentArmies = armiesRef.current;
+      let currentRelations = diplomaticRelations;
+      let currentWars = wars;
+      let currentProvinces = provincesRef.current;
+      
+      const updatedCountries = prevCountries.map(country => {
+        if (country.tag === playerCountryTag) return country; // Pula o jogador
+        
+        const result = processAITick(
+          country,
+          currentProvinces,
+          currentArmies,
+          currentRelations,
+          currentWars,
+          prevCountries,
+          currentDate
+        );
+        
+        currentArmies = result.armies;
+        currentRelations = result.relations;
+        currentWars = result.wars;
+        currentProvinces = result.provinces;
+        
+        if (result.log) addLog(result.log);
+        
+        return result.country;
+      });
+      
+      setArmies(currentArmies);
+      setDiplomaticRelations(currentRelations);
+      setWars(currentWars);
+      setProvinces(currentProvinces);
+      
+      return updatedCountries;
+    });
   }, [advanceDate, addLog]);
 
   /**
@@ -381,12 +493,34 @@ const App: React.FC = () => {
     };
   }, [gameSpeed, processTick]);
 
+  // === Handlers de Diplomacia ===
+
+  /**
+   * Abre painel de diplomacia com um país
+   */
+  const handleOpenDiplomacy = useCallback((countryTag: string) => {
+    setDiplomacyTarget(countryTag);
+  }, []);
+
+  /**
+   * Fecha painel de diplomacia
+   */
+  const handleCloseDiplomacy = useCallback(() => {
+    setDiplomacyTarget(null);
+  }, []);
+
   // === Handlers ===
   const handleProvinceClick = useCallback((provinceId: string) => {
-    setSelectedProvince(provinceId);
-    setIsPanelOpen(true);
-    setSelectedArmy(null);
-  }, []);
+    const province = provinces.find(p => p.id === provinceId);
+    if (province && province.owner !== playerCountryTag) {
+      // Província estrangeira - abre diplomacia
+      handleOpenDiplomacy(province.owner);
+    } else {
+      setSelectedProvince(provinceId);
+      setIsPanelOpen(true);
+      setSelectedArmy(null);
+    }
+  }, [provinces, playerCountryTag, handleOpenDiplomacy]);
 
   const handleProvinceHover = useCallback((provinceId: string | null) => {
     setHoveredProvince(provinceId);
@@ -630,6 +764,75 @@ const App: React.FC = () => {
     });
   }, []);
 
+  /**
+   * Melhora relações com país alvo
+   */
+  const handleImproveRelations = useCallback(() => {
+    if (!diplomacyTarget) return;
+    if (playerCountry.resources.gold < DIPLOMATIC_COSTS.improve_relations.gold) return;
+
+    setAllCountries(prev => prev.map(c => 
+      c.tag === playerCountryTag 
+        ? { ...c, resources: { ...c.resources, gold: c.resources.gold - DIPLOMATIC_COSTS.improve_relations.gold } }
+        : c
+    ));
+
+    setDiplomaticRelations(prev => 
+      improveRelations(prev, playerCountryTag, diplomacyTarget, DIPLOMATIC_COSTS.improve_relations.opinionChange)
+    );
+
+    addLog(`💰 Melhorou relações com ${allCountries.find(c => c.tag === diplomacyTarget)?.name}`);
+  }, [diplomacyTarget, playerCountry.resources.gold, playerCountryTag, allCountries, addLog]);
+
+  /**
+   * Oferece pacto de não agressão
+   */
+  const handleOfferNonAggression = useCallback(() => {
+    if (!diplomacyTarget) return;
+    if (playerCountry.resources.gold < DIPLOMATIC_COSTS.offer_non_aggression.gold) return;
+
+    setAllCountries(prev => prev.map(c => 
+      c.tag === playerCountryTag 
+        ? { ...c, resources: { ...c.resources, gold: c.resources.gold - DIPLOMATIC_COSTS.offer_non_aggression.gold } }
+        : c
+    ));
+
+    setDiplomaticRelations(prev => 
+      offerNonAggressionPact(prev, playerCountryTag, diplomacyTarget, 365)
+    );
+
+    addLog(`🤝 Pacto de não agressão com ${allCountries.find(c => c.tag === diplomacyTarget)?.name}`);
+  }, [diplomacyTarget, playerCountry.resources.gold, playerCountryTag, allCountries, addLog]);
+
+  /**
+   * Declara guerra contra país alvo
+   */
+  const handleDeclareWar = useCallback(() => {
+    if (!diplomacyTarget) return;
+
+    const result = declareWar(diplomaticRelations, wars, playerCountryTag, diplomacyTarget, date);
+    setDiplomaticRelations(result.relations);
+    setWars(result.wars);
+
+    addLog(`⚔️ Guerra declarada contra ${allCountries.find(c => c.tag === diplomacyTarget)?.name}!`);
+    setDiplomacyTarget(null);
+  }, [diplomacyTarget, diplomaticRelations, wars, playerCountryTag, date, allCountries, addLog]);
+
+  /**
+   * Assina paz em uma guerra
+   */
+  const handleMakePeace = useCallback((warId: string) => {
+    const war = wars.find(w => w.id === warId);
+    if (!war) return;
+
+    const enemy = war.attacker === playerCountryTag ? war.defender : war.attacker;
+    const result = makePeace(diplomaticRelations, wars, playerCountryTag, enemy);
+    setDiplomaticRelations(result.relations);
+    setWars(result.wars);
+
+    addLog(`🕊️ Paz assinada com ${allCountries.find(c => c.tag === enemy)?.name}`);
+  }, [wars, diplomaticRelations, playerCountryTag, allCountries, addLog]);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -867,6 +1070,33 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* === Painel de Diplomacia === */}
+        {diplomacyTarget && (
+          <DiplomacyPanel
+            targetCountry={allCountries.find(c => c.tag === diplomacyTarget)!}
+            playerCountry={playerCountry}
+            relation={diplomaticRelations.find(
+              r => (r.countryA === playerCountryTag && r.countryB === diplomacyTarget) ||
+                   (r.countryB === playerCountryTag && r.countryA === diplomacyTarget)
+            ) || null}
+            onClose={handleCloseDiplomacy}
+            onImproveRelations={handleImproveRelations}
+            onOfferNonAggression={handleOfferNonAggression}
+            onDeclareWar={handleDeclareWar}
+          />
+        )}
+
+        {/* === Painel de Guerras === */}
+        {showWarPanel && (
+          <WarPanel
+            wars={wars}
+            playerCountry={playerCountry}
+            allCountries={allCountries}
+            onClose={() => setShowWarPanel(false)}
+            onMakePeace={handleMakePeace}
+          />
+        )}
       </div>
 
       {/* === Barra Inferior === */}
@@ -891,6 +1121,18 @@ const App: React.FC = () => {
           </span>
         </div>
         <div className="game__bottom-info">
+          <span className="game__bottom-label">Guerras:</span>
+          <button
+            className="game__bottom-war-btn"
+            onClick={() => setShowWarPanel(true)}
+            title="Ver guerras ativas"
+          >
+            {wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length > 0
+              ? `⚔️ ${wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length}`
+              : '🕊️ Paz'}
+          </button>
+        </div>
+        <div className="game__bottom-info">
           <span className="game__bottom-label">Velocidade:</span>
           <span className="game__bottom-value game__bottom-value--highlight">
             {gameSpeed === 0 ? '⏸ Pausado' : `▶ x${gameSpeed}`}
@@ -898,7 +1140,7 @@ const App: React.FC = () => {
         </div>
         <div className="game__bottom-info">
           <span className="game__bottom-label">Módulo:</span>
-          <span className="game__bottom-value game__bottom-value--highlight">3 - Militar</span>
+          <span className="game__bottom-value game__bottom-value--highlight">4 - Diplomacia</span>
         </div>
       </div>
     </div>
