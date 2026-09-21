@@ -18,6 +18,7 @@ import { WarPanel } from './components/WarPanel';
 import { BattleReportModal } from './components/BattleReportModal';
 import { BattleHistoryModal } from './components/BattleHistoryModal';
 import { TechnologyModal } from './components/TechnologyModal';
+import { EndGameModal } from './components/EndGameModal';
 import { provincesData } from './data/provinces';
 import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
@@ -43,6 +44,7 @@ import {
   createInitialTechState,
 } from './engine/technology';
 import { NATIONAL_FOCUSES, TECHNOLOGIES } from './data/technologies';
+import { checkEndGameConditions, calculateGameStats, EndGameType, GameStats } from './engine/gameConditions';
 import {
   BuildingType,
   Country,
@@ -265,6 +267,11 @@ const App: React.FC = () => {
     });
     return map;
   });
+
+  /** Sistema de fim de jogo */
+  const [endGameType, setEndGameType] = useState<EndGameType>(null);
+  const [hasTriggeredEndGame, setHasTriggeredEndGame] = useState(false);
+  const [gameStats, setGameStats] = useState<GameStats | null>(null);
 
   /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
@@ -658,6 +665,34 @@ const App: React.FC = () => {
       armies = armies.map(a => a.id === primaryArmy.id ? updatedPrimaryArmy : a);
       
       console.log(`🔀 [MERGE] ${primaryArmy.owner} fundiu ${secondaryArmies.length + 1} exércitos em ${primaryArmy.location}`);
+    }
+
+    // ===== PASSO I: VERIFICA CONDIÇÕES DE FIM DE JOGO =====
+    if (!hasTriggeredEndGame) {
+      const playerCountryData = countries.find(c => c.tag === playerCountryTag);
+      if (playerCountryData) {
+        const endGameResult = checkEndGameConditions(playerCountryData, provinces);
+        
+        if (endGameResult !== null) {
+          console.log(`🏁 FIM DE JOGO DETECTADO: ${endGameResult.toUpperCase()}`);
+          
+          // Calcula estatísticas da partida
+          const stats = calculateGameStats(
+            { year: 1444, month: 11, day: 11 }, // Data inicial
+            dateRef.current,
+            battleHistory,
+            playerCountryTag,
+            provinces
+          );
+          
+          setEndGameType(endGameResult);
+          setGameStats(stats);
+          setHasTriggeredEndGame(true);
+          setIsPaused(true);
+          
+          addLog(`🏁 ${endGameResult === 'victory' ? 'VITÓRIA!' : 'DERROTA!'} Jogo encerrado.`);
+        }
+      }
     }
 
     // ===== APLICA TODAS AS ATUALIZAÇÕES DE UMA VEZ =====
@@ -1126,6 +1161,23 @@ const App: React.FC = () => {
     }
   }, [playerTechState, playerCountry, playerCountryTag, addLog]);
 
+  /**
+   * Handler para continuar jogando após fim de jogo
+   */
+  const handleEndGameContinue = useCallback(() => {
+    setEndGameType(null);
+    setIsPaused(false);
+    addLog('🎮 Continuando no modo sandbox...');
+  }, [addLog]);
+
+  /**
+   * Handler para reiniciar a partida
+   */
+  const handleEndGameRestart = useCallback(() => {
+    // Recarrega a página para reiniciar completamente
+    window.location.reload();
+  }, []);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -1427,6 +1479,16 @@ const App: React.FC = () => {
             onStartFocus={handleStartFocus}
             onStartResearch={handleStartResearch}
             onClose={() => setShowTechModal(false)}
+          />
+        )}
+
+        {/* === Modal de Fim de Jogo === */}
+        {endGameType && gameStats && (
+          <EndGameModal
+            endGameType={endGameType}
+            stats={gameStats}
+            onContinue={handleEndGameContinue}
+            onRestart={handleEndGameRestart}
           />
         )}
       </div>
