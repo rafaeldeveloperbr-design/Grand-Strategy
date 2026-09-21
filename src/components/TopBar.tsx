@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * MÓDULO 1 - Barra Superior (Top Bar)
+ * MÓDULO 2 - Barra Superior (Top Bar) com Economia
  * ============================================================
  * Exibe informações globais do país do jogador:
  * - Nome e bandeira do país
- * - Recursos (Ouro, Manpower)
+ * - Recursos (Ouro, Manpower) com taxas de ganho/despesa
  * - Estabilidade
  * - Data/Turno atual
  * - Controles de velocidade
@@ -32,6 +32,14 @@ function formatDate(date: GameDate): string {
 }
 
 /**
+ * Formata um valor com sinal (+ ou -)
+ */
+function formatRate(value: number): string {
+  if (value >= 0) return `+${value.toFixed(1)}`;
+  return value.toFixed(1);
+}
+
+/**
  * Componente da barra superior do jogo
  */
 export const TopBar: React.FC<TopBarProps> = ({
@@ -40,7 +48,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   gameSpeed,
   onSpeedChange,
 }) => {
-  const { resources } = playerCountry;
+  const { resources, economy } = playerCountry;
+  const goldBalance = economy.goldIncome - economy.goldExpense;
 
   return (
     <div className="top-bar">
@@ -53,16 +62,26 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* === Seção: Recursos === */}
+      {/* === Seção: Recursos com Taxas === */}
       <div className="top-bar__resources">
         {/* Ouro */}
         <div className="top-bar__resource" title="Ouro">
           <span className="top-bar__resource-icon">💰</span>
           <div className="top-bar__resource-data">
             <span className="top-bar__resource-value">
-              {resources.gold.toLocaleString()}
+              {Math.floor(resources.gold).toLocaleString()}
             </span>
-            <span className="top-bar__resource-label">Ouro</span>
+            <div className="top-bar__resource-rates">
+              <span className="top-bar__resource-rate top-bar__resource-rate--income">
+                +{economy.goldIncome.toFixed(1)}
+              </span>
+              <span className="top-bar__resource-rate top-bar__resource-rate--expense">
+                -{economy.goldExpense.toFixed(1)}
+              </span>
+            </div>
+            <span className={`top-bar__resource-balance ${goldBalance >= 0 ? 'top-bar__resource-balance--positive' : 'top-bar__resource-balance--negative'}`}>
+              {formatRate(goldBalance)}/dia
+            </span>
           </div>
         </div>
 
@@ -71,7 +90,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="top-bar__resource-icon">👥</span>
           <div className="top-bar__resource-data">
             <span className="top-bar__resource-value">
-              {resources.manpower.toLocaleString()}
+              {resources.manpower.toLocaleString()} / {resources.maxManpower.toLocaleString()}
+            </span>
+            <span className="top-bar__resource-rate top-bar__resource-rate--income">
+              +{economy.manpowerGain}/dia
             </span>
             <span className="top-bar__resource-label">Manpower</span>
           </div>

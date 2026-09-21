@@ -1,10 +1,27 @@
 /**
  * ============================================================
- * MÓDULO 1 - Tipos e Interfaces do Jogo de Grande Estratégia
+ * MÓDULO 1 + 2 - Tipos e Interfaces do Jogo de Grande Estratégia
  * ============================================================
  * Define as estruturas de dados fundamentais para províncias,
- * países e estado do jogo.
+ * países, economia, construções e estado do jogo.
  */
+
+/**
+ * Tipos de edifícios disponíveis para construção
+ */
+export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification';
+
+/**
+ * Representa um edifício em construção ou já construído
+ */
+export interface Building {
+  /** Tipo do edifício */
+  type: BuildingType;
+  /** Nível do edifício (1-5) */
+  level: number;
+  /** Dias restantes para conclusão (0 = pronto) */
+  daysRemaining: number;
+}
 
 /**
  * Representa uma província/região no mapa do jogo.
@@ -21,8 +38,16 @@ export interface Province {
   color: string;
   /** Lista de IDs de províncias vizinhas (conexões de fronteira) */
   neighbors: string[];
-  /** População fictícia da província */
+  /** População atual da província */
   population: number;
+  /** População máxima suportada */
+  maxPopulation: number;
+  /** Nível de desenvolvimento base (1-10) */
+  development: number;
+  /** Lista de edifícios na província */
+  buildings: Building[];
+  /** Valor defensivo (base + fortificações) */
+  defense: number;
   /** Coordenadas do centro da província para tooltip */
   center: { x: number; y: number };
   /** Path SVG da província */
@@ -47,6 +72,8 @@ export interface Country {
   provinces: string[];
   /** Recursos do país */
   resources: CountryResources;
+  /** Taxas econômicas (renda/despesas por dia) */
+  economy: CountryEconomy;
   /** Bandeira (emoji ou ícone) */
   flag: string;
 }
@@ -57,12 +84,66 @@ export interface Country {
 export interface CountryResources {
   /** Ouro/moeda do país */
   gold: number;
-  /** Mão de obra disponível */
+  /** Mão de obra disponível (recrutável) */
   manpower: number;
+  /** Mão de obra máxima (baseada na população elegível) */
+  maxManpower: number;
   /** Estabilidade política (0-100) */
   stability: number;
   /** Prestígio militar */
   prestige: number;
+}
+
+/**
+ * Taxas econômicas do país (calculadas a cada tick)
+ */
+export interface CountryEconomy {
+  /** Renda bruta de ouro por dia */
+  goldIncome: number;
+  /** Despesas de manutenção por dia */
+  goldExpense: number;
+  /** Ganho de manpower por dia */
+  manpowerGain: number;
+  /** Custo de manutenção de tropas por dia */
+  manpowerExpense: number;
+}
+
+/**
+ * Definição de um tipo de edifício (template)
+ */
+export interface BuildingDefinition {
+  /** Tipo do edifício */
+  type: BuildingType;
+  /** Nome exibido */
+  name: string;
+  /** Descrição */
+  description: string;
+  /** Ícone visual */
+  icon: string;
+  /** Custo base em ouro */
+  baseCost: number;
+  /** Multiplicador de custo por nível */
+  costMultiplier: number;
+  /** Dias de construção base */
+  baseBuildTime: number;
+  /** Nível máximo */
+  maxLevel: number;
+  /** Bônus por nível */
+  bonusPerLevel: BuildingBonus;
+}
+
+/**
+ * Bônus concedidos por um edifício
+ */
+export interface BuildingBonus {
+  /** Bônus de renda de ouro */
+  goldIncome?: number;
+  /** Bônus de manpower */
+  manpowerGain?: number;
+  /** Bônus de defesa */
+  defense?: number;
+  /** Bônus de crescimento populacional (%) */
+  growthBonus?: number;
 }
 
 /**

@@ -1,9 +1,9 @@
 /**
  * ============================================================
- * MÓDULO 1 - Definição dos Países
+ * MÓDULO 2 - Definição dos Países (com Economia)
  * ============================================================
  * Contém os dados iniciais de todas as nações no mapa.
- * Cada país possui uma tag única, cor, e lista de províncias.
+ * Cada país possui tag, cor, províncias, recursos e taxas econômicas.
  */
 
 import { Country } from '../types';
@@ -16,7 +16,8 @@ export const countries: Country[] = [
     color: '#8B0000',
     colorLight: '#C41E3A',
     provinces: ['p1', 'p2', 'p3', 'p4', 'p5'],
-    resources: { gold: 5000, manpower: 120000, stability: 75, prestige: 80 },
+    resources: { gold: 5000, manpower: 12000, maxManpower: 36000, stability: 75, prestige: 80 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🦅',
   },
   {
@@ -26,7 +27,8 @@ export const countries: Country[] = [
     color: '#1E3A8B',
     colorLight: '#3B82F6',
     provinces: ['p6', 'p7', 'p8', 'p9'],
-    resources: { gold: 3500, manpower: 85000, stability: 82, prestige: 60 },
+    resources: { gold: 3500, manpower: 8500, maxManpower: 25500, stability: 82, prestige: 60 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '⚔️',
   },
   {
@@ -36,7 +38,8 @@ export const countries: Country[] = [
     color: '#1B5E20',
     colorLight: '#4CAF50',
     provinces: ['p10', 'p11', 'p12', 'p13'],
-    resources: { gold: 2800, manpower: 65000, stability: 90, prestige: 45 },
+    resources: { gold: 2800, manpower: 6500, maxManpower: 19500, stability: 90, prestige: 45 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🛡️',
   },
   {
@@ -46,7 +49,8 @@ export const countries: Country[] = [
     color: '#F57F17',
     colorLight: '#FFC107',
     provinces: ['p14', 'p15', 'p16'],
-    resources: { gold: 2000, manpower: 95000, stability: 55, prestige: 50 },
+    resources: { gold: 2000, manpower: 9500, maxManpower: 28500, stability: 55, prestige: 50 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🐎',
   },
   {
@@ -56,7 +60,8 @@ export const countries: Country[] = [
     color: '#6A1B9A',
     colorLight: '#AB47BC',
     provinces: ['p17', 'p18', 'p19'],
-    resources: { gold: 4200, manpower: 55000, stability: 88, prestige: 70 },
+    resources: { gold: 4200, manpower: 5500, maxManpower: 16500, stability: 88, prestige: 70 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '☀️',
   },
   {
@@ -66,7 +71,8 @@ export const countries: Country[] = [
     color: '#00695C',
     colorLight: '#26A69A',
     provinces: ['p20', 'p21', 'p22'],
-    resources: { gold: 8000, manpower: 40000, stability: 70, prestige: 55 },
+    resources: { gold: 8000, manpower: 4000, maxManpower: 12000, stability: 70, prestige: 55 },
+    economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '⚓',
   },
 ];

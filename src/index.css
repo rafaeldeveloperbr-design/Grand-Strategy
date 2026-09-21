@@ -165,6 +165,45 @@ html, body, #root {
   letter-spacing: 0.5px;
 }
 
+/* === Taxas Econômicas (Módulo 2) === */
+.top-bar__resource-rates {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.top-bar__resource-rate {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.top-bar__resource-rate--income {
+  color: var(--accent-green);
+}
+
+.top-bar__resource-rate--expense {
+  color: var(--accent-red);
+}
+
+.top-bar__resource-balance {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.top-bar__resource-balance--positive {
+  color: var(--accent-green);
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.top-bar__resource-balance--negative {
+  color: var(--accent-red);
+  background: rgba(231, 76, 60, 0.1);
+}
+
 .top-bar__date-section {
   display: flex;
   align-items: center;
@@ -531,6 +570,235 @@ html, body, #root {
 }
 
 /* ============================================================
+ * PROVINCE PANEL - ABAS (Módulo 2)
+ * ============================================================ */
+.province-panel__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.province-panel__tab {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.province-panel__tab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.province-panel__tab--active {
+  color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold);
+}
+
+.province-panel__tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.province-panel__content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.province-panel__section--highlight {
+  background: rgba(255, 215, 0, 0.03);
+  border-left: 3px solid var(--accent-gold);
+}
+
+/* === Resumo de Edifícios === */
+.province-panel__buildings-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.province-panel__building-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.province-panel__building-badge-level {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* === Construção em Andamento === */
+.province-panel__construction {
+  margin-bottom: 8px;
+}
+
+.province-panel__construction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.province-panel__construction-days {
+  font-size: 10px;
+  color: var(--accent-gold);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.province-panel__construction-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.province-panel__construction-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-gold), #ffaa00);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* === Opções de Construção === */
+.province-panel__build-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.province-panel__build-option {
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.province-panel__build-option:hover:not(.province-panel__build-option--disabled) {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+
+.province-panel__build-option--disabled {
+  opacity: 0.5;
+}
+
+.province-panel__build-option-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.province-panel__build-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.province-panel__build-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.province-panel__build-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.province-panel__build-level {
+  font-size: 10px;
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.province-panel__build-desc {
+  font-size: 9px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.province-panel__build-costs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.province-panel__build-cost {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.province-panel__build-bonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.province-panel__build-bonus {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: rgba(46, 204, 113, 0.1);
+  color: var(--accent-green);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.province-panel__build-btn {
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, var(--bg-hover) 0%, var(--bg-tertiary) 100%);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.province-panel__build-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3a5f7a 0%, var(--bg-hover) 100%);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.province-panel__build-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.province-panel__no-access {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+/* ============================================================
  * BARRA INFERIOR
  * ============================================================ */
 .game__bottom-bar {
@@ -566,6 +834,14 @@ html, body, #root {
 
 .game__bottom-value--highlight {
   color: var(--accent-gold);
+}
+
+.game__bottom-value--positive {
+  color: var(--accent-green);
+}
+
+.game__bottom-value--negative {
+  color: var(--accent-red);
 }
 
 /* ============================================================
