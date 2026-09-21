@@ -233,10 +233,35 @@ export function processAITick(
   const myArmies = updatedArmies.filter(a => a.owner === country.tag && !a.destination);
   
   for (const army of myArmies) {
-    if (!army.location) continue;
+    // Validação defensiva rigorosa
+    if (!army || !army.id || !army.location) {
+      console.warn('AI: Exército inválido detectado, pulando:', army);
+      continue;
+    }
     
     const currentProvince = updatedProvinces.find(p => p.id === army.location);
-    if (!currentProvince) continue;
+    if (!currentProvince) {
+      console.warn(`AI: Província ${army.location} não encontrada para exército ${army.id}`);
+      continue;
+    }
+    
+    // Limpeza de alvos inválidos (Dead Target Cleanup)
+    if (army.targetArmyId) {
+      const targetArmy = updatedArmies.find(a => a.id === army.targetArmyId);
+      if (!targetArmy) {
+        console.log(`AI: Alvo ${army.targetArmyId} não existe mais, limpando target lock de ${army.id}`);
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id ? { ...a, targetArmyId: null } : a
+        );
+      }
+    }
+    
+    // Verificação defensiva: garante que o exército ainda existe no array atualizado
+    const currentArmy = updatedArmies.find(a => a.id === army.id);
+    if (!currentArmy) {
+      console.warn(`AI: Exército ${army.id} não existe mais no array, pulando`);
+      continue;
+    }
     
     // Verifica se está em guerra
     const atWarWith = updatedWars.filter(
@@ -282,7 +307,13 @@ export function processAITick(
         let minDistance = Infinity;
         
         for (const enemyArmy of enemyArmiesInTerritory) {
-          const distance = calculateDistance(army.location!, enemyArmy.location!, updatedProvinces);
+          // Validação defensiva antes de calcular distância
+          if (!army.location || !enemyArmy.location) {
+            console.warn('AI: Localização inválida ao calcular distância');
+            continue;
+          }
+          
+          const distance = calculateDistance(army.location, enemyArmy.location, updatedProvinces);
           if (distance < minDistance) {
             minDistance = distance;
             closestEnemy = enemyArmy;
@@ -300,13 +331,18 @@ export function processAITick(
       
       // Move em direção ao alvo travado
       if (targetArmy && targetArmy.location !== army.location) {
-        const nextStep = findPathTowards(army.location!, targetArmy.location!, updatedProvinces);
-        if (nextStep) {
-          updatedArmies = updatedArmies.map(a => 
-            a.id === army.id
-              ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
-              : a
-          );
+        // Validação defensiva
+        if (!army.location || !targetArmy.location) {
+          console.warn('AI: Localização inválida ao mover em direção ao alvo');
+        } else {
+          const nextStep = findPathTowards(army.location, targetArmy.location, updatedProvinces);
+          if (nextStep) {
+            updatedArmies = updatedArmies.map(a => 
+              a.id === army.id
+                ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
+                : a
+            );
+          }
         }
       }
       continue;
@@ -372,7 +408,13 @@ export function processAITick(
         let minDistance = Infinity;
         
         for (const friendlyArmy of friendlyArmies) {
-          const distance = calculateDistance(army.location!, friendlyArmy.location!, updatedProvinces);
+          // Validação defensiva
+          if (!army.location || !friendlyArmy.location) {
+            console.warn('AI: Localização inválida ao calcular distância para aliado');
+            continue;
+          }
+          
+          const distance = calculateDistance(army.location, friendlyArmy.location, updatedProvinces);
           if (distance < minDistance) {
             minDistance = distance;
             closestFriendly = friendlyArmy;
@@ -380,13 +422,17 @@ export function processAITick(
         }
         
         // Move em direção ao exército aliado mais próximo
-        const nextStep = findPathTowards(army.location!, closestFriendly.location!, updatedProvinces);
-        if (nextStep) {
-          updatedArmies = updatedArmies.map(a => 
-            a.id === army.id
-              ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
-              : a
-          );
+        if (!army.location || !closestFriendly.location) {
+          console.warn('AI: Localização inválida ao mover em direção ao aliado');
+        } else {
+          const nextStep = findPathTowards(army.location, closestFriendly.location, updatedProvinces);
+          if (nextStep) {
+            updatedArmies = updatedArmies.map(a => 
+              a.id === army.id
+                ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
+                : a
+            );
+          }
         }
       } else {
         // NÃO HÁ ALIADOS PRÓXIMOS - MANTÉM POSIÇÃO (SEM FUGA ALEATÓRIA)
@@ -422,6 +468,13 @@ export function processAITick(
         });
         
         if (enemyNeighbor) {
+          // Validação defensiva: verifica se o exército ainda existe
+          const armyExists = updatedArmies.some(a => a.id === army.id);
+          if (!armyExists) {
+            console.warn(`AI: Exército ${army.id} não existe mais, pulando movimentação`);
+            continue;
+          }
+          
           updatedArmies = updatedArmies.map(a => 
             a.id === army.id
               ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
@@ -448,11 +501,17 @@ export function processAITick(
     });
     
     if (enemyNeighbor) {
-      updatedArmies = updatedArmies.map(a => 
-        a.id === army.id
-          ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
-          : a
-      );
+      // Validação defensiva: verifica se o exército ainda existe
+      const armyExists = updatedArmies.some(a => a.id === army.id);
+      if (!armyExists) {
+        console.warn(`AI: Exército ${army.id} não existe mais, pulando invasão`);
+      } else {
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id
+            ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
+            : a
+        );
+      }
     }
   }
 
@@ -503,6 +562,12 @@ function calculateDistance(
   toId: string,
   provinces: Province[]
 ): number {
+  // Validação defensiva
+  if (!fromId || !toId) {
+    console.warn('calculateDistance: IDs inválidos:', { fromId, toId });
+    return Infinity;
+  }
+  
   if (fromId === toId) return 0;
   
   const visited = new Set<string>();
@@ -539,10 +604,19 @@ function findPathTowards(
   toId: string,
   provinces: Province[]
 ): string | null {
+  // Validação defensiva
+  if (!fromId || !toId) {
+    console.warn('findPathTowards: IDs inválidos:', { fromId, toId });
+    return null;
+  }
+  
   if (fromId === toId) return null;
   
   const fromProvince = provinces.find(p => p.id === fromId);
-  if (!fromProvince) return null;
+  if (!fromProvince) {
+    console.warn(`findPathTowards: Província de origem ${fromId} não encontrada`);
+    return null;
+  }
   
   // Para cada vizinho, calcula distância até o destino
   let bestNeighbor: string | null = null;

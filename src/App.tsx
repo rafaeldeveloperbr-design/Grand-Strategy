@@ -587,11 +587,15 @@ const App: React.FC = () => {
 
     // ===== PASSO G: IA DOS BOTS =====
     const currentDate = dateRef.current;
+    
+    // Filtra exércitos inválidos/nulos antes de passar para o motor da IA
+    const validArmies = armies.filter(a => a && a.id && a.location && a.owner);
+    
     countries = countries.map(country => {
       if (country.tag === playerCountryTag) return country;
 
       const aiResult = processAITick(
-        country, provinces, armies, relations, wars, countries, currentDate
+        country, provinces, validArmies, relations, wars, countries, currentDate
       );
 
       armies = aiResult.armies;
