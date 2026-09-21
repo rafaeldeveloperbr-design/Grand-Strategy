@@ -13,6 +13,9 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { TopBar } from './components/TopBar';
 import { GameMap } from './components/GameMap';
 import { ProvincePanel } from './components/ProvincePanel';
+import { DiplomacyPanel } from './components/DiplomacyPanel';
+import { WarPanel } from './components/WarPanel';
+import { BattleReportModal } from './components/BattleReportModal';
 import { provincesData } from './data/provinces';
 import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
@@ -38,6 +41,7 @@ import {
   Army,
   Recruitment,
   UnitType,
+  CombatResult,
 } from './types';
 import { DiplomaticRelation, War } from './types/diplomacy';
 import {
@@ -52,8 +56,6 @@ import {
   DIPLOMATIC_COSTS
 } from './engine/diplomacy';
 import { processAITick } from './engine/aiEngine';
-import { DiplomacyPanel } from './components/DiplomacyPanel';
-import { WarPanel } from './components/WarPanel';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -216,6 +218,12 @@ const App: React.FC = () => {
   /** Painel de guerras aberto */
   const [showWarPanel, setShowWarPanel] = useState(false);
 
+  /** Modal de relatório de batalha */
+  const [battleReport, setBattleReport] = useState<CombatResult | null>(null);
+  
+  /** Jogo pausado (para relatório de batalha) */
+  const [isPaused, setIsPaused] = useState(false);
+
   /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
   const provincesRef = useRef(provinces);
@@ -360,12 +368,29 @@ const App: React.FC = () => {
             if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
             return c;
           });
+          
+          // Atualiza resultado com mudança territorial
+          result.territoryChanged = true;
+          result.newOwner = arrived.owner;
+          
           addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
+          
+          // Se o jogador está envolvido, mostra relatório e pausa
+          if (arrived.owner === playerCountryTag || enemy.owner === playerCountryTag) {
+            setBattleReport(result);
+            setIsPaused(true);
+          }
         } else {
           if (result.defender.regiments.length > 0) {
             armies = [...armies, { ...result.defender, location: arrived.location }];
           }
           addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
+          
+          // Se o jogador está envolvido, mostra relatório e pausa
+          if (arrived.owner === playerCountryTag || enemy.owner === playerCountryTag) {
+            setBattleReport(result);
+            setIsPaused(true);
+          }
         }
       } else {
         armies = [...armies, arrived];
@@ -416,9 +441,26 @@ const App: React.FC = () => {
           if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
           return c;
         });
+        
+        // Atualiza resultado com mudança territorial
+        battle.result.territoryChanged = true;
+        battle.result.newOwner = battle.result.attacker.owner;
+        
         addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+        
+        // Se o jogador está envolvido, mostra relatório e pausa
+        if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
+          setBattleReport(battle.result);
+          setIsPaused(true);
+        }
       } else if (battle.result.winner === 'defender') {
         addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
+        
+        // Se o jogador está envolvido, mostra relatório e pausa
+        if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
+          setBattleReport(battle.result);
+          setIsPaused(true);
+        }
       }
     }
 
@@ -499,14 +541,15 @@ const App: React.FC = () => {
       clearInterval(gameLoopRef.current);
       gameLoopRef.current = null;
     }
-    if (gameSpeed > 0) {
+    // Não inicia o loop se estiver pausado
+    if (gameSpeed > 0 && !isPaused) {
       const interval = SPEED_INTERVALS[gameSpeed];
       gameLoopRef.current = window.setInterval(processTick, interval);
     }
     return () => {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     };
-  }, [gameSpeed, processTick]);
+  }, [gameSpeed, processTick, isPaused]);
 
   // === Handlers de Diplomacia ===
 
@@ -1130,6 +1173,19 @@ const App: React.FC = () => {
             allCountries={allCountries}
             onClose={() => setShowWarPanel(false)}
             onMakePeace={handleMakePeace}
+          />
+        )}
+
+        {/* === Modal de Relatório de Batalha === */}
+        {battleReport && (
+          <BattleReportModal
+            battleResult={battleReport}
+            playerCountry={playerCountry}
+            allCountries={allCountries}
+            onClose={() => {
+              setBattleReport(null);
+              setIsPaused(false);
+            }}
           />
         )}
       </div>

@@ -175,6 +175,10 @@ export function resolveBattle(
   province: Province,
   maxDays: number = 30
 ): CombatResult {
+  // Salva estado original dos exércitos
+  const attackerOriginal = { ...attacker, regiments: [...attacker.regiments] };
+  const defenderOriginal = { ...defender, regiments: [...defender.regiments] };
+
   let currentAttacker = { ...attacker };
   let currentDefender = { ...defender };
   let totalAttackerLoss = 0;
@@ -204,10 +208,15 @@ export function resolveBattle(
   return {
     attacker: currentAttacker,
     defender: currentDefender,
+    attackerOriginal,
+    defenderOriginal,
     attackerCasualties: Math.floor(totalAttackerLoss),
     defenderCasualties: Math.floor(totalDefenderLoss),
     winner,
     provinceId: province.id,
+    provinceName: province.name,
+    duration: days,
+    territoryChanged: false, // Será atualizado pelo App.tsx
   };
 }
 

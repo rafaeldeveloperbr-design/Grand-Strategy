@@ -268,6 +268,10 @@ export interface CombatResult {
   attacker: Army;
   /** Exército defensor */
   defender: Army;
+  /** Exército atacante original (antes do combate) */
+  attackerOriginal: Army;
+  /** Exército defensor original (antes do combate) */
+  defenderOriginal: Army;
   /** Baixas do atacante */
   attackerCasualties: number;
   /** Baixas do defensor */
@@ -276,4 +280,12 @@ export interface CombatResult {
   winner: 'attacker' | 'defender';
   /** Província onde ocorreu o combate */
   provinceId: string;
+  /** Nome da província */
+  provinceName: string;
+  /** Duração do combate em dias */
+  duration: number;
+  /** Se houve mudança territorial */
+  territoryChanged: boolean;
+  /** Novo dono da província (se mudou) */
+  newOwner?: string;
 }

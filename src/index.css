@@ -1827,6 +1827,338 @@ html, body, #root {
 }
 
 /* ============================================================
+ * MÓDULO 5 - ESTILOS DO RELATÓRIO DE PÓS-BATALHA (AAR)
+ * ============================================================ */
+
+.battle-report-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.battle-report-modal {
+  background: var(--bg-panel);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Cabeçalho */
+.battle-report-header {
+  padding: 32px;
+  text-align: center;
+  border-radius: 10px 10px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.battle-report-header.victory {
+  background: linear-gradient(135deg, #1e5f3f 0%, #2d8f5f 100%);
+  border-bottom: 3px solid var(--accent-green);
+}
+
+.battle-report-header.defeat {
+  background: linear-gradient(135deg, #5f1e1e 0%, #8f2d2d 100%);
+  border-bottom: 3px solid var(--accent-red);
+}
+
+.battle-report-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+  animation: bounce 0.6s ease-out;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.battle-report-title {
+  font-size: 36px;
+  font-weight: 900;
+  color: white;
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  letter-spacing: 2px;
+}
+
+.battle-report-subtitle {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Informações da Batalha */
+.battle-report-info {
+  padding: 20px 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.battle-report-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.battle-report-info-item .label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.battle-report-info-item .value {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.battle-report-info-item.territory-change {
+  background: rgba(255, 215, 0, 0.1);
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-gold);
+  margin-top: 8px;
+}
+
+/* Comparativo de Exércitos */
+.battle-report-armies {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  align-items: stretch;
+}
+
+.battle-report-army {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.battle-report-army.winner {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 20px rgba(46, 204, 113, 0.2);
+}
+
+.battle-report-army.loser {
+  border-color: var(--accent-red);
+  opacity: 0.85;
+}
+
+.battle-report-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text-muted);
+  padding: 0 10px;
+}
+
+/* Cabeçalho do Exército */
+.army-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.army-flag {
+  font-size: 36px;
+}
+
+.army-info {
+  flex: 1;
+}
+
+.army-info h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.army-info p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.winner-badge {
+  background: var(--accent-green);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Estatísticas do Exército */
+.army-stats {
+  margin-bottom: 16px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.stat-row .stat-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.stat-row .stat-value {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.stat-row.casualties .stat-value {
+  color: var(--accent-red);
+}
+
+/* Detalhamento por Unidade */
+.unit-breakdown {
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.unit-breakdown h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.unit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.unit-icon {
+  font-size: 18px;
+}
+
+.unit-name {
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.unit-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.unit-stats .initial {
+  color: var(--text-secondary);
+}
+
+.unit-stats .arrow {
+  color: var(--text-muted);
+}
+
+.unit-stats .final {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.unit-stats .lost {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+/* Rodapé */
+.battle-report-footer {
+  padding: 20px 32px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.battle-report-close-btn {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.battle-report-close-btn:hover {
+  background: linear-gradient(135deg, #3498db 0%, var(--accent-blue) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
+.battle-report-close-btn:active {
+  transform: translateY(0);
+}
+
+/* ============================================================
  * SCROLLBAR CUSTOMIZADA
  * ============================================================ */
 ::-webkit-scrollbar {
