@@ -1,77 +1,172 @@
 /**
  * ============================================================
- * MÓDULO 2 - Componente Principal do Jogo
+ * MÓDULO 3 - Componente Principal do Jogo
  * ============================================================
  * Ponto de entrada da aplicação. Gerencia o estado global do jogo
  * e orquestra a renderização de todos os módulos:
  * - TopBar (barra superior com dados do país e economia)
- * - GameMap (mapa interativo com províncias)
- * - ProvincePanel (painel lateral com construções)
+ * - GameMap (mapa interativo com províncias e exércitos)
+ * - ProvincePanel (painel lateral com construções e recrutamento)
  * 
- * Inclui o game loop (tick system) que processa:
+ * Inclui o game loop que processa:
  * - Economia (renda/despesas)
  * - Crescimento populacional
  * - Construção de edifícios
+ * - Recrutamento militar
+ * - Movimentação de exércitos
+ * - Combate e conquista
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TopBar } from './components/TopBar';
 import { GameMap } from './components/GameMap';
 import { ProvincePanel } from './components/ProvincePanel';
-import { provincesData, getProvincesByCountry } from './data/provinces';
-import { countries as initialCountries, getCountryByTag } from './data/countries';
+import { provincesData } from './data/provinces';
+import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
-import { BuildingType, Country, Province, GameDate } from './types';
+import {
+  processRecruitments,
+  processArmyMovement,
+  moveArmy,
+  getEnemyArmiesInProvince,
+  generateRecruitmentId,
+} from './engine/military';
+import { resolveBattle, calculateArmySize } from './engine/combat';
+import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
+import {
+  BuildingType,
+  Country,
+  Province,
+  GameDate,
+  Army,
+  Recruitment,
+  UnitType,
+} from './types';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
- * Velocidade 1 = 1 dia por segundo
- * Velocidade 5 = 5 dias por segundo
  */
 const SPEED_INTERVALS: Record<number, number> = {
-  0: 0,     // Pausado
-  1: 1000,  // 1 dia/segundo
-  2: 500,   // 2 dias/segundo
-  3: 250,   // 4 dias/segundo
-  4: 125,   // 8 dias/segundo
-  5: 60,    // ~16 dias/segundo
+  0: 0,
+  1: 1000,
+  2: 500,
+  3: 250,
+  4: 125,
+  5: 60,
 };
+
+/**
+ * Exércitos iniciais para demonstração
+ */
+function createInitialArmies(): Army[] {
+  return [
+    {
+      id: 'army_init_1',
+      owner: 'IMP',
+      name: '1º Exército Imperial',
+      regiments: [
+        { type: 'infantry', strength: 3000, morale: 90 },
+        { type: 'infantry', strength: 2000, morale: 85 },
+        { type: 'cavalry', strength: 1000, morale: 80 },
+      ],
+      location: 'p1',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 1.0,
+      position: null,
+    },
+    {
+      id: 'army_init_2',
+      owner: 'REP',
+      name: 'Legião Valoriana',
+      regiments: [
+        { type: 'infantry', strength: 2500, morale: 88 },
+        { type: 'cavalry', strength: 800, morale: 82 },
+      ],
+      location: 'p6',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 1.0,
+      position: null,
+    },
+    {
+      id: 'army_init_3',
+      owner: 'RNO',
+      name: 'Guarda Nordiana',
+      regiments: [
+        { type: 'infantry', strength: 2000, morale: 92 },
+        { type: 'artillery', strength: 500, morale: 85 },
+      ],
+      location: 'p10',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 0.5,
+      position: null,
+    },
+    {
+      id: 'army_init_4',
+      owner: 'KHA',
+      name: 'Horda Dourada',
+      regiments: [
+        { type: 'cavalry', strength: 4000, morale: 95 },
+        { type: 'cavalry', strength: 2000, morale: 90 },
+      ],
+      location: 'p14',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 1.5,
+      position: null,
+    },
+    {
+      id: 'army_init_5',
+      owner: 'THC',
+      name: 'Guarda Sagrada',
+      regiments: [
+        { type: 'infantry', strength: 2000, morale: 95 },
+        { type: 'artillery', strength: 1000, morale: 88 },
+      ],
+      location: 'p17',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 0.75,
+      position: null,
+    },
+    {
+      id: 'army_init_6',
+      owner: 'LIG',
+      name: 'Mercenários de Portus',
+      regiments: [
+        { type: 'infantry', strength: 1500, morale: 75 },
+        { type: 'cavalry', strength: 500, morale: 70 },
+      ],
+      location: 'p20',
+      destination: null,
+      movementProgress: 0,
+      movementSpeed: 1.0,
+      position: null,
+    },
+  ];
+}
 
 /**
  * Componente raiz da aplicação
  */
 const App: React.FC = () => {
   // === Estado do Jogo ===
-
-  /** Tag do país do jogador */
   const [playerCountryTag] = useState<string>('IMP');
-
-  /** Data atual do jogo */
-  const [date, setDate] = useState<GameDate>({
-    year: 1444,
-    month: 11,
-    day: 11,
-  });
-
-  /** Velocidade do jogo (0 = pausado) */
+  const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
   const [gameSpeed, setGameSpeed] = useState<number>(0);
-
-  /** Província selecionada pelo jogador */
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-
-  /** Província sob o cursor */
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
-
-  /** Painel lateral visível */
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
 
-  /** Dados dinâmicos das províncias (mutáveis pelo game loop) */
+  /** Dados dinâmicos das províncias */
   const [provinces, setProvinces] = useState<Province[]>(() =>
     provincesData.map((p) => ({ ...p, buildings: [...p.buildings] }))
   );
 
-  /** Dados dinâmicos dos países (mutáveis pelo game loop) */
+  /** Dados dinâmicos dos países */
   const [allCountries, setAllCountries] = useState<Country[]>(() =>
     initialCountries.map((c) => ({
       ...c,
@@ -80,144 +175,218 @@ const App: React.FC = () => {
     }))
   );
 
-  /** Ref para o intervalo do game loop */
+  /** Exércitos no mapa */
+  const [armies, setArmies] = useState<Army[]>(createInitialArmies);
+
+  /** Recrutamentos em andamento */
+  const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
+
+  /** Exército selecionado */
+  const [selectedArmy, setSelectedArmy] = useState<string | null>(null);
+
+  /** Log de eventos (combate, conquistas) */
+  const [eventLog, setEventLog] = useState<string[]>([]);
+
+  /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
-  /** Ref para dados atuais (evita stale closure) */
   const provincesRef = useRef(provinces);
   const countriesRef = useRef(allCountries);
+  const armiesRef = useRef(armies);
+  const recruitmentsRef = useRef(recruitments);
 
-  // Mantém refs atualizadas
-  useEffect(() => {
-    provincesRef.current = provinces;
-  }, [provinces]);
-
-  useEffect(() => {
-    countriesRef.current = allCountries;
-  }, [allCountries]);
+  useEffect(() => { provincesRef.current = provinces; }, [provinces]);
+  useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
+  useEffect(() => { armiesRef.current = armies; }, [armies]);
+  useEffect(() => { recruitmentsRef.current = recruitments; }, [recruitments]);
 
   // === Dados Derivados ===
-
-  /** País do jogador (atualizado dinamicamente) */
   const playerCountry = useMemo(
     () => allCountries.find((c) => c.tag === playerCountryTag)!,
     [allCountries, playerCountryTag]
   );
 
-  /** Província selecionada (dados atualizados) */
   const selectedProvinceData = useMemo(
     () => provinces.find((p) => p.id === selectedProvince) ?? null,
     [provinces, selectedProvince]
   );
 
-  // === Game Loop ===
+  const selectedArmyData = useMemo(
+    () => armies.find((a) => a.id === selectedArmy) ?? null,
+    [armies, selectedArmy]
+  );
 
-  /**
-   * Avança a data em 1 dia
-   */
+  /** Adiciona evento ao log */
+  const addLog = useCallback((msg: string) => {
+    setEventLog((prev) => [msg, ...prev].slice(0, 20));
+  }, []);
+
+  // === Game Loop ===
   const advanceDate = useCallback((currentDate: GameDate): GameDate => {
     let { day, month, year } = currentDate;
     day++;
-
-    if (day > 30) {
-      day = 1;
-      month++;
-    }
-    if (month > 12) {
-      month = 1;
-      year++;
-    }
-
+    if (day > 30) { day = 1; month++; }
+    if (month > 12) { month = 1; year++; }
     return { day, month, year };
   }, []);
 
   /**
-   * Processa um tick do jogo (1 dia)
-   * Usa refs para evitar stale closures
+   * Processa um tick completo do jogo
    */
   const processTick = useCallback(() => {
     const currentProvinces = provincesRef.current;
     const currentCountries = countriesRef.current;
+    const currentArmies = armiesRef.current;
+    const currentRecruitments = recruitmentsRef.current;
 
-    // Avança a data
+    // 1. Avança a data
     setDate((prevDate) => advanceDate(prevDate));
 
-    // Processa cada país
+    // 2. Processa economia
     const updatedCountries = currentCountries.map((country) => {
-      const countryProvinces = currentProvinces.filter(
-        (p) => p.owner === country.tag
-      );
+      const countryProvinces = currentProvinces.filter(p => p.owner === country.tag);
       const { country: updatedCountry, provinces: updatedProvs } =
         processDailyTick(country, countryProvinces);
 
-      // Atualiza províncias deste país
       setProvinces((prevProvs) => {
         const newProvs = [...prevProvs];
         for (const updatedProv of updatedProvs) {
           const idx = newProvs.findIndex((p) => p.id === updatedProv.id);
-          if (idx !== -1) {
-            newProvs[idx] = updatedProv;
-          }
+          if (idx !== -1) newProvs[idx] = updatedProv;
         }
         return newProvs;
       });
 
       return updatedCountry;
     });
-
     setAllCountries(updatedCountries);
-  }, [advanceDate]);
+
+    // 3. Processa recrutamentos
+    const { recruitments: updatedRecruitments, armies: armiesAfterRecruit } =
+      processRecruitments(currentRecruitments, currentArmies, updatedCountries);
+    setRecruitments(updatedRecruitments);
+
+    // 4. Processa movimentação
+    const { armies: movingArmies, arrivedArmies } =
+      processArmyMovement(armiesAfterRecruit, currentProvinces);
+
+    let finalArmies = movingArmies;
+
+    // 5. Processa chegadas e combate
+    if (arrivedArmies.length > 0) {
+      for (const arrived of arrivedArmies) {
+        // Verifica se há inimigos na província
+        const enemies = getEnemyArmiesInProvince(finalArmies, arrived.location!, arrived.owner);
+
+        if (enemies.length > 0) {
+          // COMBATE!
+          const province = currentProvinces.find(p => p.id === arrived.location);
+          if (province) {
+            // Combate contra o primeiro exército inimigo
+            const enemy = enemies[0];
+            const result = resolveBattle(arrived, enemy, province);
+
+            // Atualiza exércitos após combate
+            finalArmies = finalArmies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
+
+            if (result.winner === 'attacker') {
+              // Atacante venceu
+              if (result.attacker.regiments.length > 0) {
+                finalArmies.push({ ...result.attacker, location: arrived.location });
+              }
+              // Conquista a província!
+              const oldOwner = province.owner;
+              setProvinces((prev) =>
+                prev.map((p) =>
+                  p.id === province.id ? { ...p, owner: arrived.owner } : p
+                )
+              );
+              // Atualiza listas de províncias dos países
+              setAllCountries((prev) =>
+                prev.map((c) => {
+                  if (c.tag === arrived.owner) {
+                    return { ...c, provinces: [...c.provinces, province.id] };
+                  }
+                  if (c.tag === oldOwner) {
+                    return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+                  }
+                  return c;
+                })
+              );
+              addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
+            } else {
+              // Defensor venceu
+              if (result.defender.regiments.length > 0) {
+                finalArmies.push({ ...result.defender, location: arrived.location });
+              }
+              addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
+            }
+          }
+        } else {
+          // Sem inimigos - simplesmente ocupa a província
+          finalArmies.push(arrived);
+
+          // Se a província é inimiga (sem defensores), conquista automaticamente
+          const province = currentProvinces.find(p => p.id === arrived.location);
+          if (province && province.owner !== arrived.owner) {
+            const oldOwner = province.owner;
+            setProvinces((prev) =>
+              prev.map((p) =>
+                p.id === province.id ? { ...p, owner: arrived.owner } : p
+              )
+            );
+            setAllCountries((prev) =>
+              prev.map((c) => {
+                if (c.tag === arrived.owner) {
+                  return { ...c, provinces: [...c.provinces, province.id] };
+                }
+                if (c.tag === oldOwner) {
+                  return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+                }
+                return c;
+              })
+            );
+            addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
+          }
+        }
+      }
+    }
+
+    setArmies(finalArmies);
+  }, [advanceDate, addLog]);
 
   /**
-   * Gerencia o game loop baseado na velocidade
+   * Gerencia o game loop
    */
   useEffect(() => {
-    // Limpa intervalo anterior
     if (gameLoopRef.current) {
       clearInterval(gameLoopRef.current);
       gameLoopRef.current = null;
     }
-
-    // Se não está pausado, inicia o loop
     if (gameSpeed > 0) {
       const interval = SPEED_INTERVALS[gameSpeed];
       gameLoopRef.current = window.setInterval(processTick, interval);
     }
-
     return () => {
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current);
-      }
+      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     };
   }, [gameSpeed, processTick]);
 
   // === Handlers ===
-
-  /**
-   * Handler de click em uma província no mapa
-   */
   const handleProvinceClick = useCallback((provinceId: string) => {
     setSelectedProvince(provinceId);
     setIsPanelOpen(true);
+    setSelectedArmy(null);
   }, []);
 
-  /**
-   * Handler de hover em uma província
-   */
   const handleProvinceHover = useCallback((provinceId: string | null) => {
     setHoveredProvince(provinceId);
   }, []);
 
-  /**
-   * Fecha o painel lateral
-   */
   const handleClosePanel = useCallback(() => {
     setIsPanelOpen(false);
     setSelectedProvince(null);
   }, []);
 
-  /**
-   * Altera a velocidade do jogo
-   */
   const handleSpeedChange = useCallback((speed: number) => {
     setGameSpeed(speed);
   }, []);
@@ -229,64 +398,38 @@ const App: React.FC = () => {
     (provinceId: string, buildingType: BuildingType) => {
       const province = provinces.find((p) => p.id === provinceId);
       if (!province || province.owner !== playerCountryTag) return;
-
-      // Verifica se já há construção em andamento
       if (province.buildings.some((b) => b.daysRemaining > 0)) return;
 
-      // Obtém nível atual
-      const existingBuilding = province.buildings.find(
-        (b) => b.type === buildingType
-      );
+      const existingBuilding = province.buildings.find((b) => b.type === buildingType);
       const currentLevel = existingBuilding?.level ?? 0;
 
-      // Calcula custo e tempo
       const cost = getBuildingCost(buildingType, currentLevel);
       const buildTime = getBuildingTime(buildingType, currentLevel);
 
-      // Verifica se pode pagar
       if (playerCountry.resources.gold < cost) return;
 
-      // Deduz o custo
       setAllCountries((prev) =>
         prev.map((c) =>
           c.tag === playerCountryTag
-            ? {
-                ...c,
-                resources: {
-                  ...c.resources,
-                  gold: c.resources.gold - cost,
-                },
-              }
+            ? { ...c, resources: { ...c.resources, gold: c.resources.gold - cost } }
             : c
         )
       );
 
-      // Adiciona/atualiza o edifício na província
       setProvinces((prev) =>
         prev.map((p) => {
           if (p.id !== provinceId) return p;
-
           const newBuildings = [...p.buildings];
-          const existingIdx = newBuildings.findIndex(
-            (b) => b.type === buildingType
-          );
-
+          const existingIdx = newBuildings.findIndex((b) => b.type === buildingType);
           if (existingIdx >= 0) {
-            // Upgrade
             newBuildings[existingIdx] = {
               ...newBuildings[existingIdx],
               level: newBuildings[existingIdx].level + 1,
               daysRemaining: buildTime,
             };
           } else {
-            // Novo edifício
-            newBuildings.push({
-              type: buildingType,
-              level: 1,
-              daysRemaining: buildTime,
-            });
+            newBuildings.push({ type: buildingType, level: 1, daysRemaining: buildTime });
           }
-
           return { ...p, buildings: newBuildings };
         })
       );
@@ -294,8 +437,84 @@ const App: React.FC = () => {
     [provinces, playerCountryTag, playerCountry.resources.gold]
   );
 
-  // === Renderização ===
+  /**
+   * Recruta uma unidade em uma província
+   */
+  const handleRecruit = useCallback(
+    (provinceId: string, unitType: UnitType) => {
+      const province = provinces.find((p) => p.id === provinceId);
+      if (!province || province.owner !== playerCountryTag) return;
 
+      const costs = getRecruitmentCost(unitType);
+
+      // Verifica recursos
+      if (playerCountry.resources.gold < costs.gold) return;
+      if (playerCountry.resources.manpower < costs.manpower) return;
+
+      // Deduz recursos
+      setAllCountries((prev) =>
+        prev.map((c) =>
+          c.tag === playerCountryTag
+            ? {
+                ...c,
+                resources: {
+                  ...c.resources,
+                  gold: c.resources.gold - costs.gold,
+                  manpower: c.resources.manpower - costs.manpower,
+                },
+              }
+            : c
+        )
+      );
+
+      // Adiciona recrutamento
+      const newRecruitment: Recruitment = {
+        id: generateRecruitmentId(),
+        provinceId,
+        owner: playerCountryTag,
+        unitType,
+        daysRemaining: costs.days,
+      };
+      setRecruitments((prev) => [...prev, newRecruitment]);
+      addLog(`🗡️ Recrutando ${unitType} em ${province.name} (${costs.days} dias)`);
+    },
+    [provinces, playerCountryTag, playerCountry, addLog]
+  );
+
+  /**
+   * Seleciona um exército
+   */
+  const handleArmyClick = useCallback((armyId: string) => {
+    const army = armiesRef.current.find(a => a.id === armyId);
+    if (army && army.owner === playerCountryTag) {
+      setSelectedArmy(armyId);
+      setSelectedProvince(null);
+      setIsPanelOpen(false);
+    }
+  }, [playerCountryTag]);
+
+  /**
+   * Move o exército selecionado para uma província (right-click)
+   */
+  const handleProvinceRightClick = useCallback(
+    (provinceId: string) => {
+      if (!selectedArmy) return;
+
+      const army = armiesRef.current.find((a) => a.id === selectedArmy);
+      if (!army || army.owner !== playerCountryTag) return;
+      if (army.destination) return; // Já está se movendo
+
+      const moved = moveArmy(army, provinceId, provincesRef.current);
+      if (moved) {
+        setArmies((prev) => prev.map((a) => (a.id === army.id ? moved : a)));
+        const destProvince = provincesRef.current.find(p => p.id === provinceId);
+        addLog(`🚶 ${army.name} marchando para ${destProvince?.name ?? provinceId}`);
+      }
+    },
+    [selectedArmy, playerCountryTag, addLog]
+  );
+
+  // === Renderização ===
   return (
     <div className="game">
       {/* === Barra Superior === */}
@@ -312,52 +531,96 @@ const App: React.FC = () => {
         <GameMap
           provinces={provinces}
           countries={allCountries}
+          armies={armies}
           selectedProvince={selectedProvince}
           hoveredProvince={hoveredProvince}
+          selectedArmy={selectedArmy}
           onProvinceHover={handleProvinceHover}
           onProvinceClick={handleProvinceClick}
+          onArmyClick={handleArmyClick}
+          onProvinceRightClick={handleProvinceRightClick}
         />
 
-        {/* === Painel Lateral (condicional) === */}
+        {/* === Painel Lateral === */}
         {isPanelOpen && selectedProvinceData && (
           <ProvincePanel
             province={selectedProvinceData}
             countries={allCountries}
             playerCountry={playerCountry}
+            armies={armies}
+            recruitments={recruitments}
             onClose={handleClosePanel}
             onProvinceClick={handleProvinceClick}
             onBuild={handleBuild}
+            onRecruit={handleRecruit}
           />
+        )}
+
+        {/* === Info do Exército Selecionado === */}
+        {selectedArmyData && (
+          <div className="army-info-panel">
+            <div className="army-info-panel__header">
+              <h3>{selectedArmyData.name}</h3>
+              <button onClick={() => setSelectedArmy(null)}>✕</button>
+            </div>
+            <div className="army-info-panel__content">
+              <div className="army-info-panel__stat">
+                <span>Total:</span>
+                <span>{calculateArmySize(selectedArmyData).toLocaleString()} homens</span>
+              </div>
+              <div className="army-info-panel__stat">
+                <span>Localização:</span>
+                <span>
+                  {selectedArmyData.location
+                    ? provinces.find(p => p.id === selectedArmyData.location)?.name ?? '?'
+                    : 'Em movimento'}
+                </span>
+              </div>
+              {selectedArmyData.destination && (
+                <div className="army-info-panel__stat">
+                  <span>Destino:</span>
+                  <span>
+                    {provinces.find(p => p.id === selectedArmyData.destination)?.name ?? '?'}
+                    {' '}({Math.round(selectedArmyData.movementProgress * 100)}%)
+                  </span>
+                </div>
+              )}
+              <div className="army-info-panel__regiments">
+                <strong>Regimentos:</strong>
+                {selectedArmyData.regiments.map((reg, i) => (
+                  <div key={i} className="army-info-panel__regiment">
+                    <span>{reg.type === 'infantry' ? '🗡️' : reg.type === 'cavalry' ? '🐎' : '💣'}</span>
+                    <span>{Math.floor(reg.strength)}</span>
+                    <span className="army-info-panel__morale">
+                      ❤️ {Math.round(reg.morale)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* === Barra Inferior (Mini Info) === */}
+      {/* === Barra Inferior === */}
       <div className="game__bottom-bar">
         <div className="game__bottom-info">
           <span className="game__bottom-label">Províncias:</span>
+          <span className="game__bottom-value">{playerCountry.provinces.length}</span>
+        </div>
+        <div className="game__bottom-info">
+          <span className="game__bottom-label">Exércitos:</span>
           <span className="game__bottom-value">
-            {playerCountry.provinces.length}
+            {armies.filter(a => a.owner === playerCountryTag).length}
           </span>
         </div>
         <div className="game__bottom-info">
-          <span className="game__bottom-label">Pop. Total:</span>
+          <span className="game__bottom-label">Tropas:</span>
           <span className="game__bottom-value">
-            {provinces
-              .filter((p) => p.owner === playerCountryTag)
-              .reduce((sum, p) => sum + p.population, 0)
+            {armies
+              .filter(a => a.owner === playerCountryTag)
+              .reduce((sum, a) => sum + calculateArmySize(a), 0)
               .toLocaleString()}
-          </span>
-        </div>
-        <div className="game__bottom-info">
-          <span className="game__bottom-label">Renda Líquida:</span>
-          <span
-            className={`game__bottom-value ${
-              playerCountry.economy.goldIncome - playerCountry.economy.goldExpense >= 0
-                ? 'game__bottom-value--positive'
-                : 'game__bottom-value--negative'
-            }`}
-          >
-            {(playerCountry.economy.goldIncome - playerCountry.economy.goldExpense).toFixed(1)}/dia
           </span>
         </div>
         <div className="game__bottom-info">
@@ -368,9 +631,7 @@ const App: React.FC = () => {
         </div>
         <div className="game__bottom-info">
           <span className="game__bottom-label">Módulo:</span>
-          <span className="game__bottom-value game__bottom-value--highlight">
-            2 - Economia
-          </span>
+          <span className="game__bottom-value game__bottom-value--highlight">3 - Militar</span>
         </div>
       </div>
     </div>

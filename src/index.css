@@ -845,6 +845,182 @@ html, body, #root {
 }
 
 /* ============================================================
+ * MÓDULO 3 - ESTILOS MILITARES
+ * ============================================================ */
+
+/* === Army Marker no SVG === */
+.army-marker {
+  transition: transform 0.3s ease;
+}
+
+.army-marker:hover .army-marker__body {
+  filter: brightness(1.3);
+}
+
+.army-marker--selected .army-marker__body {
+  filter: brightness(1.2) drop-shadow(0 0 4px #FFD700);
+}
+
+/* === Painel de Info do Exército === */
+.army-info-panel {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 240px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 90;
+  overflow: hidden;
+}
+
+.army-info-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.army-info-panel__header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.army-info-panel__header button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.army-info-panel__header button:hover {
+  color: var(--accent-red);
+}
+
+.army-info-panel__content {
+  padding: 10px 12px;
+}
+
+.army-info-panel__stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 3px 0;
+  color: var(--text-secondary);
+}
+
+.army-info-panel__stat span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.army-info-panel__regiments {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.army-info-panel__regiments strong {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.army-info-panel__regiment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-primary);
+  padding: 2px 0;
+  font-family: var(--font-mono);
+}
+
+.army-info-panel__morale {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* === Army Cards no ProvincePanel === */
+.province-panel__army-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.province-panel__army-size {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-gold);
+}
+
+.province-panel__army-card {
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.province-panel__army-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.province-panel__army-card-size {
+  font-family: var(--font-mono);
+  color: var(--accent-gold);
+  font-size: 11px;
+}
+
+.province-panel__army-card-regiments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.province-panel__regiment-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.province-panel__army-card-moving {
+  font-size: 10px;
+  color: var(--accent-green);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.province-panel__no-armies {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+}
+
+/* ============================================================
  * SCROLLBAR CUSTOMIZADA
  * ============================================================ */
 ::-webkit-scrollbar {

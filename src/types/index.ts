@@ -174,3 +174,104 @@ export interface GameDate {
   month: number;
   day: number;
 }
+
+/**
+ * ============================================================
+ * MÓDULO 3 - Tipos Militares
+ * ============================================================
+ */
+
+/**
+ * Tipos de unidades militares
+ */
+export type UnitType = 'infantry' | 'cavalry' | 'artillery';
+
+/**
+ * Definição de um tipo de unidade militar
+ */
+export interface UnitDefinition {
+  type: UnitType;
+  name: string;
+  icon: string;
+  /** Custo em ouro por regimento (1000 homens) */
+  cost: number;
+  /** Custo em manpower por regimento */
+  manpowerCost: number;
+  /** Dias de treinamento */
+  trainingTime: number;
+  /** Poder de ataque base */
+  attack: number;
+  /** Poder de defesa base */
+  defense: number;
+  /** Mobilidade (províncias por dia) */
+  mobility: number;
+}
+
+/**
+ * Representa um regimento militar (unidade básica)
+ */
+export interface Regiment {
+  type: UnitType;
+  /** Número de homens no regimento (máx 1000) */
+  strength: number;
+  /** Moral (0-100) */
+  morale: number;
+}
+
+/**
+ * Representa um exército (coleção de regimentos)
+ */
+export interface Army {
+  /** ID único do exército */
+  id: string;
+  /** País dono do exército */
+  owner: string;
+  /** Nome do exército */
+  name: string;
+  /** Lista de regimentos */
+  regiments: Regiment[];
+  /** Província atual (null se em movimento) */
+  location: string | null;
+  /** Província de destino (se em movimento) */
+  destination: string | null;
+  /** Progresso do movimento (0-1, onde 1 = chegou) */
+  movementProgress: number;
+  /** Velocidade de movimento (baseada no regimento mais lento) */
+  movementSpeed: number;
+  /** Posição visual atual (para animação) */
+  position: { x: number; y: number } | null;
+}
+
+/**
+ * Representa um recrutamento em andamento
+ */
+export interface Recruitment {
+  /** ID único */
+  id: string;
+  /** Província onde está recrutando */
+  provinceId: string;
+  /** País que está recrutando */
+  owner: string;
+  /** Tipo de unidade sendo recrutada */
+  unitType: UnitType;
+  /** Dias restantes */
+  daysRemaining: number;
+}
+
+/**
+ * Resultado de um combate
+ */
+export interface CombatResult {
+  /** Exército atacante */
+  attacker: Army;
+  /** Exército defensor */
+  defender: Army;
+  /** Baixas do atacante */
+  attackerCasualties: number;
+  /** Baixas do defensor */
+  defenderCasualties: number;
+  /** Vencedor ('attacker' ou 'defender') */
+  winner: 'attacker' | 'defender';
+  /** Província onde ocorreu o combate */
+  provinceId: string;
+}

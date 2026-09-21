@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * MÓDULO 2 - Painel de Província (Side Panel) com Construções
+ * MÓDULO 3 - Painel de Província com Sistema Militar
  * ============================================================
  * Exibe detalhes da província selecionada:
  * - Nome, país dono, população
- * - Barra de crescimento populacional
  * - Seção de edifícios e construções
+ * - Seção Militar: exércitos presentes e recrutamento
  * - Províncias vizinhas
  */
 
 import React, { useState } from 'react';
-import { Province, Country, BuildingType } from '../types';
+import { Province, Country, BuildingType, Army, Recruitment, UnitType } from '../types';
 import { getCountryByTag } from '../data/countries';
 import {
   BUILDING_DEFINITIONS,
@@ -18,110 +18,100 @@ import {
   getBuildingTime,
   canBuildBuilding,
 } from '../data/buildings';
+import { UNIT_DEFINITIONS } from '../data/units';
+import { calculateArmySize } from '../engine/combat';
 
 interface ProvincePanelProps {
   province: Province;
   countries: Country[];
   playerCountry: Country;
+  armies: Army[];
+  recruitments: Recruitment[];
   onClose: () => void;
   onProvinceClick: (provinceId: string) => void;
   onBuild: (provinceId: string, buildingType: BuildingType) => void;
+  onRecruit: (provinceId: string, unitType: UnitType) => void;
 }
 
-/**
- * Abas do painel
- */
-type PanelTab = 'info' | 'buildings';
+type PanelTab = 'info' | 'buildings' | 'military';
 
 /**
- * Painel lateral com detalhes da província selecionada
+ * Painel lateral com detalhes da província
  */
 export const ProvincePanel: React.FC<ProvincePanelProps> = ({
   province,
   countries,
   playerCountry,
+  armies,
+  recruitments,
   onClose,
   onProvinceClick,
   onBuild,
+  onRecruit,
 }) => {
   const [activeTab, setActiveTab] = useState<PanelTab>('info');
   const ownerCountry = getCountryByTag(province.owner);
   const isPlayerOwned = province.owner === playerCountry.tag;
 
-  /**
-   * Obtém o nível atual de um tipo de edifício na província
-   */
+  // Exércitos nesta província
+  const armiesHere = armies.filter(a => a.location === province.id);
+  // Recrutamentos nesta província
+  const recruitmentsHere = recruitments.filter(r => r.provinceId === province.id);
+
   const getBuildingLevel = (type: BuildingType): number => {
     const building = province.buildings.find((b) => b.type === type);
     return building?.level ?? 0;
   };
 
-  /**
-   * Verifica se há uma construção em andamento
-   */
-  const hasConstructionInProgress = province.buildings.some(
-    (b) => b.daysRemaining > 0
-  );
+  const hasConstructionInProgress = province.buildings.some(b => b.daysRemaining > 0);
 
-  /**
-   * Busca os dados das províncias vizinhas
-   */
   const neighborProvinces = province.neighbors.map((nId) => {
     const allProvinces = countries.flatMap((c) =>
       c.provinces.map((pId) => ({ id: pId, owner: c.tag }))
     );
     const neighborData = allProvinces.find((p) => p.id === nId);
-    const neighborCountry = neighborData
-      ? getCountryByTag(neighborData.owner)
-      : undefined;
+    const neighborCountry = neighborData ? getCountryByTag(neighborData.owner) : undefined;
     return { id: nId, country: neighborCountry };
   });
 
   return (
     <div className="province-panel">
-      {/* === Cabeçalho do Painel === */}
+      {/* === Cabeçalho === */}
       <div className="province-panel__header">
         <h2 className="province-panel__title">{province.name}</h2>
-        <button
-          className="province-panel__close"
-          onClick={onClose}
-          title="Fechar"
-        >
-          ✕
-        </button>
+        <button className="province-panel__close" onClick={onClose}>✕</button>
       </div>
 
       {/* === Abas === */}
       <div className="province-panel__tabs">
         <button
-          className={`province-panel__tab ${
-            activeTab === 'info' ? 'province-panel__tab--active' : ''
-          }`}
+          className={`province-panel__tab ${activeTab === 'info' ? 'province-panel__tab--active' : ''}`}
           onClick={() => setActiveTab('info')}
         >
-          📊 Informações
+          📊 Info
         </button>
         <button
-          className={`province-panel__tab ${
-            activeTab === 'buildings' ? 'province-panel__tab--active' : ''
-          }`}
+          className={`province-panel__tab ${activeTab === 'buildings' ? 'province-panel__tab--active' : ''}`}
           onClick={() => setActiveTab('buildings')}
           disabled={!isPlayerOwned}
         >
-          🏗️ Edifícios
+          🏗️ Obras
+        </button>
+        <button
+          className={`province-panel__tab ${activeTab === 'military' ? 'province-panel__tab--active' : ''}`}
+          onClick={() => setActiveTab('military')}
+          disabled={!isPlayerOwned}
+        >
+          ⚔️ Militar
         </button>
       </div>
 
-      {/* === Conteúdo da Aba === */}
+      {/* === Conteúdo === */}
       <div className="province-panel__content">
+        {/* === ABA INFO === */}
         {activeTab === 'info' && (
           <>
-            {/* Informações Básicas */}
             <div className="province-panel__section">
-              <div className="province-panel__info-row">
-                <span className="province-panel__label">ID:</span>
-                <span className="province-panel__value">{province.id}</span>
-              </div>
               <div className="province-panel__info-row">
                 <span className="province-panel__label">País:</span>
                 <span className="province-panel__value province-panel__value--country">
@@ -132,7 +122,6 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                 <span className="province-panel__label">Desenvolvimento:</span>
                 <span className="province-panel__value">
                   {'⭐'.repeat(Math.min(province.development, 5))}
-                  {province.development > 5 && `+${province.development - 5}`}
                 </span>
               </div>
               <div className="province-panel__info-row">
@@ -141,14 +130,12 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
               </div>
             </div>
 
-            {/* População */}
             <div className="province-panel__section">
               <h3 className="province-panel__subtitle">População</h3>
               <div className="province-panel__info-row">
                 <span className="province-panel__label">Habitantes:</span>
                 <span className="province-panel__value">
-                  {province.population.toLocaleString()} /{' '}
-                  {province.maxPopulation.toLocaleString()}
+                  {province.population.toLocaleString()} / {province.maxPopulation.toLocaleString()}
                 </span>
               </div>
               <div className="province-panel__pop-bar">
@@ -160,55 +147,39 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                   }}
                 />
               </div>
-              <span className="province-panel__pop-text">
-                {((province.population / province.maxPopulation) * 100).toFixed(1)}%
-                da capacidade
-              </span>
             </div>
 
-            {/* Edifícios Ativos (resumo) */}
-            {province.buildings.length > 0 && (
+            {/* Exércitos presentes (resumo) */}
+            {armiesHere.length > 0 && (
               <div className="province-panel__section">
-                <h3 className="province-panel__subtitle">Edifícios Ativos</h3>
-                <div className="province-panel__buildings-summary">
-                  {province.buildings
-                    .filter((b) => b.daysRemaining <= 0)
-                    .map((b) => {
-                      const def = BUILDING_DEFINITIONS[b.type];
-                      return (
-                        <div key={b.type} className="province-panel__building-badge">
-                          <span>{def.icon}</span>
-                          <span className="province-panel__building-badge-level">
-                            Nv.{b.level}
-                          </span>
-                        </div>
-                      );
-                    })}
-                </div>
+                <h3 className="province-panel__subtitle">Tropas Presentes</h3>
+                {armiesHere.map(army => {
+                  const armyCountry = getCountryByTag(army.owner);
+                  return (
+                    <div key={army.id} className="province-panel__army-summary">
+                      <span>{armyCountry?.flag} {army.name}</span>
+                      <span className="province-panel__army-size">
+                        {calculateArmySize(army).toLocaleString()} 👥
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* Províncias Vizinhas */}
+            {/* Fronteiras */}
             <div className="province-panel__section">
-              <h3 className="province-panel__subtitle">
-                Fronteiras ({province.neighbors.length})
-              </h3>
+              <h3 className="province-panel__subtitle">Fronteiras ({province.neighbors.length})</h3>
               <div className="province-panel__neighbors">
                 {neighborProvinces.map((neighbor) => (
                   <button
                     key={neighbor.id}
                     className="province-panel__neighbor-btn"
                     onClick={() => onProvinceClick(neighbor.id)}
-                    style={{
-                      borderLeftColor: neighbor.country?.color ?? '#666',
-                    }}
+                    style={{ borderLeftColor: neighbor.country?.color ?? '#666' }}
                   >
-                    <span className="province-panel__neighbor-flag">
-                      {neighbor.country?.flag ?? '?'}
-                    </span>
-                    <span className="province-panel__neighbor-id">
-                      {neighbor.id}
-                    </span>
+                    <span>{neighbor.country?.flag ?? '?'}</span>
+                    <span className="province-panel__neighbor-id">{neighbor.id}</span>
                     <span className="province-panel__neighbor-country">
                       {neighbor.country?.adjective ?? '???'}
                     </span>
@@ -219,155 +190,202 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
           </>
         )}
 
+        {/* === ABA EDIFÍCIOS === */}
         {activeTab === 'buildings' && isPlayerOwned && (
           <>
-            {/* Construção em Andamento */}
             {hasConstructionInProgress && (
               <div className="province-panel__section province-panel__section--highlight">
                 <h3 className="province-panel__subtitle">🔨 Em Construção</h3>
-                {province.buildings
-                  .filter((b) => b.daysRemaining > 0)
-                  .map((b) => {
-                    const def = BUILDING_DEFINITIONS[b.type];
-                    const totalTime = getBuildingTime(b.type, b.level - 1);
-                    const progress =
-                      ((totalTime - b.daysRemaining) / totalTime) * 100;
-                    return (
-                      <div key={b.type} className="province-panel__construction">
-                        <div className="province-panel__construction-header">
-                          <span>
-                            {def.icon} {def.name} (Nv.{b.level})
-                          </span>
-                          <span className="province-panel__construction-days">
-                            {b.daysRemaining} dias
-                          </span>
-                        </div>
-                        <div className="province-panel__construction-bar">
-                          <div
-                            className="province-panel__construction-fill"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
+                {province.buildings.filter((b) => b.daysRemaining > 0).map((b) => {
+                  const def = BUILDING_DEFINITIONS[b.type];
+                  const totalTime = getBuildingTime(b.type, b.level - 1);
+                  const progress = ((totalTime - b.daysRemaining) / totalTime) * 100;
+                  return (
+                    <div key={b.type} className="province-panel__construction">
+                      <div className="province-panel__construction-header">
+                        <span>{def.icon} {def.name} (Nv.{b.level})</span>
+                        <span className="province-panel__construction-days">{b.daysRemaining}d</span>
                       </div>
-                    );
-                  })}
+                      <div className="province-panel__construction-bar">
+                        <div className="province-panel__construction-fill" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* Opções de Construção */}
             <div className="province-panel__section">
-              <h3 className="province-panel__subtitle">Construir Edifício</h3>
+              <h3 className="province-panel__subtitle">Construir</h3>
               <div className="province-panel__build-options">
-                {(Object.keys(BUILDING_DEFINITIONS) as BuildingType[]).map(
-                  (type) => {
-                    const def = BUILDING_DEFINITIONS[type];
-                    const currentLevel = getBuildingLevel(type);
-                    const canBuild = canBuildBuilding(type, currentLevel);
-                    const cost = getBuildingCost(type, currentLevel);
-                    const buildTime = getBuildingTime(type, currentLevel);
-                    const canAfford = playerCountry.resources.gold >= cost;
-                    const cantBuildReason = hasConstructionInProgress
-                      ? 'Já há construção em andamento'
-                      : !canBuild
-                      ? 'Nível máximo atingido'
-                      : !canAfford
-                      ? 'Ouro insuficiente'
-                      : null;
+                {(Object.keys(BUILDING_DEFINITIONS) as BuildingType[]).map((type) => {
+                  const def = BUILDING_DEFINITIONS[type];
+                  const currentLevel = getBuildingLevel(type);
+                  const canBuild = canBuildBuilding(type, currentLevel);
+                  const cost = getBuildingCost(type, currentLevel);
+                  const buildTime = getBuildingTime(type, currentLevel);
+                  const canAfford = playerCountry.resources.gold >= cost;
+                  const cantBuildReason = hasConstructionInProgress
+                    ? 'Obra em andamento'
+                    : !canBuild
+                    ? 'Nível máximo'
+                    : !canAfford
+                    ? 'Ouro insuficiente'
+                    : null;
 
-                    return (
-                      <div
-                        key={type}
-                        className={`province-panel__build-option ${
-                          !canBuild || !canAfford || hasConstructionInProgress
-                            ? 'province-panel__build-option--disabled'
-                            : ''
-                        }`}
-                      >
-                        <div className="province-panel__build-option-header">
-                          <span className="province-panel__build-icon">
-                            {def.icon}
-                          </span>
-                          <div className="province-panel__build-info">
-                            <span className="province-panel__build-name">
-                              {def.name}
-                              {currentLevel > 0 && (
-                                <span className="province-panel__build-level">
-                                  {' '}
-                                  → Nv.{currentLevel + 1}
-                                </span>
-                              )}
-                            </span>
-                            <span className="province-panel__build-desc">
-                              {def.description}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="province-panel__build-costs">
-                          <span className="province-panel__build-cost">
-                            💰 {cost} ouro
-                          </span>
-                          <span className="province-panel__build-cost">
-                            📅 {buildTime} dias
+                  return (
+                    <div
+                      key={type}
+                      className={`province-panel__build-option ${!canBuild || !canAfford || hasConstructionInProgress ? 'province-panel__build-option--disabled' : ''}`}
+                    >
+                      <div className="province-panel__build-option-header">
+                        <span className="province-panel__build-icon">{def.icon}</span>
+                        <div className="province-panel__build-info">
+                          <span className="province-panel__build-name">
+                            {def.name}
+                            {currentLevel > 0 && <span className="province-panel__build-level"> → Nv.{currentLevel + 1}</span>}
                           </span>
                         </div>
-
-                        {/* Bônus */}
-                        <div className="province-panel__build-bonuses">
-                          {def.bonusPerLevel.goldIncome && (
-                            <span className="province-panel__build-bonus">
-                              +{(def.bonusPerLevel.goldIncome * (currentLevel + 1)).toFixed(1)}💰/dia
-                            </span>
-                          )}
-                          {def.bonusPerLevel.manpowerGain && (
-                            <span className="province-panel__build-bonus">
-                              +{def.bonusPerLevel.manpowerGain * (currentLevel + 1)}👥/dia
-                            </span>
-                          )}
-                          {def.bonusPerLevel.defense && (
-                            <span className="province-panel__build-bonus">
-                              +{def.bonusPerLevel.defense * (currentLevel + 1)}🛡️
-                            </span>
-                          )}
-                          {def.bonusPerLevel.growthBonus && (
-                            <span className="province-panel__build-bonus">
-                              +{(def.bonusPerLevel.growthBonus * (currentLevel + 1)).toFixed(1)}%📈
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          className="province-panel__build-btn"
-                          disabled={!!cantBuildReason}
-                          onClick={() => onBuild(province.id, type)}
-                          title={cantBuildReason ?? 'Construir'}
-                        >
-                          {cantBuildReason ?? '🔨 Construir'}
-                        </button>
                       </div>
-                    );
-                  }
-                )}
+                      <div className="province-panel__build-costs">
+                        <span className="province-panel__build-cost">💰 {cost}</span>
+                        <span className="province-panel__build-cost">📅 {buildTime}d</span>
+                      </div>
+                      <button
+                        className="province-panel__build-btn"
+                        disabled={!!cantBuildReason}
+                        onClick={() => onBuild(province.id, type)}
+                      >
+                        {cantBuildReason ?? '🔨 Construir'}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>
         )}
 
-        {activeTab === 'buildings' && !isPlayerOwned && (
+        {/* === ABA MILITAR === */}
+        {activeTab === 'military' && isPlayerOwned && (
+          <>
+            {/* Exércitos presentes */}
+            <div className="province-panel__section">
+              <h3 className="province-panel__subtitle">Exércitos na Província</h3>
+              {armiesHere.length === 0 ? (
+                <p className="province-panel__no-armies">Nenhum exército presente</p>
+              ) : (
+                armiesHere.map(army => {
+                  const armyCountry = getCountryByTag(army.owner);
+                  return (
+                    <div key={army.id} className="province-panel__army-card">
+                      <div className="province-panel__army-card-header">
+                        <span>{armyCountry?.flag} {army.name}</span>
+                        <span className="province-panel__army-card-size">
+                          {calculateArmySize(army).toLocaleString()} 👥
+                        </span>
+                      </div>
+                      <div className="province-panel__army-card-regiments">
+                        {army.regiments.map((reg, i) => (
+                          <span key={i} className="province-panel__regiment-badge">
+                            {reg.type === 'infantry' ? '🗡️' : reg.type === 'cavalry' ? '🐎' : '💣'}
+                            {Math.floor(reg.strength)}
+                          </span>
+                        ))}
+                      </div>
+                      {army.destination && (
+                        <div className="province-panel__army-card-moving">
+                          🚶 Marchando... ({Math.round(army.movementProgress * 100)}%)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Recrutamentos em andamento */}
+            {recruitmentsHere.length > 0 && (
+              <div className="province-panel__section province-panel__section--highlight">
+                <h3 className="province-panel__subtitle">🔨 Recrutando</h3>
+                {recruitmentsHere.map(rec => {
+                  const def = UNIT_DEFINITIONS[rec.unitType];
+                  const totalTime = def.trainingTime;
+                  const progress = ((totalTime - rec.daysRemaining) / totalTime) * 100;
+                  return (
+                    <div key={rec.id} className="province-panel__construction">
+                      <div className="province-panel__construction-header">
+                        <span>{def.icon} {def.name}</span>
+                        <span className="province-panel__construction-days">{rec.daysRemaining}d</span>
+                      </div>
+                      <div className="province-panel__construction-bar">
+                        <div className="province-panel__construction-fill" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Recrutar novas unidades */}
+            <div className="province-panel__section">
+              <h3 className="province-panel__subtitle">Recrutar Unidades</h3>
+              <div className="province-panel__build-options">
+                {(Object.keys(UNIT_DEFINITIONS) as UnitType[]).map((type) => {
+                  const def = UNIT_DEFINITIONS[type];
+                  const canAffordGold = playerCountry.resources.gold >= def.cost;
+                  const canAffordManpower = playerCountry.resources.manpower >= def.manpowerCost;
+                  const canRecruit = canAffordGold && canAffordManpower;
+                  const cantRecruitReason = !canAffordGold
+                    ? 'Ouro insuficiente'
+                    : !canAffordManpower
+                    ? 'Manpower insuficiente'
+                    : null;
+
+                  return (
+                    <div
+                      key={type}
+                      className={`province-panel__build-option ${!canRecruit ? 'province-panel__build-option--disabled' : ''}`}
+                    >
+                      <div className="province-panel__build-option-header">
+                        <span className="province-panel__build-icon">{def.icon}</span>
+                        <div className="province-panel__build-info">
+                          <span className="province-panel__build-name">{def.name}</span>
+                          <span className="province-panel__build-desc">
+                            ATK:{def.attack} DEF:{def.defense} MOB:{def.mobility}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="province-panel__build-costs">
+                        <span className="province-panel__build-cost">💰 {def.cost}</span>
+                        <span className="province-panel__build-cost">👥 {def.manpowerCost}</span>
+                        <span className="province-panel__build-cost">📅 {def.trainingTime}d</span>
+                      </div>
+                      <button
+                        className="province-panel__build-btn"
+                        disabled={!canRecruit}
+                        onClick={() => onRecruit(province.id, type)}
+                      >
+                        {cantRecruitReason ?? '🗡️ Recrutar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {(activeTab === 'buildings' || activeTab === 'military') && !isPlayerOwned && (
           <div className="province-panel__section">
-            <p className="province-panel__no-access">
-              ⚠️ Esta província não pertence ao seu país.
-            </p>
+            <p className="province-panel__no-access">⚠️ Esta província não pertence ao seu país.</p>
           </div>
         )}
       </div>
 
       {/* === Rodapé === */}
       <div className="province-panel__footer">
-        <div
-          className="province-panel__color-swatch"
-          style={{ backgroundColor: province.color }}
-        />
+        <div className="province-panel__color-swatch" style={{ backgroundColor: province.color }} />
         <span className="province-panel__footer-text">
           {province.id} | Pop: {province.population.toLocaleString()}
         </span>

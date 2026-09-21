@@ -12,15 +12,20 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { Province, Country } from '../types';
+import { Province, Country, Army } from '../types';
+import { ArmyMarker } from './ArmyMarker';
 
 interface MapProps {
   provinces: Province[];
   countries: Country[];
+  armies: Army[];
   selectedProvince: string | null;
   hoveredProvince: string | null;
+  selectedArmy: string | null;
   onProvinceHover: (provinceId: string | null) => void;
   onProvinceClick: (provinceId: string) => void;
+  onArmyClick: (armyId: string) => void;
+  onProvinceRightClick: (provinceId: string) => void;
 }
 
 /**
@@ -29,10 +34,14 @@ interface MapProps {
 export const GameMap: React.FC<MapProps> = ({
   provinces,
   countries,
+  armies,
   selectedProvince,
   hoveredProvince,
+  selectedArmy,
   onProvinceHover,
   onProvinceClick,
+  onArmyClick,
+  onProvinceRightClick,
 }) => {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; province: Province } | null>(null);
   const [viewBox, setViewBox] = useState({ x: -20, y: 20, w: 840, h: 640 });
@@ -198,7 +207,7 @@ export const GameMap: React.FC<MapProps> = ({
 
       {/* === Instruções === */}
       <div className="map__instructions">
-        <span>🖱️ Clique para selecionar | Shift+Arrastar para mover | Scroll para zoom</span>
+        <span>🖱️ Clique: selecionar | 🖱️ Direito: mover exército | Shift+Arrastar: mover mapa</span>
       </div>
 
       {/* === SVG do Mapa === */}
@@ -210,6 +219,24 @@ export const GameMap: React.FC<MapProps> = ({
         onMouseMove={handleMouseMovePan}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          // Encontra a província sob o cursor
+          const rect = svgRef.current?.getBoundingClientRect();
+          if (rect) {
+            const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
+            const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+            const clickedProvince = provinces.find(p => {
+              // Simplificado - usa distância ao centro
+              const dx = p.center.x - svgX;
+              const dy = p.center.y - svgY;
+              return Math.sqrt(dx * dx + dy * dy) < 60;
+            });
+            if (clickedProvince) {
+              onProvinceRightClick(clickedProvince.id);
+            }
+          }
+        }}
       >
         {/* Fundo do mar */}
         <rect x="-100" y="-100" width="1000" height="800" fill="#1a3a5c" />
@@ -299,6 +326,50 @@ export const GameMap: React.FC<MapProps> = ({
               </text>
             </g>
           ))}
+
+        {/* === Linhas de movimento dos exércitos === */}
+        {armies
+          .filter(a => a.destination && a.location)
+          .map((army) => {
+            const origin = provinces.find(p => p.id === army.location);
+            const dest = provinces.find(p => p.id === army.destination);
+            if (!origin || !dest) return null;
+            const country = countries.find(c => c.tag === army.owner);
+            return (
+              <line
+                key={`route-${army.id}`}
+                x1={origin.center.x}
+                y1={origin.center.y}
+                x2={dest.center.x}
+                y2={dest.center.y}
+                stroke={country?.colorLight ?? '#FFF'}
+                strokeWidth="2"
+                strokeDasharray="6,3"
+                opacity="0.7"
+                pointerEvents="none"
+              >
+                <animate
+                  attributeName="stroke-dashoffset"
+                  from="0"
+                  to="-18"
+                  dur="1s"
+                  repeatCount="indefinite"
+                />
+              </line>
+            );
+          })}
+
+        {/* === Marcadores de Exércitos === */}
+        {armies.map((army) => (
+          <ArmyMarker
+            key={army.id}
+            army={army}
+            provinces={provinces}
+            countries={countries}
+            isSelected={army.id === selectedArmy}
+            onClick={onArmyClick}
+          />
+        ))}
       </svg>
 
       {/* === Tooltip === */}
