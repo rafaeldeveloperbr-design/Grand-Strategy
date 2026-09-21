@@ -19,11 +19,18 @@ export function processDailyTechProgress(
   notifications: string[];
 } {
   const notifications: string[] = [];
+  
+  // Validação de segurança
+  if (!techState || !country) {
+    console.warn('processDailyTechProgress: techState ou country inválido');
+    return { techState: techState || createInitialTechState('UNKNOWN'), notifications };
+  }
+  
   let updatedTechState = { ...techState };
 
   // Processa progresso do foco ativo
   if (updatedTechState.activeFocusId) {
-    const focus = NATIONAL_FOCUSES.find(f => f.id === updatedTechState.activeFocusId);
+    const focus = NATIONAL_FOCUSES?.find(f => f?.id === updatedTechState.activeFocusId);
     if (focus && !focus.completed) {
       const updatedFocus = { ...focus };
       updatedFocus.currentProgressDays += 1;
@@ -47,11 +54,11 @@ export function processDailyTechProgress(
 
   // Processa progresso da pesquisa ativa
   if (updatedTechState.activeResearchId) {
-    const tech = TECHNOLOGIES.find(t => t.id === updatedTechState.activeResearchId);
+    const tech = TECHNOLOGIES?.find(t => t?.id === updatedTechState.activeResearchId);
     if (tech && !tech.researched) {
       // Verifica se tem ouro suficiente para continuar pesquisando
       const dailyCost = tech.costGold / tech.durationDays;
-      if (country.resources.gold >= dailyCost) {
+      if (country.resources?.gold >= dailyCost) {
         const updatedTech = { ...tech };
         updatedTech.currentProgressDays += 1;
 
@@ -83,13 +90,19 @@ export function startNationalFocus(
   techState: CountryTechState,
   focusId: string
 ): CountryTechState | null {
-  const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+  // Validação de segurança
+  if (!techState || !focusId) {
+    console.warn('startNationalFocus: techState ou focusId inválido');
+    return null;
+  }
+  
+  const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
   if (!focus || focus.completed) return null;
 
   // Verifica pré-requisitos
   if (focus.prerequisites) {
     const hasPrereqs = focus.prerequisites.every(prereqId => 
-      techState.completedFocuses.includes(prereqId)
+      techState.completedFocuses?.includes(prereqId)
     );
     if (!hasPrereqs) return null;
   }
@@ -108,20 +121,26 @@ export function startTechnologyResearch(
   techId: string,
   country: Country
 ): { techState: CountryTechState | null; cost: number } {
-  const tech = TECHNOLOGIES.find(t => t.id === techId);
+  // Validação de segurança
+  if (!techState || !techId || !country) {
+    console.warn('startTechnologyResearch: techState, techId ou country inválido');
+    return { techState: null, cost: 0 };
+  }
+  
+  const tech = TECHNOLOGIES?.find(t => t?.id === techId);
   if (!tech || tech.researched) return { techState: null, cost: 0 };
-
+  
   // Verifica pré-requisitos
-  const hasPrereqs = tech.prerequisites.every(prereqId => 
-    techState.completedTechnologies.includes(prereqId)
-  );
+  const hasPrereqs = tech.prerequisites?.every(prereqId => 
+    techState.completedTechnologies?.includes(prereqId)
+  ) ?? true;
   if (!hasPrereqs) return { techState: null, cost: 0 };
-
+  
   // Verifica se tem ouro suficiente
-  if (country.resources.gold < tech.costGold) {
+  if (country.resources?.gold < tech.costGold) {
     return { techState: null, cost: tech.costGold };
   }
-
+  
   return {
     techState: {
       ...techState,
@@ -130,7 +149,6 @@ export function startTechnologyResearch(
     cost: tech.costGold
   };
 }
-
 /**
  * Calcula os bônus acumulados de todas as tecnologias e focos completados
  */

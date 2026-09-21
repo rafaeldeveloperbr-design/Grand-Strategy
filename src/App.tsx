@@ -545,21 +545,24 @@ const App: React.FC = () => {
     // ===== PASSO E.5: TECNOLOGIAS E FOCOS =====
     let currentPlayerTechState = playerTechState;
     // Processa progresso de tecnologias do jogador
-    const playerTechResult = processDailyTechProgress(currentPlayerTechState, countries.find(c => c.tag === playerCountryTag)!);
-    currentPlayerTechState = playerTechResult.techState;
-    if (playerTechResult.notifications.length > 0) {
-      playerTechResult.notifications.forEach(notif => addLog(notif));
+    const playerCountry = countries.find(c => c?.tag === playerCountryTag);
+    if (currentPlayerTechState && playerCountry) {
+      const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry);
+      currentPlayerTechState = playerTechResult.techState;
+      if (playerTechResult.notifications?.length > 0) {
+        playerTechResult.notifications.forEach(notif => addLog(notif));
+      }
     }
 
     // Processa progresso de tecnologias dos bots
     let currentBotTechStates = new Map(botTechStates);
     countries.forEach(country => {
-      if (country.tag !== playerCountryTag) {
+      if (country?.tag && country.tag !== playerCountryTag) {
         const botTechState = currentBotTechStates.get(country.tag);
         if (botTechState) {
           const botTechResult = processDailyTechProgress(botTechState, country);
           currentBotTechStates.set(country.tag, botTechResult.techState);
-          if (botTechResult.notifications.length > 0) {
+          if (botTechResult.notifications?.length > 0) {
             botTechResult.notifications.forEach(notif => addLog(`🤖 ${country.name}: ${notif}`));
           }
         }
@@ -1050,10 +1053,16 @@ const App: React.FC = () => {
   }, [wars, diplomaticRelations, playerCountryTag, allCountries, addLog]);
 
   const handleStartFocus = useCallback((focusId: string) => {
+    // Validação de segurança
+    if (!focusId || !playerTechState) {
+      console.warn('handleStartFocus: focusId ou playerTechState inválido');
+      return;
+    }
+
     const updatedTechState = startNationalFocus(playerTechState, focusId);
     if (updatedTechState) {
       setPlayerTechState(updatedTechState);
-      const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+      const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
       if (focus) {
         addLog(`🎯 Foco iniciado: ${focus.title}`);
       }
@@ -1061,6 +1070,24 @@ const App: React.FC = () => {
   }, [playerTechState, addLog]);
 
   const handleStartResearch = useCallback((techId: string) => {
+    // Validação de segurança
+    if (!techId || !playerTechState || !playerCountry) {
+      console.warn('handleStartResearch: techId, playerTechState ou playerCountry inválido');
+      return;
+    }
+
+    const tech = TECHNOLOGIES?.find(t => t?.id === techId);
+    if (!tech) {
+      console.warn(`handleStartResearch: Tecnologia ${techId} não encontrada`);
+      return;
+    }
+
+    // Validação de ouro suficiente
+    if (playerCountry.resources.gold < tech.costGold) {
+      addLog(`❌ Ouro insuficiente para pesquisar ${tech.title} (necessário: 💰 ${tech.costGold})`);
+      return;
+    }
+
     const { techState: updatedTechState, cost } = startTechnologyResearch(
       playerTechState,
       techId,
@@ -1070,16 +1097,13 @@ const App: React.FC = () => {
     if (updatedTechState) {
       // Deduz o custo da pesquisa
       setAllCountries(prev => prev.map(c => 
-        c.tag === playerCountryTag
+        c?.tag === playerCountryTag
           ? { ...c, resources: { ...c.resources, gold: c.resources.gold - cost } }
           : c
       ));
       
       setPlayerTechState(updatedTechState);
-      const tech = TECHNOLOGIES.find(t => t.id === techId);
-      if (tech) {
-        addLog(`🔬 Pesquisa iniciada: ${tech.title} (💰 ${cost})`);
-      }
+      addLog(`🔬 Pesquisa iniciada: ${tech.title} (💰 ${cost})`);
     }
   }, [playerTechState, playerCountry, playerCountryTag, addLog]);
 
@@ -1092,16 +1116,8 @@ const App: React.FC = () => {
         date={date}
         gameSpeed={gameSpeed}
         onSpeedChange={handleSpeedChange}
+        onTechClick={() => setShowTechModal(true)}
       />
-
-      {/* === Botão de Tecnologias === */}
-      <button
-        className="game__tech-button"
-        onClick={() => setShowTechModal(true)}
-        title="Tecnologias e Focos Nacionais"
-      >
-        🔬 Tecnologias
-      </button>
 
       {/* === Área Principal === */}
       <div className="game__main">

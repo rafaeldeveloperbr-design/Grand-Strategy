@@ -32,43 +32,51 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('focuses');
 
   const canStartFocus = (focusId: string): boolean => {
-    const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+    // Validação de segurança
+    if (!focusId || !techState) return false;
+    
+    const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
     if (!focus || focus.completed) return false;
     if (techState.activeFocusId === focusId) return false;
     
     // Verifica pré-requisitos
     if (focus.prerequisites) {
       return focus.prerequisites.every(prereqId => 
-        techState.completedFocuses.includes(prereqId)
+        techState.completedFocuses?.includes(prereqId)
       );
     }
     return true;
   };
 
   const canStartResearch = (techId: string): boolean => {
-    const tech = TECHNOLOGIES.find(t => t.id === techId);
+    // Validação de segurança
+    if (!techId || !techState || !playerCountry) return false;
+    
+    const tech = TECHNOLOGIES?.find(t => t?.id === techId);
     if (!tech || tech.researched) return false;
     if (techState.activeResearchId === techId) return false;
     
     // Verifica pré-requisitos
-    const hasPrereqs = tech.prerequisites.every(prereqId => 
-      techState.completedTechnologies.includes(prereqId)
-    );
+    const hasPrereqs = tech.prerequisites?.every(prereqId => 
+      techState.completedTechnologies?.includes(prereqId)
+    ) ?? true;
     if (!hasPrereqs) return false;
     
     // Verifica se tem ouro suficiente
-    return playerCountry.resources.gold >= tech.costGold;
+    return playerCountry.resources?.gold >= tech.costGold;
   };
 
   const getPrerequisiteNames = (prereqIds: string[], type: 'focus' | 'tech'): string[] => {
+    if (!prereqIds) return [];
+    
     if (type === 'focus') {
       return prereqIds.map(id => {
-        const focus = NATIONAL_FOCUSES.find(f => f.id === id);
+        const focus = NATIONAL_FOCUSES?.find(f => f?.id === id);
         return focus?.title ?? id;
       });
     } else {
       return prereqIds.map(id => {
-        const tech = TECHNOLOGIES.find(t => t.id === id);
+        const tech = TECHNOLOGIES?.find(t => t?.id === id);
         return tech?.title ?? id;
       });
     }
@@ -79,11 +87,13 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
       <div className="tech-modal__content">
         <h3>Focos Nacionais</h3>
         <div className="tech-modal__grid">
-          {NATIONAL_FOCUSES.map(focus => {
-            const isActive = techState.activeFocusId === focus.id;
-            const isCompleted = techState.completedFocuses.includes(focus.id);
+          {NATIONAL_FOCUSES?.map(focus => {
+            if (!focus) return null;
+            
+            const isActive = techState?.activeFocusId === focus.id;
+            const isCompleted = techState?.completedFocuses?.includes(focus.id) ?? false;
             const canStart = canStartFocus(focus.id);
-            const progress = (focus.currentProgressDays / focus.durationDays) * 100;
+            const progress = focus.durationDays > 0 ? (focus.currentProgressDays / focus.durationDays) * 100 : 0;
 
             return (
               <div
@@ -176,11 +186,13 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
             <div key={category} className="tech-modal__category">
               <h4>{categoryNames[category]}</h4>
               <div className="tech-modal__grid">
-                {TECHNOLOGIES.filter(t => t.category === category).map(tech => {
-                  const isActive = techState.activeResearchId === tech.id;
-                  const isResearched = techState.completedTechnologies.includes(tech.id);
+                {TECHNOLOGIES?.filter(t => t?.category === category).map(tech => {
+                  if (!tech) return null;
+                  
+                  const isActive = techState?.activeResearchId === tech.id;
+                  const isResearched = techState?.completedTechnologies?.includes(tech.id) ?? false;
                   const canStart = canStartResearch(tech.id);
-                  const progress = (tech.currentProgressDays / tech.durationDays) * 100;
+                  const progress = tech.durationDays > 0 ? (tech.currentProgressDays / tech.durationDays) * 100 : 0;
 
                   return (
                     <div
