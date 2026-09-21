@@ -42,10 +42,10 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const newOwnerCountry = newOwner ? allCountries.find(c => c.tag === newOwner) : null;
 
   // Calcula tropas iniciais e sobreviventes
-  const attackerInitialTroops = attackerOriginal.regiments.reduce((sum, r) => sum + r.strength, 0);
-  const defenderInitialTroops = defenderOriginal.regiments.reduce((sum, r) => sum + r.strength, 0);
-  const attackerSurvivors = attacker.regiments.reduce((sum, r) => sum + r.strength, 0);
-  const defenderSurvivors = defender.regiments.reduce((sum, r) => sum + r.strength, 0);
+  const attackerInitialTroops = Math.floor(attackerOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
+  const defenderInitialTroops = Math.floor(defenderOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
+  const attackerSurvivors = Math.floor(attacker.regiments.reduce((sum, r) => sum + r.strength, 0));
+  const defenderSurvivors = Math.floor(defender.regiments.reduce((sum, r) => sum + r.strength, 0));
 
   // Agrupa baixas por tipo de unidade
   const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker) => {
@@ -55,18 +55,18 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
       if (!breakdown[reg.type]) {
         breakdown[reg.type] = { initial: 0, final: 0, lost: 0 };
       }
-      breakdown[reg.type].initial += reg.strength;
+      breakdown[reg.type].initial += Math.floor(reg.strength);
     });
 
     finalArmy.regiments.forEach(reg => {
       if (!breakdown[reg.type]) {
         breakdown[reg.type] = { initial: 0, final: 0, lost: 0 };
       }
-      breakdown[reg.type].final += reg.strength;
+      breakdown[reg.type].final += Math.floor(reg.strength);
     });
 
     Object.keys(breakdown).forEach(type => {
-      breakdown[type].lost = breakdown[type].initial - breakdown[type].final;
+      breakdown[type].lost = Math.floor(breakdown[type].initial - breakdown[type].final);
     });
 
     return breakdown;
@@ -74,6 +74,10 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
 
   const attackerBreakdown = getUnitBreakdown(attackerOriginal, attacker);
   const defenderBreakdown = getUnitBreakdown(defenderOriginal, defender);
+
+  // Calcula total de baixas SOMANDO as perdas por unidade (garante consistência)
+  const calculatedAttackerCasualties = Object.values(attackerBreakdown).reduce((sum, data) => sum + data.lost, 0);
+  const calculatedDefenderCasualties = Object.values(defenderBreakdown).reduce((sum, data) => sum + data.lost, 0);
 
   const getUnitIcon = (type: string) => {
     switch (type) {
@@ -149,7 +153,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>
-                <span className="stat-value">{attackerCasualties.toLocaleString()}</span>
+                <span className="stat-value">{calculatedAttackerCasualties.toLocaleString()}</span>
               </div>
             </div>
 
@@ -196,7 +200,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>
-                <span className="stat-value">{defenderCasualties.toLocaleString()}</span>
+                <span className="stat-value">{calculatedDefenderCasualties.toLocaleString()}</span>
               </div>
             </div>
 

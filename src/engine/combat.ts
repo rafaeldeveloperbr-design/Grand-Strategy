@@ -83,7 +83,7 @@ export function calculateArmyMorale(army: Army): number {
 
 /**
  * Resolve um dia de combate entre dois exércitos
- * REBALANCEADO: Dano proporcional ao ratio de poder e tamanho
+ * REBALANCEADO COM LANCHESTER'S LAW: Vantagem numérica reduz drasticamente as baixas
  */
 export function resolveCombatDay(
   attacker: Army,
@@ -102,30 +102,31 @@ export function resolveCombatDay(
   const attackerSize = calculateArmySize(attacker);
   const defenderSize = calculateArmySize(defender);
 
-  // Calcula ratio de poder (quem tem mais poder causa mais dano)
-  const totalPower = attackPower + defensePower;
-  const attackerRatio = totalPower > 0 ? attackPower / totalPower : 0.5;
-  const defenderRatio = totalPower > 0 ? defensePower / totalPower : 0.5;
+  // === LANCHESTER'S LAW: Ratio de Forças ===
+  // Calcula a razão numérica entre os exércitos
+  const attackerToDefenderRatio = attackerSize / Math.max(defenderSize, 1);
+  const defenderToAttackerRatio = defenderSize / Math.max(attackerSize, 1);
 
-  // Calcula ratio de tamanho para penalidade de desvantagem numérica
-  const sizeRatio = attackerSize / Math.max(defenderSize, 1);
+  // Calcula dano base proporcional ao poder
+  const attackerBaseDamage = attackPower * COMBAT_BALANCE.BASE_DAMAGE;
+  const defenderBaseDamage = defensePower * COMBAT_BALANCE.BASE_DAMAGE;
+
+  // === APLICA FATOR DE VANTAGEM NUMÉRICA ===
+  // O exército com vantagem numérica recebe dano REDUZIDO
+  // Fórmula: danoRecebido = danoBaseInimigo / (ratio * 1.5)
   
-  // Penalidade para exército em desvantagem numérica (1:7 = 2x mais baixas)
-  let attackerPenalty = 1.0;
-  let defenderPenalty = 1.0;
-  
-  if (sizeRatio < 0.5) {
-    // Atacante está em desvantagem (menos da metade do tamanho)
-    attackerPenalty = COMBAT_BALANCE.NUMERICAL_DISADVANTAGE_PENALTY * (1 / sizeRatio);
-  } else if (sizeRatio > 2) {
-    // Defensor está em desvantagem
-    defenderPenalty = COMBAT_BALANCE.NUMERICAL_DISADVANTAGE_PENALTY * sizeRatio;
+  let attackerDamage = attackerBaseDamage;
+  let defenderDamage = defenderBaseDamage;
+
+  if (attackerToDefenderRatio > 1) {
+    // Atacante tem vantagem numérica - recebe menos dano
+    const advantageFactor = attackerToDefenderRatio * 1.5;
+    attackerDamage = attackerBaseDamage / advantageFactor;
+  } else if (defenderToAttackerRatio > 1) {
+    // Defensor tem vantagem numérica - recebe menos dano
+    const advantageFactor = defenderToAttackerRatio * 1.5;
+    defenderDamage = defenderBaseDamage / advantageFactor;
   }
-
-  // Calcula dano base (proporcional ao ratio de poder)
-  const baseDamage = (attackPower + defensePower) * COMBAT_BALANCE.BASE_DAMAGE;
-  const attackerDamage = baseDamage * attackerRatio * defenderPenalty;
-  const defenderDamage = baseDamage * defenderRatio * attackerPenalty;
 
   // Aplica dano com limite máximo (15% do exército por dia)
   const maxAttackerLoss = attackerSize * COMBAT_BALANCE.MAX_DAILY_LOSS_RATIO;
