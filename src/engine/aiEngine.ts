@@ -63,6 +63,41 @@ export function processAITick(
   provinces: Province[];
   log?: string;
 } {
+  // === GUARD CLAUSE: Validação rigorosa de entrada ===
+  let log: string | undefined;
+  
+  if (!country || !country.tag) {
+    console.error('AI: country inválido recebido');
+    return { armies, relations, wars, country, provinces, log };
+  }
+  
+  if (!Array.isArray(armies)) {
+    console.error('AI: armies não é um array');
+    return { armies: [], relations, wars, country, provinces, log };
+  }
+  
+  if (!Array.isArray(provinces)) {
+    console.error('AI: provinces não é um array');
+    return { armies, relations, wars, country, provinces: [], log };
+  }
+
+  // Filtra exércitos inválidos imediatamente
+  const validArmies = armies.filter(army => 
+    army && 
+    typeof army === 'object' && 
+    army.id && 
+    army.owner && 
+    army.location
+  );
+
+  // Filtra províncias inválidas imediatamente
+  const validProvinces = provinces.filter(province =>
+    province &&
+    typeof province === 'object' &&
+    province.id &&
+    province.owner
+  );
+
   const personality = AI_PERSONALITIES[country.tag] || {
     aggressiveness: 0.5,
     expansionism: 0.5,
@@ -70,18 +105,30 @@ export function processAITick(
     builderPriority: 0.5
   };
 
-  let updatedArmies = [...armies];
+  let updatedArmies = [...validArmies];
   let updatedRelations = [...relations];
   let updatedWars = [...wars];
   let updatedCountry = { ...country };
-  let updatedProvinces = [...provinces];
-  let log: string | undefined;
+  let updatedProvinces = [...validProvinces];
 
   // 1. Gestão Econômica - Construir edifícios
   if (Math.random() < personality.builderPriority && updatedCountry.resources.gold > 200) {
-    const ownedProvinces = updatedProvinces.filter(p => p.owner === country.tag);
+    const ownedProvinces = updatedProvinces.filter(p => p && p.id && p.owner === country.tag);
     if (ownedProvinces.length > 0) {
       const targetProvince = ownedProvinces[Math.floor(Math.random() * ownedProvinces.length)];
+      
+      // Guard clause: verifica se targetProvince é válido
+      if (!targetProvince || !targetProvince.id) {
+        console.warn('AI: targetProvince inválido, pulando construção');
+        return {
+          armies: updatedArmies,
+          relations: updatedRelations,
+          wars: updatedWars,
+          country: updatedCountry,
+          provinces: updatedProvinces,
+          log
+        };
+      }
       
       // Tenta construir algo
       const buildingTypes = Object.keys(BUILDING_DEFINITIONS) as Array<keyof typeof BUILDING_DEFINITIONS>;
@@ -98,6 +145,9 @@ export function processAITick(
         
         updatedCountry.resources.gold -= def.baseCost;
         updatedProvinces = updatedProvinces.map(p => {
+          // Guard clause: verifica se p é válido antes de acessar propriedades
+          if (!p || !p.id) return p;
+          
           if (p.id === targetProvince.id) {
             const existing = p.buildings.find(b => b.type === buildingType);
             if (existing) {
@@ -129,47 +179,59 @@ export function processAITick(
 
   // 2. Gestão Militar - Recrutar tropas
   if (updatedCountry.resources.gold > 100 && updatedCountry.resources.manpower > 1000) {
-    const ownedProvinces = updatedProvinces.filter(p => p.owner === country.tag);
-    const armiesInCountry = updatedArmies.filter(a => a.owner === country.tag);
+    const ownedProvinces = updatedProvinces.filter(p => p && p.id && p.owner === country.tag);
     
-    // Recruta se tem poucas tropas
-    if (armiesInCountry.length < 3 || calculateArmySize(armiesInCountry[0]) < 3000) {
-      const unitTypes = Object.keys(UNIT_DEFINITIONS) as Array<keyof typeof UNIT_DEFINITIONS>;
-      const unitType = unitTypes[Math.floor(Math.random() * unitTypes.length)];
-      const def = UNIT_DEFINITIONS[unitType];
+    // Guard clause: verifica se há províncias válidas
+    if (ownedProvinces.length === 0) {
+      console.warn(`AI: ${country.tag} não possui províncias válidas para recrutar`);
+    } else {
+      const armiesInCountry = updatedArmies.filter(a => a && a.id && a.owner === country.tag);
       
-      if (updatedCountry.resources.gold >= def.cost && updatedCountry.resources.manpower >= def.manpowerCost) {
-        updatedCountry.resources.gold -= def.cost;
-        updatedCountry.resources.manpower -= def.manpowerCost;
+      // Recruta se tem poucas tropas
+      if (armiesInCountry.length < 3 || (armiesInCountry[0] && calculateArmySize(armiesInCountry[0]) < 3000)) {
+        const unitTypes = Object.keys(UNIT_DEFINITIONS) as Array<keyof typeof UNIT_DEFINITIONS>;
+        const unitType = unitTypes[Math.floor(Math.random() * unitTypes.length)];
+        const def = UNIT_DEFINITIONS[unitType];
         
-        // Adiciona regimento ao exército existente ou cria novo
-        const targetProvince = ownedProvinces[Math.floor(Math.random() * ownedProvinces.length)];
-        const existingArmy = updatedArmies.find(
-          a => a.owner === country.tag && a.location === targetProvince.id
-        );
-        
-        if (existingArmy) {
-          updatedArmies = updatedArmies.map(a => 
-            a.id === existingArmy.id
-              ? { ...a, regiments: [...a.regiments, { type: unitType, strength: 1000, morale: 100 }] }
-              : a
-          );
-        } else {
-          updatedArmies.push({
-            id: `army_${country.tag}_${Date.now()}`,
-            owner: country.tag,
-            name: `${country.name} Army`,
-            regiments: [{ type: unitType, strength: 1000, morale: 100 }],
-            location: targetProvince.id,
-            destination: null,
-            movementProgress: 0,
-            movementSpeed: def.mobility,
-            position: null,
-            path: [],
-            targetArmyId: null
-          });
+        if (updatedCountry.resources.gold >= def.cost && updatedCountry.resources.manpower >= def.manpowerCost) {
+          updatedCountry.resources.gold -= def.cost;
+          updatedCountry.resources.manpower -= def.manpowerCost;
+          
+          // Adiciona regimento ao exército existente ou cria novo
+          const targetProvince = ownedProvinces[Math.floor(Math.random() * ownedProvinces.length)];
+          
+          // Guard clause: verifica se targetProvince é válido
+          if (!targetProvince || !targetProvince.id) {
+            console.warn('AI: targetProvince inválido no recrutamento');
+          } else {
+            const existingArmy = updatedArmies.find(
+              a => a && a.id && a.owner === country.tag && a.location === targetProvince.id
+            );
+            
+            if (existingArmy) {
+              updatedArmies = updatedArmies.map(a => 
+                a.id === existingArmy.id
+                  ? { ...a, regiments: [...a.regiments, { type: unitType, strength: 1000, morale: 100 }] }
+                  : a
+              );
+            } else {
+              updatedArmies.push({
+                id: `army_${country.tag}_${Date.now()}`,
+                owner: country.tag,
+                name: `${country.name} Army`,
+                regiments: [{ type: unitType, strength: 1000, morale: 100 }],
+                location: targetProvince.id,
+                destination: null,
+                movementProgress: 0,
+                movementSpeed: def.mobility,
+                position: null,
+                path: [],
+                targetArmyId: null
+              });
+            }
+            log = `🗡️ ${country.name} recrutou ${def.name}`;
+          }
         }
-        log = `🗡️ ${country.name} recrutou ${def.name}`;
       }
     }
   }

@@ -596,11 +596,25 @@ const App: React.FC = () => {
     const currentDate = dateRef.current;
     
     // Filtra exércitos inválidos/nulos antes de passar para o motor da IA
-    const validArmies = armies.filter(a => a && a.id && a.location && a.owner);
+    // Verificação rigorosa: army deve ser um objeto válido com id, owner e location
+    const validArmies = armies.filter(a => 
+      a && 
+      typeof a === 'object' && 
+      typeof a.id === 'string' && 
+      typeof a.owner === 'string' && 
+      typeof a.location === 'string'
+    );
     
-    countries = countries.map(country => {
-      if (country.tag === playerCountryTag) return country;
-
+    // Filtra países válidos (bots ativos)
+    const activeBots = countries.filter(c => 
+      c && 
+      typeof c === 'object' && 
+      typeof c.tag === 'string' && 
+      c.tag !== playerCountryTag
+    );
+    
+    // Processa IA apenas para bots válidos
+    activeBots.forEach(country => {
       const aiResult = processAITick(
         country, provinces, validArmies, relations, wars, countries, currentDate
       );
@@ -612,7 +626,11 @@ const App: React.FC = () => {
 
       if (aiResult.log) addLog(aiResult.log);
 
-      return aiResult.country;
+      // Atualiza o país no array
+      const countryIndex = countries.findIndex(c => c.tag === country.tag);
+      if (countryIndex !== -1) {
+        countries[countryIndex] = aiResult.country;
+      }
     });
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
