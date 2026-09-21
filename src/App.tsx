@@ -1,20 +1,12 @@
 /**
  * ============================================================
- * MÓDULO 3 - Componente Principal do Jogo
+ * MÓDULO 4 - Componente Principal do Jogo (REFACTORADO)
  * ============================================================
- * Ponto de entrada da aplicação. Gerencia o estado global do jogo
- * e orquestra a renderização de todos os módulos:
- * - TopBar (barra superior com dados do país e economia)
- * - GameMap (mapa interativo com províncias e exércitos)
- * - ProvincePanel (painel lateral com construções e recrutamento)
- * 
- * Inclui o game loop que processa:
- * - Economia (renda/despesas)
- * - Crescimento populacional
- * - Construção de edifícios
- * - Recrutamento militar
- * - Movimentação de exércitos
- * - Combate e conquista
+ * Arquitetura de Estado Refatorada:
+ * - Uso rigoroso de atualizações funcionais (setState(prev => ...))
+ * - Processamento sequencial em variáveis locais
+ * - Eliminação de stale closures no game loop
+ * - Logs de debug em pontos críticos
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -232,6 +224,7 @@ const App: React.FC = () => {
   const recruitmentsRef = useRef(recruitments);
   const warsRef = useRef(wars);
   const diplomaticRelationsRef = useRef(diplomaticRelations);
+  const dateRef = useRef(date);
 
   useEffect(() => { provincesRef.current = provinces; }, [provinces]);
   useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
@@ -239,6 +232,7 @@ const App: React.FC = () => {
   useEffect(() => { recruitmentsRef.current = recruitments; }, [recruitments]);
   useEffect(() => { warsRef.current = wars; }, [wars]);
   useEffect(() => { diplomaticRelationsRef.current = diplomaticRelations; }, [diplomaticRelations]);
+  useEffect(() => { dateRef.current = date; }, [date]);
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
@@ -271,274 +265,231 @@ const App: React.FC = () => {
   }, []);
 
   /**
-   * Processa um tick completo do jogo
+   * Processa um tick completo do jogo - ARQUITETURA REFACTORADA
+   * Usa apenas atualizações funcionais para evitar stale closures.
+   * Todo o processamento é feito em variáveis locais e aplicado de uma vez no final.
    */
   const processTick = useCallback(() => {
-    const currentProvinces = provincesRef.current;
-    const currentCountries = countriesRef.current;
-    const currentArmies = armiesRef.current;
-    const currentRecruitments = recruitmentsRef.current;
-    const currentWars = warsRef.current;
-    const currentDiplomaticRelations = diplomaticRelationsRef.current;
+    // Lê o snapshot atual de TODOS os estados de uma vez
+    const snapshot = {
+      provinces: provincesRef.current,
+      countries: countriesRef.current,
+      armies: armiesRef.current,
+      recruitments: recruitmentsRef.current,
+      wars: warsRef.current,
+      relations: diplomaticRelationsRef.current,
+    };
 
-    // 1. Avança a data
-    setDate((prevDate) => advanceDate(prevDate));
-
-    // 2. Processa economia
-    const updatedCountries = currentCountries.map((country) => {
-      const countryProvinces = currentProvinces.filter(p => p.owner === country.tag);
-      const { country: updatedCountry, provinces: updatedProvs } =
-        processDailyTick(country, countryProvinces);
-
-      setProvinces((prevProvs) => {
-        const newProvs = [...prevProvs];
-        for (const updatedProv of updatedProvs) {
-          const idx = newProvs.findIndex((p) => p.id === updatedProv.id);
-          if (idx !== -1) newProvs[idx] = updatedProv;
-        }
-        return newProvs;
-      });
-
-      return updatedCountry;
+    console.log('🔄 [TICK START] Snapshot:', {
+      armies: snapshot.armies.length,
+      recruitments: snapshot.recruitments.length,
+      provinces: snapshot.provinces.length,
     });
-    setAllCountries(updatedCountries);
 
-    // 3. Processa recrutamentos
-    console.log('📋 Tick: processando recrutamentos, fila atual:', currentRecruitments.length);
-    const { recruitments: updatedRecruitments, armies: armiesAfterRecruit } =
-      processRecruitments(currentRecruitments, currentArmies, updatedCountries);
-    console.log('📋 Tick: recrutamentos processados, exércitos após recrutamento:', armiesAfterRecruit.length);
-    setRecruitments(updatedRecruitments);
+    // Trabalha com cópias mutáveis locais
+    let armies = [...snapshot.armies];
+    let provinces = [...snapshot.provinces];
+    let countries = [...snapshot.countries];
+    let wars = [...snapshot.wars];
+    let relations = [...snapshot.relations];
+    let recruitments = [...snapshot.recruitments];
 
-    // 4. Processa movimentação
-    const { armies: movingArmies, arrivedArmies } =
-      processArmyMovement(armiesAfterRecruit, currentProvinces);
+    // ===== PASSO A: RECRUTAMENTO =====
+    console.log('📋 [PASSO A] Processando recrutamentos, fila:', recruitments.length);
+    const recruitResult = processRecruitments(recruitments, armies, countries);
+    armies = recruitResult.armies;
+    recruitments = recruitResult.recruitments;
+    console.log('✅ [PASSO A] Recrutamentos processados, exércitos:', armies.length);
 
-    let finalArmies = movingArmies;
+    // ===== PASSO B: MOVIMENTAÇÃO =====
+    const moveResult = processArmyMovement(armies, provinces);
+    armies = moveResult.armies;
+    const arrivedArmies = moveResult.arrivedArmies;
 
-    // 5. Processa chegadas e combate (apenas se estiver em guerra)
-    if (arrivedArmies.length > 0) {
-      for (const arrived of arrivedArmies) {
-        const province = currentProvinces.find(p => p.id === arrived.location);
-        if (!province) {
-          finalArmies.push(arrived);
-          continue;
-        }
-
-        // Verifica se está em guerra com o dono da província
-        const isInWar = currentWars.some(
-          w => (w.attacker === arrived.owner && w.defender === province.owner) ||
-               (w.defender === arrived.owner && w.attacker === province.owner)
-        );
-
-        // Se não está em guerra, não pode atacar
-        if (province.owner !== arrived.owner && !isInWar) {
-          finalArmies.push(arrived);
-          continue;
-        }
-
-        // Verifica se há inimigos na província
-        const enemies = getEnemyArmiesInProvince(finalArmies, arrived.location!, arrived.owner);
-
-        if (enemies.length > 0) {
-          // COMBATE!
-          const enemy = enemies[0];
-          const result = resolveBattle(arrived, enemy, province);
-
-          // Atualiza exércitos após combate
-          finalArmies = finalArmies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
-
-          // Atualiza baixas na guerra
-          setWars(prevWars => prevWars.map(w => {
-            if ((w.attacker === arrived.owner && w.defender === enemy.owner) ||
-                (w.defender === arrived.owner && w.attacker === enemy.owner)) {
-              const isAttacker = w.attacker === arrived.owner;
-              return {
-                ...w,
-                attackerCasualties: w.attackerCasualties + (isAttacker ? result.attackerCasualties : result.defenderCasualties),
-                defenderCasualties: w.defenderCasualties + (isAttacker ? result.defenderCasualties : result.attackerCasualties)
-              };
-            }
-            return w;
-          }));
-
-          if (result.winner === 'attacker') {
-            if (result.attacker.regiments.length > 0) {
-              finalArmies.push({ ...result.attacker, location: arrived.location });
-            }
-            // Conquista a província!
-            const oldOwner = province.owner;
-            setProvinces((prev) =>
-              prev.map((p) =>
-                p.id === province.id ? { ...p, owner: arrived.owner } : p
-              )
-            );
-            setAllCountries((prev) =>
-              prev.map((c) => {
-                if (c.tag === arrived.owner) {
-                  return { ...c, provinces: [...c.provinces, province.id] };
-                }
-                if (c.tag === oldOwner) {
-                  return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
-                }
-                return c;
-              })
-            );
-            addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
-          } else {
-            if (result.defender.regiments.length > 0) {
-              finalArmies.push({ ...result.defender, location: arrived.location });
-            }
-            addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
-          }
-        } else {
-          // Sem inimigos - ocupa a província (se em guerra)
-          finalArmies.push(arrived);
-
-          if (province.owner !== arrived.owner && isInWar) {
-            const oldOwner = province.owner;
-            setProvinces((prev) =>
-              prev.map((p) =>
-                p.id === province.id ? { ...p, owner: arrived.owner } : p
-              )
-            );
-            setAllCountries((prev) =>
-              prev.map((c) => {
-                if (c.tag === arrived.owner) {
-                  return { ...c, provinces: [...c.provinces, province.id] };
-                }
-                if (c.tag === oldOwner) {
-                  return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
-                }
-                return c;
-              })
-            );
-            addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
-          }
-        }
+    // ===== PASSO C: DETECÇÃO E RESOLUÇÃO DE BATALHA =====
+    // C.1: Processa exércitos que chegaram ao destino
+    for (const arrived of arrivedArmies) {
+      const province = provinces.find(p => p.id === arrived.location);
+      if (!province) {
+        armies = [...armies, arrived];
+        continue;
       }
-    }
 
-    // 5.5. Verificação automática de combate em todas as províncias
-    console.log('⚔️ Tick: verificando combates automáticos, exércitos antes:', finalArmies.length);
-    const { armies: armiesAfterAutoCombat, battles: autoBattles } = 
-      checkAllProvinceCombats(finalArmies, currentProvinces, currentWars);
-    
-    // Processa resultados das batalhas automáticas
-    if (autoBattles.length > 0) {
-      console.log('⚔️ Tick:', autoBattles.length, 'batalhas automáticas resolvidas');
-      
-      for (const battle of autoBattles) {
-        const province = currentProvinces.find(p => p.id === battle.provinceId);
-        if (!province) continue;
+      const isInWar = wars.some(
+        w => (w.attacker === arrived.owner && w.defender === province.owner) ||
+             (w.defender === arrived.owner && w.attacker === province.owner)
+      );
 
-        // Atualiza baixas na guerra
-        setWars(prevWars => prevWars.map(w => {
-          if ((w.attacker === battle.result.attacker.owner && w.defender === battle.result.defender.owner) ||
-              (w.defender === battle.result.attacker.owner && w.attacker === battle.result.defender.owner)) {
-            const isAttacker = w.attacker === battle.result.attacker.owner;
+      if (province.owner !== arrived.owner && !isInWar) {
+        armies = [...armies, arrived];
+        continue;
+      }
+
+      const enemies = getEnemyArmiesInProvince(armies, arrived.location!, arrived.owner);
+
+      if (enemies.length > 0) {
+        console.log('⚔️ [COMBAT TRIGGERED AT]:', province.id);
+        const enemy = enemies[0];
+        const result = resolveBattle(arrived, enemy, province);
+
+        armies = armies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
+
+        wars = wars.map(w => {
+          if ((w.attacker === arrived.owner && w.defender === enemy.owner) ||
+              (w.defender === arrived.owner && w.attacker === enemy.owner)) {
+            const isAttacker = w.attacker === arrived.owner;
             return {
               ...w,
-              attackerCasualties: w.attackerCasualties + (isAttacker ? battle.result.attackerCasualties : battle.result.defenderCasualties),
-              defenderCasualties: w.defenderCasualties + (isAttacker ? battle.result.defenderCasualties : battle.result.attackerCasualties)
+              attackerCasualties: w.attackerCasualties + (isAttacker ? result.attackerCasualties : result.defenderCasualties),
+              defenderCasualties: w.defenderCasualties + (isAttacker ? result.defenderCasualties : result.attackerCasualties)
             };
           }
           return w;
-        }));
+        });
 
-        // Se o atacante venceu e a província é inimiga, conquista
-        if (battle.result.winner === 'attacker' && province.owner !== battle.result.attacker.owner) {
+        if (result.winner === 'attacker') {
+          if (result.attacker.regiments.length > 0) {
+            armies = [...armies, { ...result.attacker, location: arrived.location }];
+          }
           const oldOwner = province.owner;
-          setProvinces((prev) =>
-            prev.map((p) =>
-              p.id === province.id ? { ...p, owner: battle.result.attacker.owner } : p
-            )
+          provinces = provinces.map(p =>
+            p.id === province.id ? { ...p, owner: arrived.owner } : p
           );
-          setAllCountries((prev) =>
-            prev.map((c) => {
-              if (c.tag === battle.result.attacker.owner) {
-                return { ...c, provinces: [...c.provinces, province.id] };
-              }
-              if (c.tag === oldOwner) {
-                return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
-              }
-              return c;
-            })
+          countries = countries.map(c => {
+            if (c.tag === arrived.owner) return { ...c, provinces: [...c.provinces, province.id] };
+            if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+            return c;
+          });
+          addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
+        } else {
+          if (result.defender.regiments.length > 0) {
+            armies = [...armies, { ...result.defender, location: arrived.location }];
+          }
+          addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
+        }
+      } else {
+        armies = [...armies, arrived];
+        if (province.owner !== arrived.owner && isInWar) {
+          const oldOwner = province.owner;
+          provinces = provinces.map(p =>
+            p.id === province.id ? { ...p, owner: arrived.owner } : p
           );
-          addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
-        } else if (battle.result.winner === 'defender') {
-          addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
+          countries = countries.map(c => {
+            if (c.tag === arrived.owner) return { ...c, provinces: [...c.provinces, province.id] };
+            if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+            return c;
+          });
+          addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
         }
       }
     }
-    
-    finalArmies = armiesAfterAutoCombat;
 
-    setArmies(finalArmies);
-    console.log('✅ Tick: exércitos atualizados, total:', finalArmies.length);
+    // C.2: Verificação automática de combate em todas as províncias
+    console.log('⚔️ [PASSO C] Verificando combates automáticos, exércitos:', armies.length);
+    const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars);
+    armies = autoCombatResult.armies;
 
-    // 6. Processa diplomacia (tick diário)
-    setDiplomaticRelations(prev => processDiplomacyTick(prev));
+    for (const battle of autoCombatResult.battles) {
+      const province = provinces.find(p => p.id === battle.provinceId);
+      if (!province) continue;
 
-    // 7. Atualiza War Score baseado em províncias ocupadas
-    setWars(prevWars => {
-      const currentProvinces = provincesRef.current;
-      return prevWars.map(war => {
-        const attackerProvinces = currentProvinces.filter(p => p.owner === war.attacker).map(p => p.id);
-        const defenderProvinces = currentProvinces.filter(p => p.owner === war.defender).map(p => p.id);
-        
-        // Províncias originalmente do atacante/defensor (simplificado: todas as atuais)
-        const occupiedByAttacker = defenderProvinces.filter(
-          pId => !currentProvinces.find(p => p.id === pId && p.owner === war.defender)
-        );
-        
-        return {
-          ...war,
-          occupiedByAttacker: currentProvinces.filter(p => p.owner === war.attacker && war.defender === 'IMP' ? false : true).map(p => p.id).slice(0, 0), // Simplificado
-          warScore: attackerProvinces.length - defenderProvinces.length
-        };
+      wars = wars.map(w => {
+        if ((w.attacker === battle.result.attacker.owner && w.defender === battle.result.defender.owner) ||
+            (w.defender === battle.result.attacker.owner && w.attacker === battle.result.defender.owner)) {
+          const isAttacker = w.attacker === battle.result.attacker.owner;
+          return {
+            ...w,
+            attackerCasualties: w.attackerCasualties + (isAttacker ? battle.result.attackerCasualties : battle.result.defenderCasualties),
+            defenderCasualties: w.defenderCasualties + (isAttacker ? battle.result.defenderCasualties : battle.result.attackerCasualties)
+          };
+        }
+        return w;
       });
+
+      if (battle.result.winner === 'attacker' && province.owner !== battle.result.attacker.owner) {
+        const oldOwner = province.owner;
+        provinces = provinces.map(p =>
+          p.id === province.id ? { ...p, owner: battle.result.attacker.owner } : p
+        );
+        countries = countries.map(c => {
+          if (c.tag === battle.result.attacker.owner) return { ...c, provinces: [...c.provinces, province.id] };
+          if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+          return c;
+        });
+        addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+      } else if (battle.result.winner === 'defender') {
+        addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
+      }
+    }
+
+    // ===== PASSO D: ECONOMIA/POPULAÇÃO =====
+    countries = countries.map(country => {
+      const countryProvinces = provinces.filter(p => p.owner === country.tag);
+      const { country: updatedCountry, provinces: updatedProvs } =
+        processDailyTick(country, countryProvinces);
+
+      for (const updatedProv of updatedProvs) {
+        const idx = provinces.findIndex(p => p.id === updatedProv.id);
+        if (idx !== -1) {
+          provinces = [...provinces];
+          provinces[idx] = updatedProv;
+        }
+      }
+
+      return updatedCountry;
     });
 
-    // 8. Processa IA dos bots (a cada 10 ticks para performance)
-    const currentDate = date;
-    setAllCountries(prevCountries => {
-      let currentArmies = finalArmies; // Usa os exércitos atualizados, não o ref!
-      let currentRelations = diplomaticRelationsRef.current;
-      let currentWars = warsRef.current;
-      let currentProvinces = provincesRef.current;
-      
-      const updatedCountries = prevCountries.map(country => {
-        if (country.tag === playerCountryTag) return country; // Pula o jogador
-        
-        const result = processAITick(
-          country,
-          currentProvinces,
-          currentArmies,
-          currentRelations,
-          currentWars,
-          prevCountries,
-          currentDate
-        );
-        
-        currentArmies = result.armies;
-        currentRelations = result.relations;
-        currentWars = result.wars;
-        currentProvinces = result.provinces;
-        
-        if (result.log) addLog(result.log);
-        
-        return result.country;
-      });
-      
-      setArmies(currentArmies);
-      setDiplomaticRelations(currentRelations);
-      setWars(currentWars);
-      setProvinces(currentProvinces);
-      
-      return updatedCountries;
+    // ===== PASSO E: DIPLOMACIA =====
+    relations = processDiplomacyTick(relations);
+
+    // ===== PASSO F: ATUALIZA WAR SCORE =====
+    wars = wars.map(war => {
+      const attackerProvs = provinces.filter(p => p.owner === war.attacker).length;
+      const defenderProvs = provinces.filter(p => p.owner === war.defender).length;
+      return { ...war, warScore: attackerProvs - defenderProvs };
     });
-  }, [advanceDate, addLog]);
+
+    // ===== PASSO G: IA DOS BOTS =====
+    const currentDate = dateRef.current;
+    countries = countries.map(country => {
+      if (country.tag === playerCountryTag) return country;
+
+      const aiResult = processAITick(
+        country, provinces, armies, relations, wars, countries, currentDate
+      );
+
+      armies = aiResult.armies;
+      relations = aiResult.relations;
+      wars = aiResult.wars;
+      provinces = aiResult.provinces;
+
+      if (aiResult.log) addLog(aiResult.log);
+
+      return aiResult.country;
+    });
+
+    // ===== APLICA TODAS AS ATUALIZAÇÕES DE UMA VEZ =====
+    console.log('✅ [TICK END] Estado final:', {
+      armies: armies.length,
+      recruitments: recruitments.length,
+    });
+
+    setArmies(armies);
+    setProvinces(provinces);
+    setAllCountries(countries);
+    setWars(wars);
+    setDiplomaticRelations(relations);
+    setRecruitments(recruitments);
+    setDate(prevDate => advanceDate(prevDate));
+
+    // Atualiza refs para o próximo tick
+    armiesRef.current = armies;
+    provincesRef.current = provinces;
+    countriesRef.current = countries;
+    warsRef.current = wars;
+    diplomaticRelationsRef.current = relations;
+    recruitmentsRef.current = recruitments;
+  }, [addLog, playerCountryTag]);
 
   /**
    * Gerencia o game loop

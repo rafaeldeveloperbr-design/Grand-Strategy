@@ -102,7 +102,7 @@ export function processRecruitments(
 
       if (existingArmy) {
         // Adiciona ao exército existente
-        console.log('✅ Adicionando regimento ao exército existente:', existingArmy.id);
+        console.log('✅ [RECRUIT] Regimento adicionado ao exército existente:', existingArmy.id);
         updatedArmies = updatedArmies.map(a =>
           a.id === existingArmy.id
             ? { ...a, regiments: [...a.regiments, regiment] }
@@ -112,7 +112,7 @@ export function processRecruitments(
         // Cria novo exército
         const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
         newArmy.regiments = [regiment];
-        console.log('🎖️ Exército Spawnado:', newArmy);
+        console.log('🎖️ [NEW ARMY CREATED]:', newArmy);
         updatedArmies.push(newArmy);
       }
     } else {
