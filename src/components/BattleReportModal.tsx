@@ -119,6 +119,16 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             <span className="label">Duração:</span>
             <span className="value">{duration} {duration === 1 ? 'dia' : 'dias'}</span>
           </div>
+          <div className="battle-report-info-item">
+            <span className="label">Ratio de Poder:</span>
+            <span className="value">{battleResult.powerRatio.toFixed(2)}:1</span>
+          </div>
+          {battleResult.territorialDefenseBonus && (
+            <div className="battle-report-info-item territorial-bonus">
+              <span className="label">🏰 Bônus Territorial:</span>
+              <span className="value">Defensor em território próprio</span>
+            </div>
+          )}
           {territoryChanged && newOwnerCountry && (
             <div className="battle-report-info-item territory-change">
               <span className="label">Mudança Territorial:</span>

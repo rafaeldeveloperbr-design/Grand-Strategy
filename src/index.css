@@ -1960,6 +1960,14 @@ html, body, #root {
   margin-top: 8px;
 }
 
+.battle-report-info-item.territorial-bonus {
+  background: rgba(46, 204, 113, 0.1);
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-green);
+  margin-top: 8px;
+}
+
 /* Comparativo de Exércitos */
 .battle-report-armies {
   display: flex;

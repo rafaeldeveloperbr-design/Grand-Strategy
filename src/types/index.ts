@@ -288,4 +288,8 @@ export interface CombatResult {
   territoryChanged: boolean;
   /** Novo dono da província (se mudou) */
   newOwner?: string;
+  /** Se o defensor teve bônus de defesa territorial */
+  territorialDefenseBonus: boolean;
+  /** Ratio de poder (Vencedor / Perdedor) */
+  powerRatio: number;
 }

@@ -1,65 +1,46 @@
 /**
  * ============================================================
- * MÓDULO 3 - Motor de Combate (SIMPLIFICADO E PREVISÍVEL)
+ * MÓDULO 3 - Motor de Combate (MÉTODO DE ATRITO ABSOLUTO)
  * ============================================================
- * Algoritmo direto baseado em dano fixo por unidade e redução proporcional.
+ * Implementação determinística baseada em Poder Diferencial com
+ * Bônus de Defesa Territorial.
  * 
- * REGRA DE OURO: O exército maior recebe dano reduzido proporcionalmente ao ratio de forças.
- * Exemplo: 9.000 vs 1.800 → O exército de 1.800 causa seu dano base,
- * mas esse dano é multiplicado por (1.800/9.000) = 0.2 ao afetar os 9.000.
+ * REGRA PRINCIPAL: O vencedor é determinado pelo poder total.
+ * As baixas do vencedor são estritamente limitadas pela diferença
+ * de poder (ratio). Quanto maior a vantagem, menores as perdas.
  */
 
 import { Army, Regiment, Province, CombatResult } from '../types';
 
 /**
- * Taxas de dano fixo por tipo de unidade (baixas/dia por soldado)
+ * Multiplicadores de poder por tipo de unidade
  */
-const UNIT_DAMAGE_RATES = {
-  infantry: 0.03,
-  cavalry: 0.05,
-  artillery: 0.08,
+const UNIT_POWER_MULTIPLIERS = {
+  infantry: 1.0,
+  cavalry: 1.5,
+  artillery: 2.0,
 };
 
 /**
  * Constantes de balanceamento do combate
  */
 const COMBAT_BALANCE = {
-  /** Penalidade de moral por baixas */
-  MORALE_LOSS_PER_CASUALTY: 0.003,
-  /** Moral mínima para continuar lutando */
-  MIN_MORALE_TO_FIGHT: 20,
-  /** Perda de tropas que força recuo (60%) */
-  RETREAT_THRESHOLD: 0.6,
-  /** Bônus de defesa por nível de fortificação */
-  FORTIFICATION_DEFENSE_BONUS: 0.1,
-  /** Perda de moral por dia de combate */
-  DAILY_MORALE_LOSS: 3,
-  /** Máximo de perda por dia (15% do exército) */
-  MAX_DAILY_LOSS_RATIO: 0.15,
+  /** Bônus de defesa em território próprio (+25%) */
+  TERRITORIAL_DEFENSE_BONUS: 1.25,
+  /** Bônus por nível de fortificação (+10% por nível) */
+  FORTIFICATION_BONUS_PER_LEVEL: 0.10,
+  /** Perda mínima do vencedor (3%) */
+  MIN_WINNER_LOSS_PERCENT: 0.03,
+  /** Constante para cálculo de perdas do vencedor */
+  WINNER_LOSS_CONSTANT: 0.35,
+  /** Perda do perdedor - mínimo (50%) */
+  LOSER_LOSS_MIN: 0.50,
+  /** Perda do perdedor - máximo (70%) */
+  LOSER_LOSS_MAX: 0.70,
 };
 
 /**
- * Calcula o dano total causado por um exército por dia
- * NOVA LÓGICA: Dano fixo por tipo de unidade
- */
-export function calculateArmyDamage(army: Army): number {
-  let totalDamage = 0;
-
-  for (const regiment of army.regiments) {
-    const damageRate = UNIT_DAMAGE_RATES[regiment.type];
-    const regimentDamage = regiment.strength * damageRate;
-    
-    // Bônus de moral (50-100 = bônus, 0-50 = penalidade)
-    const moraleBonus = 0.5 + (regiment.morale / 100);
-    totalDamage += regimentDamage * moraleBonus;
-  }
-
-  return totalDamage;
-}
-
-/**
  * Calcula o tamanho total de um exército (número de homens)
- * GARANTE retorno de número inteiro
  */
 export function calculateArmySize(army: Army): number {
   return Math.floor(army.regiments.reduce((sum, reg) => sum + reg.strength, 0));
@@ -75,85 +56,72 @@ export function calculateArmyMorale(army: Army): number {
 }
 
 /**
- * Resolve um dia de combate entre dois exércitos
- * NOVA LÓGICA: Dano fixo por unidade + redução proporcional para exército maior
+ * Calcula o poder base de um exército
+ * Fórmula: (Infantaria × 1) + (Cavalaria × 1.5) + (Artilharia × 2.0)
  */
-export function resolveCombatDay(
-  attacker: Army,
-  defender: Army,
-  province: Province
-): { attacker: Army; defender: Army; attackerLoss: number; defenderLoss: number } {
-  // Calcula tamanhos
-  const attackerSize = calculateArmySize(attacker);
-  const defenderSize = calculateArmySize(defender);
+export function calculateArmyBasePower(army: Army): number {
+  let totalPower = 0;
 
-  // Calcula dano base causado por cada exército
-  let attackerBaseDamage = calculateArmyDamage(attacker);
-  let defenderBaseDamage = calculateArmyDamage(defender);
-
-  // Bônus de defesa da província (fortificações) - reduz dano do atacante
-  const fortificationBonus = 1 + (province.defense * COMBAT_BALANCE.FORTIFICATION_DEFENSE_BONUS);
-  attackerBaseDamage /= fortificationBonus;
-
-  // === REGRA DE OURO: Redução proporcional de dano recebido ===
-  // O exército maior recebe dano reduzido proporcionalmente ao ratio de forças
-  // Fórmula: danoRecebidoPeloMaior = danoCausadoPeloMenor * (TropasMenor / TropasMaior)
-  
-  let attackerLoss: number;
-  let defenderLoss: number;
-
-  if (attackerSize > defenderSize) {
-    // Atacante é maior - recebe dano reduzido
-    const ratio = defenderSize / attackerSize;
-    attackerLoss = Math.floor(defenderBaseDamage * ratio);
-    defenderLoss = Math.floor(attackerBaseDamage);
-  } else if (defenderSize > attackerSize) {
-    // Defensor é maior - recebe dano reduzido
-    const ratio = attackerSize / defenderSize;
-    defenderLoss = Math.floor(attackerBaseDamage * ratio);
-    attackerLoss = Math.floor(defenderBaseDamage);
-  } else {
-    // Tamanhos iguais - dano normal
-    attackerLoss = Math.floor(defenderBaseDamage);
-    defenderLoss = Math.floor(attackerBaseDamage);
+  for (const regiment of army.regiments) {
+    const multiplier = UNIT_POWER_MULTIPLIERS[regiment.type];
+    const regimentPower = regiment.strength * multiplier;
+    
+    // Bônus de moral (50-100 = bônus, 0-50 = penalidade)
+    const moraleBonus = 0.5 + (regiment.morale / 100);
+    totalPower += regimentPower * moraleBonus;
   }
 
-  // Aplica limite máximo de perda por dia (15% do exército)
-  const maxAttackerLoss = Math.floor(attackerSize * COMBAT_BALANCE.MAX_DAILY_LOSS_RATIO);
-  const maxDefenderLoss = Math.floor(defenderSize * COMBAT_BALANCE.MAX_DAILY_LOSS_RATIO);
-
-  attackerLoss = Math.min(attackerLoss, maxAttackerLoss);
-  defenderLoss = Math.min(defenderLoss, maxDefenderLoss);
-
-  // Distribui perdas entre regimentos
-  const updatedAttacker = applyLosses(attacker, attackerLoss);
-  const updatedDefender = applyLosses(defender, defenderLoss);
-
-  // Reduz moral (mais perda se sofreu mais baixas)
-  const attackerMoraleLoss = COMBAT_BALANCE.DAILY_MORALE_LOSS + (attackerLoss / Math.max(attackerSize, 1)) * 10;
-  const defenderMoraleLoss = COMBAT_BALANCE.DAILY_MORALE_LOSS + (defenderLoss / Math.max(defenderSize, 1)) * 10;
-
-  const finalAttacker = reduceMorale(updatedAttacker, attackerMoraleLoss);
-  const finalDefender = reduceMorale(updatedDefender, defenderMoraleLoss);
-
-  return {
-    attacker: finalAttacker,
-    defender: finalDefender,
-    attackerLoss: Math.floor(attackerLoss),
-    defenderLoss: Math.floor(defenderLoss),
-  };
+  return totalPower;
 }
 
 /**
- * Aplica perdas a um exército, distribuindo entre regimentos
- * GARANTE que todas as perdas sejam números inteiros
+ * Calcula o poder total do defensor com bônus territoriais
  */
-function applyLosses(army: Army, totalLoss: number): Army {
+export function calculateDefenderTotalPower(
+  army: Army,
+  province: Province
+): { totalPower: number; hasTerritorialBonus: boolean; bonusMultiplier: number } {
+  const basePower = calculateArmyBasePower(army);
+  
+  let bonusMultiplier = 1.0;
+  let hasTerritorialBonus = false;
+
+  // Bônus de defesa em território próprio
+  if (province.owner === army.owner) {
+    bonusMultiplier *= COMBAT_BALANCE.TERRITORIAL_DEFENSE_BONUS;
+    hasTerritorialBonus = true;
+  }
+
+  // Bônus por fortificação
+  if (province.defense > 0) {
+    const fortificationBonus = 1 + (province.defense * COMBAT_BALANCE.FORTIFICATION_BONUS_PER_LEVEL);
+    bonusMultiplier *= fortificationBonus;
+    hasTerritorialBonus = true;
+  }
+
+  const totalPower = basePower * bonusMultiplier;
+
+  return { totalPower, hasTerritorialBonus, bonusMultiplier };
+}
+
+/**
+ * Calcula as perdas do vencedor baseado no ratio de poder
+ * Fórmula: percentualPerdas = max(3%, 35% / ratio)
+ */
+function calculateWinnerLossPercent(powerRatio: number): number {
+  const lossPercent = COMBAT_BALANCE.WINNER_LOSS_CONSTANT / powerRatio;
+  return Math.max(COMBAT_BALANCE.MIN_WINNER_LOSS_PERCENT, lossPercent);
+}
+
+/**
+ * Distribui perdas proporcionalmente entre os regimentos
+ */
+function distributeLosses(army: Army, totalLoss: number): Army {
   const updatedRegiments = [...army.regiments];
   const armySize = calculateArmySize(army);
   let remainingLoss = Math.floor(totalLoss);
 
-  // Distribui perdas proporcionalmente ao tamanho
+  // Distribui perdas proporcionalmente ao tamanho de cada regimento
   for (let i = 0; i < updatedRegiments.length && remainingLoss > 0; i++) {
     const reg = updatedRegiments[i];
     const proportion = armySize > 0 ? reg.strength / armySize : 0;
@@ -162,7 +130,7 @@ function applyLosses(army: Army, totalLoss: number): Army {
     updatedRegiments[i] = {
       ...reg,
       strength: Math.max(0, Math.floor(reg.strength - loss)),
-      morale: Math.max(0, reg.morale - loss * COMBAT_BALANCE.MORALE_LOSS_PER_CASUALTY),
+      morale: Math.max(0, reg.morale - (loss / Math.max(reg.strength, 1)) * 20),
     };
     
     remainingLoss -= loss;
@@ -178,98 +146,76 @@ function applyLosses(army: Army, totalLoss: number): Army {
 }
 
 /**
- * Reduz a moral de todos os regimentos
- */
-function reduceMorale(army: Army, amount: number): Army {
-  return {
-    ...army,
-    regiments: army.regiments.map(reg => ({
-      ...reg,
-      morale: Math.max(0, reg.morale - amount),
-    })),
-  };
-}
-
-/**
- * Verifica se um exército foi derrotado (sem tropas ou moral muito baixa)
- * REBALANCEADO: Considera threshold de 60% de perdas para recuo
- */
-export function isArmyDefeated(army: Army, originalSize?: number): boolean {
-  const currentSize = calculateArmySize(army);
-  
-  // Sem tropas = derrotado
-  if (currentSize <= 0) return true;
-  
-  // Moral muito baixa = recuo
-  const avgMorale = calculateArmyMorale(army);
-  if (avgMorale < COMBAT_BALANCE.MIN_MORALE_TO_FIGHT) return true;
-  
-  // Perdeu mais de 60% do contingente original = recuo forçado
-  if (originalSize && originalSize > 0) {
-    const lossRatio = 1 - (currentSize / originalSize);
-    if (lossRatio >= COMBAT_BALANCE.RETREAT_THRESHOLD) return true;
-  }
-  
-  return false;
-}
-
-/**
- * Resolve uma batalha completa até um lado ser derrotado
- * REBALANCEADO: Passa tamanhos originais para verificação de recuo
+ * Resolve uma batalha completa usando o Método de Atrito Absoluto
  */
 export function resolveBattle(
   attacker: Army,
   defender: Army,
-  province: Province,
-  maxDays: number = 30
+  province: Province
 ): CombatResult {
   // Salva estado original dos exércitos
-  const attackerOriginal = { ...attacker, regiments: [...attacker.regiments] };
-  const defenderOriginal = { ...defender, regiments: [...defender.regiments] };
-  
-  // Tamanhos originais para verificação de recuo
+  const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
+  const defenderOriginal = { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
+
+  // Tamanhos originais
   const attackerOriginalSize = calculateArmySize(attackerOriginal);
   const defenderOriginalSize = calculateArmySize(defenderOriginal);
 
-  let currentAttacker = { ...attacker };
-  let currentDefender = { ...defender };
-  let totalAttackerLoss = 0;
-  let totalDefenderLoss = 0;
-  let days = 0;
+  // Calcula poderes
+  const attackerPower = calculateArmyBasePower(attacker);
+  const { totalPower: defenderPower, hasTerritorialBonus } = calculateDefenderTotalPower(defender, province);
 
-  // Combate dia a dia
-  while (
-    !isArmyDefeated(currentAttacker, attackerOriginalSize) &&
-    !isArmyDefeated(currentDefender, defenderOriginalSize) &&
-    days < maxDays
-  ) {
-    const result = resolveCombatDay(currentAttacker, currentDefender, province);
-    currentAttacker = result.attacker;
-    currentDefender = result.defender;
-    totalAttackerLoss += result.attackerLoss;
-    totalDefenderLoss += result.defenderLoss;
-    days++;
+  // Determina vencedor e ratio
+  const winner: 'attacker' | 'defender' = attackerPower > defenderPower ? 'attacker' : 'defender';
+  const winnerPower = Math.max(attackerPower, defenderPower);
+  const loserPower = Math.min(attackerPower, defenderPower);
+  const powerRatio = loserPower > 0 ? winnerPower / loserPower : 999;
+
+  // Calcula perdas
+  let finalAttacker: Army;
+  let finalDefender: Army;
+  let attackerLoss: number;
+  let defenderLoss: number;
+
+  if (winner === 'attacker') {
+    // Atacante venceu
+    const winnerLossPercent = calculateWinnerLossPercent(powerRatio);
+    attackerLoss = Math.floor(attackerOriginalSize * winnerLossPercent);
+    
+    // Perdedor (defensor) perde 50-70% das tropas
+    const loserLossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
+      (Math.random() * (COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN));
+    defenderLoss = Math.floor(defenderOriginalSize * loserLossPercent);
+
+    finalAttacker = distributeLosses(attacker, attackerLoss);
+    finalDefender = distributeLosses(defender, defenderLoss);
+  } else {
+    // Defensor venceu
+    const winnerLossPercent = calculateWinnerLossPercent(powerRatio);
+    defenderLoss = Math.floor(defenderOriginalSize * winnerLossPercent);
+    
+    // Perdedor (atacante) perde 50-70% das tropas
+    const loserLossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
+      (Math.random() * (COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN));
+    attackerLoss = Math.floor(attackerOriginalSize * loserLossPercent);
+
+    finalAttacker = distributeLosses(attacker, attackerLoss);
+    finalDefender = distributeLosses(defender, defenderLoss);
   }
 
-  // Determina vencedor (passa tamanhos originais para verificação de recuo)
-  const attackerDefeated = isArmyDefeated(currentAttacker, attackerOriginalSize);
-  const defenderDefeated = isArmyDefeated(currentDefender, defenderOriginalSize);
-
-  const winner = defenderDefeated ? 'attacker' : 'defender';
-
-  // Garante que todos os regimentos tenham valores inteiros
-  const finalAttacker = {
-    ...currentAttacker,
-    regiments: currentAttacker.regiments.map(r => ({
+  // Garante valores inteiros finais
+  finalAttacker = {
+    ...finalAttacker,
+    regiments: finalAttacker.regiments.map(r => ({
       ...r,
       strength: Math.floor(r.strength),
       morale: Math.floor(r.morale),
     })),
   };
 
-  const finalDefender = {
-    ...currentDefender,
-    regiments: currentDefender.regiments.map(r => ({
+  finalDefender = {
+    ...finalDefender,
+    regiments: finalDefender.regiments.map(r => ({
       ...r,
       strength: Math.floor(r.strength),
       morale: Math.floor(r.morale),
@@ -293,14 +239,15 @@ export function resolveBattle(
     winner,
     provinceId: province.id,
     provinceName: province.name,
-    duration: days,
+    duration: 1, // Combate instantâneo neste método
     territoryChanged: false, // Será atualizado pelo App.tsx
+    territorialDefenseBonus: hasTerritorialBonus,
+    powerRatio: Math.round(powerRatio * 100) / 100, // 2 casas decimais
   };
 }
 
 /**
  * Verifica automaticamente combates em todas as províncias
- * Chamado a cada tick para garantir que exércitos inimigos na mesma província lutem
  */
 export function checkAllProvinceCombats(
   armies: Army[],
@@ -341,7 +288,7 @@ export function checkAllProvinceCombats(
 
         console.log('⚔️ Combate automático em', province.name, ':', army1.owner, 'vs', army2.owner);
 
-        // Determina quem é atacante e defensor
+        // Determina atacante e defensor
         // Atacante = quem não é dono da província (ou o primeiro se ambos não são donos)
         let attacker = army1;
         let defender = army2;
