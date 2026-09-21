@@ -226,8 +226,13 @@ export function moveArmy(
   }
 
   // Usa pathfinding para destino distante
+  console.log('🗺️ Calculando pathfinding:', { from: army.location, to: destinationId, owner: army.owner, wars: wars?.length });
   const path = findPath(army.location, destinationId, provinces, army.owner, wars);
-  if (path.length === 0) return null; // Caminho não encontrado
+  console.log('🗺️ Caminho encontrado:', path);
+  if (path.length === 0) {
+    console.log('❌ Caminho não encontrado');
+    return null; // Caminho não encontrado
+  }
 
   const nextDestination = path[0];
   const remainingPath = path.slice(1);
@@ -383,6 +388,7 @@ export function findPath(
           w => (w.attacker === ownerTag && w.defender === neighborProvince.owner) ||
                (w.defender === ownerTag && w.attacker === neighborProvince.owner)
         );
+        console.log('🔍 Verificando guerra para província', neighbor, ':', { owner: neighborProvince.owner, hasWar: hasWarWithOwner });
         if (hasWarWithOwner) {
           isAllowed = true;
         }

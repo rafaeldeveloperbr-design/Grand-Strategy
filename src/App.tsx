@@ -230,11 +230,15 @@ const App: React.FC = () => {
   const countriesRef = useRef(allCountries);
   const armiesRef = useRef(armies);
   const recruitmentsRef = useRef(recruitments);
+  const warsRef = useRef(wars);
+  const diplomaticRelationsRef = useRef(diplomaticRelations);
 
   useEffect(() => { provincesRef.current = provinces; }, [provinces]);
   useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
   useEffect(() => { armiesRef.current = armies; }, [armies]);
   useEffect(() => { recruitmentsRef.current = recruitments; }, [recruitments]);
+  useEffect(() => { warsRef.current = wars; }, [wars]);
+  useEffect(() => { diplomaticRelationsRef.current = diplomaticRelations; }, [diplomaticRelations]);
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
@@ -274,6 +278,8 @@ const App: React.FC = () => {
     const currentCountries = countriesRef.current;
     const currentArmies = armiesRef.current;
     const currentRecruitments = recruitmentsRef.current;
+    const currentWars = warsRef.current;
+    const currentDiplomaticRelations = diplomaticRelationsRef.current;
 
     // 1. Avança a data
     setDate((prevDate) => advanceDate(prevDate));
@@ -318,7 +324,7 @@ const App: React.FC = () => {
         }
 
         // Verifica se está em guerra com o dono da província
-        const isInWar = wars.some(
+        const isInWar = currentWars.some(
           w => (w.attacker === arrived.owner && w.defender === province.owner) ||
                (w.defender === arrived.owner && w.attacker === province.owner)
         );
@@ -440,8 +446,8 @@ const App: React.FC = () => {
     const currentDate = date;
     setAllCountries(prevCountries => {
       let currentArmies = armiesRef.current;
-      let currentRelations = diplomaticRelations;
-      let currentWars = wars;
+      let currentRelations = diplomaticRelationsRef.current;
+      let currentWars = warsRef.current;
       let currentProvinces = provincesRef.current;
       
       const updatedCountries = prevCountries.map(country => {
@@ -586,17 +592,26 @@ const App: React.FC = () => {
    */
   const handleRecruit = useCallback(
     (provinceId: string, unitType: UnitType) => {
+      console.log('🎯 handleRecruit chamado:', { provinceId, unitType });
+      
       const province = provinces.find((p) => p.id === provinceId);
-      if (!province || province.owner !== playerCountryTag) return;
+      if (!province || province.owner !== playerCountryTag) {
+        console.log('❌ Província inválida ou não pertence ao jogador');
+        return;
+      }
 
       const costs = getRecruitmentCost(unitType);
+      console.log('💰 Custos:', costs);
+      console.log('💰 Recursos atuais:', { gold: playerCountry.resources.gold, manpower: playerCountry.resources.manpower });
 
       // Verifica recursos
       if (playerCountry.resources.gold < costs.gold) {
+        console.log('❌ Ouro insuficiente');
         addLog(`❌ Ouro insuficiente para recrutar ${unitType}`);
         return;
       }
       if (playerCountry.resources.manpower < costs.manpower) {
+        console.log('❌ Manpower insuficiente');
         addLog(`❌ Manpower insuficiente para recrutar ${unitType}`);
         return;
       }
@@ -625,7 +640,12 @@ const App: React.FC = () => {
         unitType,
         daysRemaining: costs.days,
       };
-      setRecruitments((prev) => [...prev, newRecruitment]);
+      console.log('✅ Adicionando recrutamento à fila:', newRecruitment);
+      setRecruitments((prev) => {
+        const updated = [...prev, newRecruitment];
+        console.log('📋 Fila de recrutamentos atualizada:', updated);
+        return updated;
+      });
       addLog(`🗡️ Recrutando ${unitType} em ${province.name} (${costs.days} dias)`);
     },
     [provinces, playerCountryTag, playerCountry, addLog]
