@@ -292,4 +292,6 @@ export interface CombatResult {
   territorialDefenseBonus: boolean;
   /** Ratio de poder (Vencedor / Perdedor) */
   powerRatio: number;
+  /** Data em que a batalha ocorreu */
+  date: GameDate;
 }

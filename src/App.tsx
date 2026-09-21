@@ -16,6 +16,7 @@ import { ProvincePanel } from './components/ProvincePanel';
 import { DiplomacyPanel } from './components/DiplomacyPanel';
 import { WarPanel } from './components/WarPanel';
 import { BattleReportModal } from './components/BattleReportModal';
+import { BattleHistoryModal } from './components/BattleHistoryModal';
 import { provincesData } from './data/provinces';
 import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
@@ -224,6 +225,12 @@ const App: React.FC = () => {
   /** Jogo pausado (para relatório de batalha) */
   const [isPaused, setIsPaused] = useState(false);
 
+  /** Histórico de batalhas */
+  const [battleHistory, setBattleHistory] = useState<CombatResult[]>([]);
+
+  /** Modal de histórico de batalhas aberto */
+  const [showBattleHistory, setShowBattleHistory] = useState(false);
+
   /** Refs para game loop */
   const gameLoopRef = useRef<number | null>(null);
   const provincesRef = useRef(provinces);
@@ -286,6 +293,7 @@ const App: React.FC = () => {
       recruitments: recruitmentsRef.current,
       wars: warsRef.current,
       relations: diplomaticRelationsRef.current,
+      date: dateRef.current,
     };
 
     console.log('🔄 [TICK START] Snapshot:', {
@@ -338,7 +346,7 @@ const App: React.FC = () => {
       if (enemies.length > 0) {
         console.log('⚔️ [COMBAT TRIGGERED AT]:', province.id);
         const enemy = enemies[0];
-        const result = resolveBattle(arrived, enemy, province);
+        const result = resolveBattle(arrived, enemy, province, snapshot.date);
 
         armies = armies.filter(a => a.id !== arrived.id && a.id !== enemy.id);
 
@@ -375,6 +383,9 @@ const App: React.FC = () => {
           
           addLog(`⚔️ ${arrived.owner} conquistou ${province.name} de ${oldOwner}!`);
           
+          // Registra no histórico de batalhas
+          setBattleHistory(prev => [result, ...prev]);
+          
           // Se o jogador está envolvido, mostra relatório e pausa
           if (arrived.owner === playerCountryTag || enemy.owner === playerCountryTag) {
             setBattleReport(result);
@@ -385,6 +396,9 @@ const App: React.FC = () => {
             armies = [...armies, { ...result.defender, location: arrived.location }];
           }
           addLog(`🛡️ ${enemy.owner} defendeu ${province.name} contra ${arrived.owner}!`);
+          
+          // Registra no histórico de batalhas
+          setBattleHistory(prev => [result, ...prev]);
           
           // Se o jogador está envolvido, mostra relatório e pausa
           if (arrived.owner === playerCountryTag || enemy.owner === playerCountryTag) {
@@ -411,7 +425,7 @@ const App: React.FC = () => {
 
     // C.2: Verificação automática de combate em todas as províncias
     console.log('⚔️ [PASSO C] Verificando combates automáticos, exércitos:', armies.length);
-    const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars);
+    const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date);
     armies = autoCombatResult.armies;
 
     for (const battle of autoCombatResult.battles) {
@@ -446,23 +460,28 @@ const App: React.FC = () => {
         battle.result.territoryChanged = true;
         battle.result.newOwner = battle.result.attacker.owner;
         
-        addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
-        
-        // Se o jogador está envolvido, mostra relatório e pausa
-        if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
-          setBattleReport(battle.result);
-          setIsPaused(true);
-        }
-      } else if (battle.result.winner === 'defender') {
-        addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
-        
-        // Se o jogador está envolvido, mostra relatório e pausa
-        if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
-          setBattleReport(battle.result);
-          setIsPaused(true);
-        }
-      }
-    }
+          addLog(`⚔️ ${battle.result.attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+          
+          // Registra no histórico de batalhas
+          setBattleHistory(prev => [battle.result, ...prev]);
+          
+          // Se o jogador está envolvido, mostra relatório e pausa
+          if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
+            setBattleReport(battle.result);
+            setIsPaused(true);
+          }
+        } else if (battle.result.winner === 'defender') {
+          addLog(`🛡️ ${battle.result.defender.owner} defendeu ${province.name}!`);
+          
+          // Registra no histórico de batalhas
+          setBattleHistory(prev => [battle.result, ...prev]);
+          
+          // Se o jogador está envolvido, mostra relatório e pausa
+          if (battle.result.attacker.owner === playerCountryTag || battle.result.defender.owner === playerCountryTag) {
+            setBattleReport(battle.result);
+            setIsPaused(true);
+          }
+        }    }
 
     // ===== PASSO D: ECONOMIA/POPULAÇÃO =====
     countries = countries.map(country => {
@@ -1188,6 +1207,20 @@ const App: React.FC = () => {
             }}
           />
         )}
+
+        {/* === Modal de Histórico de Batalhas === */}
+        {showBattleHistory && (
+          <BattleHistoryModal
+            battleHistory={battleHistory}
+            allCountries={allCountries}
+            onClose={() => setShowBattleHistory(false)}
+            onViewBattle={(battle) => {
+              setShowBattleHistory(false);
+              setBattleReport(battle);
+              setIsPaused(true);
+            }}
+          />
+        )}
       </div>
 
       {/* === Barra Inferior === */}
@@ -1210,6 +1243,16 @@ const App: React.FC = () => {
               .reduce((sum, a) => sum + calculateArmySize(a), 0)
               .toLocaleString()}
           </span>
+        </div>
+        <div className="game__bottom-info">
+          <span className="game__bottom-label">Histórico:</span>
+          <button
+            className="game__bottom-history-btn"
+            onClick={() => setShowBattleHistory(true)}
+            title="Ver histórico de batalhas"
+          >
+            📜 {battleHistory.length}
+          </button>
         </div>
         <div className="game__bottom-info">
           <span className="game__bottom-label">Guerras:</span>

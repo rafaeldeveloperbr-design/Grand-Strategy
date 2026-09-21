@@ -10,7 +10,7 @@
  * de poder (ratio). Quanto maior a vantagem, menores as perdas.
  */
 
-import { Army, Regiment, Province, CombatResult } from '../types';
+import { Army, Regiment, Province, CombatResult, GameDate } from '../types';
 
 /**
  * Multiplicadores de poder por tipo de unidade
@@ -151,7 +151,8 @@ function distributeLosses(army: Army, totalLoss: number): Army {
 export function resolveBattle(
   attacker: Army,
   defender: Army,
-  province: Province
+  province: Province,
+  currentDate: GameDate
 ): CombatResult {
   // Salva estado original dos exércitos
   const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
@@ -243,6 +244,7 @@ export function resolveBattle(
     territoryChanged: false, // Será atualizado pelo App.tsx
     territorialDefenseBonus: hasTerritorialBonus,
     powerRatio: Math.round(powerRatio * 100) / 100, // 2 casas decimais
+    date: currentDate,
   };
 }
 
@@ -252,7 +254,8 @@ export function resolveBattle(
 export function checkAllProvinceCombats(
   armies: Army[],
   provinces: Province[],
-  wars: Array<{ attacker: string; defender: string }>
+  wars: Array<{ attacker: string; defender: string }>,
+  currentDate: GameDate
 ): {
   armies: Army[];
   battles: Array<{
@@ -299,7 +302,7 @@ export function checkAllProvinceCombats(
         }
 
         // Resolve o combate
-        const result = resolveBattle(attacker, defender, province);
+        const result = resolveBattle(attacker, defender, province, currentDate);
 
         battles.push({ result, provinceId: province.id });
 
