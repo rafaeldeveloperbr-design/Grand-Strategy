@@ -215,3 +215,63 @@ export function getEnemyArmiesInProvince(
 ): Army[] {
   return armies.filter(a => a.location === provinceId && a.owner !== ownerTag);
 }
+
+/**
+ * Obtém todos os exércitos amigáveis em uma província
+ */
+export function getFriendlyArmiesInProvince(
+  armies: Army[],
+  provinceId: string,
+  ownerTag: string
+): Army[] {
+  return armies.filter(
+    a => a.location === provinceId && a.owner === ownerTag && !a.destination
+  );
+}
+
+/**
+ * Funde dois exércitos em um único exército maior.
+ * Combina todos os regimentos de ambos os exércitos.
+ * O exército resultante mantém o ID e nome do primeiro exército.
+ */
+export function mergeArmies(army1: Army, army2: Army): Army {
+  // Combina regimentos de ambos os exércitos
+  const mergedRegiments = [...army1.regiments, ...army2.regiments];
+
+  return {
+    ...army1,
+    regiments: mergedRegiments,
+    // Recalcula velocidade baseada no novo conjunto de regimentos
+    movementSpeed: calculateArmySpeed({ ...army1, regiments: mergedRegiments }),
+  };
+}
+
+/**
+ * Calcula o offset visual para exércitos agrupados na mesma província.
+ * Usa disposição circular ao redor do centro.
+ * 
+ * @param index - Índice do exército no grupo (0-based)
+ * @param total - Total de exércitos no grupo
+ * @returns Offset {x, y} a ser aplicado à posição base
+ */
+export function calculateArmyOffset(
+  index: number,
+  total: number
+): { offsetX: number; offsetY: number } {
+  // Se há apenas 1 exército, sem offset
+  if (total <= 1) {
+    return { offsetX: 0, offsetY: 0 };
+  }
+
+  // Raio da disposição circular (em unidades SVG)
+  const radius = 18 + (total > 4 ? (total - 4) * 3 : 0);
+  
+  // Ângulo base (começa no topo, -90 graus)
+  const angleStep = (2 * Math.PI) / total;
+  const angle = angleStep * index - Math.PI / 2;
+
+  return {
+    offsetX: Math.cos(angle) * radius,
+    offsetY: Math.sin(angle) * radius,
+  };
+}

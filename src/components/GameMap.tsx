@@ -11,9 +11,10 @@
  * - Zoom e pan básico
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Province, Country, Army } from '../types';
 import { ArmyMarker } from './ArmyMarker';
+import { calculateArmyOffset } from '../engine/military';
 
 interface MapProps {
   provinces: Province[];
@@ -47,7 +48,70 @@ export const GameMap: React.FC<MapProps> = ({
   const [viewBox, setViewBox] = useState({ x: -20, y: 20, w: 840, h: 640 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [hoveredArmyId, setHoveredArmyId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  /**
+   * Calcula offsets para exércitos agrupados na mesma província.
+   * Retorna um mapa de armyId -> {offsetX, offsetY}
+   */
+  const armyOffsets = useMemo(() => {
+    const offsets = new Map<string, { offsetX: number; offsetY: number }>();
+    
+    // Agrupa exércitos por província (apenas os que estão parados)
+    const groups = new Map<string, Army[]>();
+    for (const army of armies) {
+      if (army.location && !army.destination) {
+        const group = groups.get(army.location) ?? [];
+        group.push(army);
+        groups.set(army.location, group);
+      }
+    }
+    
+    // Calcula offset para cada grupo
+    for (const [, group] of groups) {
+      if (group.length <= 1) {
+        // Um único exército, sem offset
+        offsets.set(group[0].id, { offsetX: 0, offsetY: 0 });
+      } else {
+        // Múltiplos exércitos - disposição circular
+        group.forEach((army, index) => {
+          const { offsetX, offsetY } = calculateArmyOffset(index, group.length);
+          offsets.set(army.id, { offsetX, offsetY });
+        });
+      }
+    }
+    
+    return offsets;
+  }, [armies]);
+
+  /**
+   * Ordena exércitos para renderização:
+   * - Exércitos em movimento primeiro (fundo)
+   * - Exércitos normais
+   * - Exército hovered por cima
+   * - Exército selecionado no topo absoluto
+   */
+  const sortedArmies = useMemo(() => {
+    const sorted = [...armies];
+    sorted.sort((a, b) => {
+      // Movendo ficam atrás
+      const aMoving = a.destination ? 0 : 1;
+      const bMoving = b.destination ? 0 : 1;
+      if (aMoving !== bMoving) return aMoving - bMoving;
+      
+      // Selected fica no topo
+      const aSelected = a.id === selectedArmy ? 2 : 0;
+      const bSelected = b.id === selectedArmy ? 2 : 0;
+      if (aSelected !== bSelected) return aSelected - bSelected;
+      
+      // Hovered fica acima dos normais
+      const aHovered = a.id === hoveredArmyId ? 1 : 0;
+      const bHovered = b.id === hoveredArmyId ? 1 : 0;
+      return aHovered - bHovered;
+    });
+    return sorted;
+  }, [armies, selectedArmy, hoveredArmyId]);
 
   /**
    * Obtém a cor de uma província baseada no país dono
@@ -359,17 +423,32 @@ export const GameMap: React.FC<MapProps> = ({
             );
           })}
 
-        {/* === Marcadores de Exércitos === */}
-        {armies.map((army) => (
-          <ArmyMarker
-            key={army.id}
-            army={army}
-            provinces={provinces}
-            countries={countries}
-            isSelected={army.id === selectedArmy}
-            onClick={onArmyClick}
-          />
-        ))}
+        {/* === Filtro de Glow para exércitos elevados === */}
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {/* === Marcadores de Exércitos (ordenados por z-index) === */}
+        {sortedArmies.map((army) => {
+          const offset = armyOffsets.get(army.id) ?? { offsetX: 0, offsetY: 0 };
+          return (
+            <ArmyMarker
+              key={army.id}
+              army={army}
+              provinces={provinces}
+              countries={countries}
+              isSelected={army.id === selectedArmy}
+              isHovered={army.id === hoveredArmyId}
+              offsetX={offset.offsetX}
+              offsetY={offset.offsetY}
+              onClick={onArmyClick}
+              onHover={setHoveredArmyId}
+            />
+          );
+        })}
       </svg>
 
       {/* === Tooltip === */}

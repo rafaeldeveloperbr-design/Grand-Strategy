@@ -1021,6 +1021,83 @@ html, body, #root {
 }
 
 /* ============================================================
+ * MÓDULO 3.1 - ESTILOS DE FUSÃO DE EXÉRCITOS (Merge)
+ * ============================================================ */
+
+.army-info-panel__merge-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.army-info-panel__merge-section strong {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.army-info-panel__merge-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.army-info-panel__merge-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.2);
+}
+
+.army-info-panel__merge-btn:hover .army-info-panel__merge-icon {
+  color: var(--accent-gold);
+  transform: scale(1.2);
+}
+
+.army-info-panel__merge-flag {
+  font-size: 14px;
+}
+
+.army-info-panel__merge-name {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.army-info-panel__merge-size {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.army-info-panel__merge-icon {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-green);
+  transition: all 0.15s;
+}
+
+/* === Hover state para ArmyMarker === */
+.army-marker--hovered .army-marker__body {
+  filter: brightness(1.2);
+}
+
+/* ============================================================
  * SCROLLBAR CUSTOMIZADA
  * ============================================================ */
 ::-webkit-scrollbar {

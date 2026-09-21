@@ -29,6 +29,8 @@ import {
   processArmyMovement,
   moveArmy,
   getEnemyArmiesInProvince,
+  getFriendlyArmiesInProvince,
+  mergeArmies,
   generateRecruitmentId,
 } from './engine/military';
 import { resolveBattle, calculateArmySize } from './engine/combat';
@@ -514,6 +516,34 @@ const App: React.FC = () => {
     [selectedArmy, playerCountryTag, addLog]
   );
 
+  /**
+   * Funde dois exércitos em um só
+   */
+  const handleMergeArmies = useCallback(
+    (targetArmyId: string) => {
+      if (!selectedArmy) return;
+
+      const army1 = armiesRef.current.find((a) => a.id === selectedArmy);
+      const army2 = armiesRef.current.find((a) => a.id === targetArmyId);
+
+      if (!army1 || !army2) return;
+      if (army1.owner !== playerCountryTag || army2.owner !== playerCountryTag) return;
+      if (army1.location !== army2.location) return;
+      if (army1.destination || army2.destination) return;
+
+      const merged = mergeArmies(army1, army2);
+
+      setArmies((prev) => {
+        // Remove ambos e adiciona o fundido
+        const filtered = prev.filter((a) => a.id !== army1.id && a.id !== army2.id);
+        return [...filtered, merged];
+      });
+
+      addLog(`🤝 ${army1.name} + ${army2.name} fundidos (${calculateArmySize(merged).toLocaleString()} homens)`);
+    },
+    [selectedArmy, playerCountryTag, addLog]
+  );
+
   // === Renderização ===
   return (
     <div className="game">
@@ -597,6 +627,42 @@ const App: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* === Outros exércitos na mesma província (para fusão) === */}
+              {selectedArmyData.location && !selectedArmyData.destination && (() => {
+                const friendlyArmies = getFriendlyArmiesInProvince(
+                  armies,
+                  selectedArmyData.location!,
+                  playerCountryTag
+                ).filter(a => a.id !== selectedArmyData.id);
+
+                if (friendlyArmies.length === 0) return null;
+
+                return (
+                  <div className="army-info-panel__merge-section">
+                    <strong>🤝 Fundir com:</strong>
+                    {friendlyArmies.map(otherArmy => (
+                      <button
+                        key={otherArmy.id}
+                        className="army-info-panel__merge-btn"
+                        onClick={() => handleMergeArmies(otherArmy.id)}
+                        title={`Fundir com ${otherArmy.name} (${calculateArmySize(otherArmy).toLocaleString()} homens)`}
+                      >
+                        <span className="army-info-panel__merge-flag">
+                          {allCountries.find(c => c.tag === otherArmy.owner)?.flag}
+                        </span>
+                        <span className="army-info-panel__merge-name">
+                          {otherArmy.name}
+                        </span>
+                        <span className="army-info-panel__merge-size">
+                          {calculateArmySize(otherArmy).toLocaleString()} 👥
+                        </span>
+                        <span className="army-info-panel__merge-icon">⊕</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

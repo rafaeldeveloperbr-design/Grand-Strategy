@@ -1,8 +1,12 @@
 /**
  * ============================================================
- * MÓDULO 3 - Componente de Marcador de Exército
+ * MÓDULO 3 - Componente de Marcador de Exército (v2)
  * ============================================================
  * Renderiza exércitos no mapa como marcadores visuais.
+ * Suporte a:
+ * - Offset visual para exércitos na mesma província
+ * - Z-index dinâmico (hover/seleção eleva o marcador)
+ * - Animações de movimento e seleção
  */
 
 import React from 'react';
@@ -14,7 +18,13 @@ interface ArmyMarkerProps {
   provinces: Province[];
   countries: Country[];
   isSelected: boolean;
+  isHovered: boolean;
+  /** Offset X aplicado ao marcador (para disposição em grupo) */
+  offsetX: number;
+  /** Offset Y aplicado ao marcador (para disposição em grupo) */
+  offsetY: number;
   onClick: (armyId: string) => void;
+  onHover: (armyId: string | null) => void;
 }
 
 /**
@@ -25,27 +35,38 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
   provinces,
   countries,
   isSelected,
+  isHovered,
+  offsetX,
+  offsetY,
   onClick,
+  onHover,
 }) => {
   const country = countries.find(c => c.tag === army.owner);
   const size = calculateArmySize(army);
   
-  // Determina posição (se está em movimento, usa position; senão, centro da província)
-  let x: number, y: number;
+  // Determina posição base (se está em movimento, usa position; senão, centro da província)
+  let baseX: number, baseY: number;
   
   if (army.position && army.destination) {
-    // Em movimento - usa posição interpolada
-    x = army.position.x;
-    y = army.position.y;
+    // Em movimento - usa posição interpolada (sem offset para não confundir rota)
+    baseX = army.position.x;
+    baseY = army.position.y;
   } else if (army.location) {
-    // Parado - usa centro da província
+    // Parado - usa centro da província + offset
     const province = provinces.find(p => p.id === army.location);
     if (!province) return null;
-    x = province.center.x;
-    y = province.center.y + 20; // Offset para não sobrepor nome da província
+    baseX = province.center.x;
+    baseY = province.center.y + 20; // Offset base para não sobrepor nome da província
   } else {
     return null;
   }
+
+  // Aplica offset (apenas para exércitos parados)
+  const x = baseX + (army.destination ? 0 : offsetX);
+  const y = baseY + (army.destination ? 0 : offsetY);
+
+  // Elevação visual: selected > hovered > normal
+  const isElevated = isSelected || isHovered;
 
   // Formata número de tropas (ex: 5000 -> 5k)
   const formatSize = (n: number): string => {
@@ -56,20 +77,26 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
 
   return (
     <g
-      className={`army-marker ${isSelected ? 'army-marker--selected' : ''}`}
+      className={`army-marker ${isSelected ? 'army-marker--selected' : ''} ${isHovered ? 'army-marker--hovered' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
         onClick(army.id);
       }}
-      style={{ cursor: 'pointer' }}
+      onMouseEnter={() => onHover(army.id)}
+      onMouseLeave={() => onHover(null)}
+      style={{
+        cursor: 'pointer',
+        transform: isElevated ? `translate(0, -3px)` : 'translate(0, 0)',
+        transition: 'transform 0.15s ease',
+      }}
     >
-      {/* Sombra */}
+      {/* Sombra (mais proeminente quando elevado) */}
       <ellipse
         cx={x}
-        cy={y + 12}
-        rx="14"
-        ry="4"
-        fill="rgba(0,0,0,0.3)"
+        cy={y + 12 + (isElevated ? 3 : 0)}
+        rx={isElevated ? '16' : '14'}
+        ry={isElevated ? '5' : '4'}
+        fill={isElevated ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.3)'}
       />
       
       {/* Base do marcador */}
@@ -80,9 +107,10 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
         height="20"
         rx="4"
         fill={country?.color ?? '#555'}
-        stroke={isSelected ? '#FFD700' : '#000'}
-        strokeWidth={isSelected ? 2 : 1}
+        stroke={isSelected ? '#FFD700' : isHovered ? '#FFFFFF' : '#000'}
+        strokeWidth={isSelected ? 2.5 : isHovered ? 2 : 1}
         className="army-marker__body"
+        filter={isElevated ? 'url(#glow)' : undefined}
       />
       
       {/* Bandeira/Ícone */}
@@ -129,7 +157,7 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
         </circle>
       )}
       
-      {/* Indicador de seleção */}
+      {/* Indicador de seleção (anel rotativo) */}
       {isSelected && (
         <circle
           cx={x}
@@ -139,7 +167,7 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
           stroke="#FFD700"
           strokeWidth="1.5"
           strokeDasharray="3,2"
-          opacity="0.8"
+          opacity="0.9"
         >
           <animateTransform
             attributeName="transform"
@@ -150,6 +178,33 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
             repeatCount="indefinite"
           />
         </circle>
+      )}
+
+      {/* Tooltip de nome ao hover */}
+      {isHovered && !isSelected && (
+        <g>
+          <rect
+            x={x - 40}
+            y={y - 28}
+            width="80"
+            height="14"
+            rx="3"
+            fill="rgba(0,0,0,0.85)"
+            stroke="rgba(255,255,255,0.2)"
+            strokeWidth="0.5"
+          />
+          <text
+            x={x}
+            y={y - 19}
+            fontSize="7"
+            fill="#FFF"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontWeight="600"
+          >
+            {army.name.length > 18 ? army.name.substring(0, 16) + '…' : army.name}
+          </text>
+        </g>
       )}
     </g>
   );
