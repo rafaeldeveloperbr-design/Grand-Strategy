@@ -13,8 +13,8 @@ import { findPath } from './military';
 
 /**
  * Verifica se um exército pode se mover para uma província específica
- * baseado nas relações diplomáticas
- * Permite passagem por territórios próprios, aliados ou em guerra
+ * baseado nas relações diplomáticas.
+ * Normaliza automaticamente chaves de objeto e maiúsculas/minúsculas.
  */
 function canMoveToProvince(
   botCountryId: string,
@@ -27,23 +27,24 @@ function canMoveToProvince(
   }
 
   // Se não houver array de diplomacia ou estiver vazio
-  if (!diplomacy || diplomacy.length === 0) {
+  if (!diplomacy || !Array.isArray(diplomacy) || diplomacy.length === 0) {
     return false;
   }
 
-  // 2. Busca relação considerando possíveis variações de IDs/Tags
+  // 2. Busca relação testando TODAS as variações comuns de nomenclatura de chaves
   const relation = diplomacy.find(r => {
-    const a = r.countryA || (r as any).country1Id || (r as any).from;
-    const b = r.countryB || (r as any).country2Id || (r as any).to;
-    return (a === botCountryId && b === targetProvinceOwner) ||
-           (a === targetProvinceOwner && b === botCountryId);
+    const c1 = r.countryA || (r as any).country1Id || (r as any).country1 || (r as any).from;
+    const c2 = r.countryB || (r as any).country2Id || (r as any).country2 || (r as any).to;
+
+    return (c1 === botCountryId && c2 === targetProvinceOwner) ||
+           (c1 === targetProvinceOwner && c2 === botCountryId);
   });
 
   if (!relation) {
     return false;
   }
 
-  // 3. Extrai a string de status aceitando 'status' ou 'type' em maiúsculo ou minúsculo
+  // 3. Extrai o status testando variações de nome de propriedade e converte para minúsculo
   const rawStatus = relation.status || (relation as any).type || (relation as any).state || '';
   const normalizedStatus = String(rawStatus).toLowerCase().trim();
 
@@ -82,13 +83,19 @@ function isAtWarWithNeighbor(
     const neighborProv = provinces.find(p => p.id === neighborId);
     if (!neighborProv || neighborProv.owner === botCountryId) return false;
 
-    // Verifica se está em guerra com este vizinho
-    const relation = diplomacy.find(
-      r => (r.countryA === botCountryId && r.countryB === neighborProv.owner) ||
-           (r.countryA === neighborProv.owner && r.countryB === botCountryId)
-    );
+    // Verifica se está em guerra com este vizinho (com tolerância de chaves)
+    const relation = diplomacy.find(r => {
+      const c1 = r.countryA || (r as any).country1Id || (r as any).country1 || (r as any).from;
+      const c2 = r.countryB || (r as any).country2Id || (r as any).country2 || (r as any).to;
+      return (c1 === botCountryId && c2 === neighborProv.owner) ||
+             (c1 === neighborProv.owner && c2 === botCountryId);
+    });
 
-    return relation && relation.status === 'war';
+    if (!relation) return false;
+
+    const rawStatus = relation.status || (relation as any).type || (relation as any).state || '';
+    const normalizedStatus = String(rawStatus).toLowerCase().trim();
+    return normalizedStatus === 'war';
   });
 }
 
@@ -100,11 +107,18 @@ function isAtWarWith(
   countryB: string,
   diplomacy: DiplomaticRelation[]
 ): boolean {
-  const relation = diplomacy.find(
-    r => (r.countryA === countryA && r.countryB === countryB) ||
-         (r.countryA === countryB && r.countryB === countryA)
-  );
-  return relation ? relation.status === 'war' : false;
+  const relation = diplomacy.find(r => {
+    const c1 = r.countryA || (r as any).country1Id || (r as any).country1 || (r as any).from;
+    const c2 = r.countryB || (r as any).country2Id || (r as any).country2 || (r as any).to;
+    return (c1 === countryA && c2 === countryB) ||
+           (c1 === countryB && c2 === countryA);
+  });
+
+  if (!relation) return false;
+
+  const rawStatus = relation.status || (relation as any).type || (relation as any).state || '';
+  const normalizedStatus = String(rawStatus).toLowerCase().trim();
+  return normalizedStatus === 'war';
 }
 
 /**

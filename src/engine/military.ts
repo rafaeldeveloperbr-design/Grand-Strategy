@@ -14,8 +14,8 @@ import { calculateArmySize } from './combat';
 
 /**
  * Verifica se um exército pode se mover para uma província específica
- * baseado nas relações diplomáticas
- * Permite passagem por territórios próprios, aliados ou em guerra
+ * baseado nas relações diplomáticas.
+ * Normaliza automaticamente chaves de objeto e maiúsculas/minúsculas.
  */
 export function canMoveToProvince(
   armyCountryId: string,
@@ -28,23 +28,24 @@ export function canMoveToProvince(
   }
 
   // Se não houver array de diplomacia ou estiver vazio
-  if (!diplomacy || diplomacy.length === 0) {
+  if (!diplomacy || !Array.isArray(diplomacy) || diplomacy.length === 0) {
     return false;
   }
 
-  // 2. Busca relação considerando possíveis variações de IDs/Tags
+  // 2. Busca relação testando TODAS as variações comuns de nomenclatura de chaves
   const relation = diplomacy.find(r => {
-    const a = r.countryA || (r as any).country1Id || (r as any).from;
-    const b = r.countryB || (r as any).country2Id || (r as any).to;
-    return (a === armyCountryId && b === targetProvinceOwner) ||
-           (a === targetProvinceOwner && b === armyCountryId);
+    const c1 = r.countryA || (r as any).country1Id || (r as any).country1 || (r as any).from;
+    const c2 = r.countryB || (r as any).country2Id || (r as any).country2 || (r as any).to;
+
+    return (c1 === armyCountryId && c2 === targetProvinceOwner) ||
+           (c1 === targetProvinceOwner && c2 === armyCountryId);
   });
 
   if (!relation) {
     return false;
   }
 
-  // 3. Extrai a string de status aceitando 'status' ou 'type' em maiúsculo ou minúsculo
+  // 3. Extrai o status testando variações de nome de propriedade e converte para minúsculo
   const rawStatus = relation.status || (relation as any).type || (relation as any).state || '';
   const normalizedStatus = String(rawStatus).toLowerCase().trim();
 
@@ -252,15 +253,20 @@ export function processArmyMovement(
 
     // Não há inimigos - captura a província se pertencer a outro país E houver guerra declarada
     if (reachedProvince.owner !== army.owner) {
-      // Busca relação diplomática específica
-      const relation = diplomacy.find(
-        r => (r.countryA === army.owner && r.countryB === reachedProvince.owner) ||
-             (r.countryA === reachedProvince.owner && r.countryB === army.owner)
-      );
+      // Busca relação diplomática específica testando variações de chaves
+      const relation = diplomacy.find(r => {
+        const c1 = r.countryA || (r as any).country1Id || (r as any).country1 || (r as any).from;
+        const c2 = r.countryB || (r as any).country2Id || (r as any).country2 || (r as any).to;
+        return (c1 === army.owner && c2 === reachedProvince.owner) ||
+               (c1 === reachedProvince.owner && c2 === army.owner);
+      });
       
+      const rawStatus = relation ? (relation.status || (relation as any).type || (relation as any).state || '') : '';
+      const normalizedStatus = String(rawStatus).toLowerCase().trim();
+
       // SÓ conquista se a relação for explicitamente de GUERRA
-      // Aliados podem transitar, mas não são conquistados
-      if (relation && relation.status === 'war') {
+      // Aliados podem transitar, mas não têm a província conquistada
+      if (normalizedStatus === 'war') {
         capturedProvinces.push({
           ...reachedProvince,
           owner: army.owner,
