@@ -142,6 +142,8 @@ export function processArmyMovement(
   const updatedArmies: Army[] = [];
   const arrivedArmies: Army[] = [];
 
+  console.log(`🚶 [MOVIMENTO] Processando ${armies.length} exércitos`);
+
   for (const army of armies) {
     if (!army.destination) {
       // Não está se movendo
@@ -149,12 +151,16 @@ export function processArmyMovement(
       continue;
     }
 
+    console.log(`🚶 [MOVIMENTO] Exército ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}, speed=${army.movementSpeed}`);
+
     // Avança o movimento
     const newProgress = army.movementProgress + army.movementSpeed;
+    console.log(`🚶 [MOVIMENTO] ${army.id}: newProgress=${newProgress.toFixed(2)} (old=${army.movementProgress.toFixed(2)} + speed=${army.movementSpeed})`);
 
     if (newProgress >= 1.0) {
       // Chegou ao próximo waypoint
       const reachedProvince = army.destination;
+      console.log(`✅ [MOVIMENTO] ${army.id} chegou em ${reachedProvince}!`);
       
       // Se há mais províncias no path, continua para a próxima
       if (army.path.length > 0) {
@@ -194,6 +200,8 @@ export function processArmyMovement(
           y: originProvince.center.y + (destProvince.center.y - originProvince.center.y) * newProgress,
         };
       }
+
+      console.log(`🚶 [MOVIMENTO] ${army.id} continua se movendo: progress=${newProgress.toFixed(2)}`);
 
       updatedArmies.push({
         ...army,

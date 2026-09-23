@@ -38,12 +38,18 @@ export function processAITick(
   let log: string | undefined;
 
   // Filtra exércitos deste país que não estão em movimento
-  const myArmies = updatedArmies.filter(army => 
-    army && 
-    army.owner === country.tag && 
-    !army.destination &&
-    army.location
-  );
+  const myArmies = updatedArmies.filter(army => {
+    const isValid = army && 
+      army.owner === country.tag && 
+      !army.destination &&  // Não está se movendo
+      army.location;
+    
+    if (army && army.owner === country.tag) {
+      console.log(`🔍 [IA] ${country.name}: Exército ${army.id} - location=${army.location}, destination=${army.destination || 'null'}, movementProgress=${army.movementProgress}`);
+    }
+    
+    return isValid;
+  });
 
   // Para cada exército, tenta mover para província vizinha com dono diferente
   console.log(`🔍 [IA] ${country.name}: Verificando ${myArmies.length} exércitos`);
