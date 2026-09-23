@@ -45,6 +45,23 @@ export const AI_PERSONALITIES: Record<string, AIPersonality> = {
 };
 
 /**
+ * Cooldown de recrutamento em dias (1 mês = 30 dias)
+ */
+const RECRUITMENT_COOLDOWN_DAYS = 30;
+
+/**
+ * Rastreia o último dia de recrutamento de cada país
+ */
+const lastRecruitmentDay = new Map<string, number>();
+
+/**
+ * Converte data para dias totais (para comparação)
+ */
+function dateToDays(date: { year: number; month: number; day: number }): number {
+  return date.year * 360 + date.month * 30 + date.day;
+}
+
+/**
  * Processa tick de IA para um país
  */
 export function processAITick(
@@ -177,71 +194,90 @@ export function processAITick(
     }
   }
 
-  // 2. Gestão Militar - Recrutar tropas
+  // 2. Gestão Militar - Recrutar tropas (COM COOLDOWN)
   const armiesInCountry = updatedArmies.filter(a => a && a.id && a.owner === country.tag);
   const totalTroops = armiesInCountry.reduce((sum, a) => sum + calculateArmySize(a), 0);
   
-  // RECRUTAMENTO DE EMERGÊNCIA: Se tem < 2000 tropas e tem recursos, recrutar automaticamente
-  const isEmergencyRecruitment = totalTroops < 2000 && updatedCountry.resources.gold > 50 && updatedCountry.resources.manpower > 500;
-  const isNormalRecruitment = updatedCountry.resources.gold > 100 && updatedCountry.resources.manpower > 1000;
+  // CORREÇÃO: Verifica cooldown de recrutamento
+  const currentDay = dateToDays(currentDate);
+  const lastRecruitDay = lastRecruitmentDay.get(country.tag) || 0;
+  const daysSinceLastRecruit = currentDay - lastRecruitDay;
+  const canRecruit = daysSinceLastRecruit >= RECRUITMENT_COOLDOWN_DAYS;
   
-  if (isEmergencyRecruitment || isNormalRecruitment) {
-    const ownedProvinces = updatedProvinces.filter(p => p && p.id && p.owner === country.tag);
+  if (!canRecruit) {
+    // Ainda em cooldown, pula recrutamento
+  } else {
+    // RECRUTAMENTO DE EMERGÊNCIA: Se tem < 2000 tropas e tem recursos, recrutar automaticamente
+    const isEmergencyRecruitment = totalTroops < 2000 && updatedCountry.resources.gold >= 50 && updatedCountry.resources.manpower >= 500;
+    const isNormalRecruitment = updatedCountry.resources.gold >= 100 && updatedCountry.resources.manpower >= 1000;
     
-    // Guard clause: verifica se há províncias válidas
-    if (ownedProvinces.length === 0) {
-      console.warn(`AI: ${country.tag} não possui províncias válidas para recrutar`);
-    } else {
-      // Recruta se tem poucas tropas OU é recrutamento de emergência
-      const shouldRecruit = isEmergencyRecruitment || 
-                           armiesInCountry.length < 3 || 
-                           (armiesInCountry[0] && calculateArmySize(armiesInCountry[0]) < 3000);
+    if (isEmergencyRecruitment || isNormalRecruitment) {
+      const ownedProvinces = updatedProvinces.filter(p => p && p.id && p.owner === country.tag);
       
-      if (shouldRecruit) {
-        const unitTypes = Object.keys(UNIT_DEFINITIONS) as Array<keyof typeof UNIT_DEFINITIONS>;
-        const unitType = unitTypes[Math.floor(Math.random() * unitTypes.length)];
-        const def = UNIT_DEFINITIONS[unitType];
+      // Guard clause: verifica se há províncias válidas
+      if (ownedProvinces.length === 0) {
+        console.warn(`AI: ${country.tag} não possui províncias válidas para recrutar`);
+      } else {
+        // Recruta se tem poucas tropas OU é recrutamento de emergência
+        const shouldRecruit = isEmergencyRecruitment || 
+                             armiesInCountry.length < 3 || 
+                             (armiesInCountry[0] && calculateArmySize(armiesInCountry[0]) < 3000);
         
-        if (updatedCountry.resources.gold >= def.cost && updatedCountry.resources.manpower >= def.manpowerCost) {
-          updatedCountry.resources.gold -= def.cost;
-          updatedCountry.resources.manpower -= def.manpowerCost;
+        if (shouldRecruit) {
+          const unitTypes = Object.keys(UNIT_DEFINITIONS) as Array<keyof typeof UNIT_DEFINITIONS>;
+          const unitType = unitTypes[Math.floor(Math.random() * unitTypes.length)];
+          const def = UNIT_DEFINITIONS[unitType];
           
-          // Adiciona regimento ao exército existente ou cria novo
-          const targetProvince = ownedProvinces[Math.floor(Math.random() * ownedProvinces.length)];
-          
-          // Guard clause: verifica se targetProvince é válido
-          if (!targetProvince || !targetProvince.id) {
-            console.warn('AI: targetProvince inválido no recrutamento');
-          } else {
-            const existingArmy = updatedArmies.find(
-              a => a && a.id && a.owner === country.tag && a.location === targetProvince.id
-            );
+          // CORREÇÃO: Verificação estrita de recursos ANTES de recrutar
+          if (updatedCountry.resources.gold >= def.cost && updatedCountry.resources.manpower >= def.manpowerCost) {
+            // CORREÇÃO: Desconta os recursos ANTES de criar o exército
+            updatedCountry.resources.gold -= def.cost;
+            updatedCountry.resources.manpower -= def.manpowerCost;
             
-            if (existingArmy) {
-              updatedArmies = updatedArmies.map(a => 
-                a.id === existingArmy.id
-                  ? { ...a, regiments: [...a.regiments, { type: unitType, strength: 1000, morale: 100 }] }
-                  : a
-              );
+            // CORREÇÃO: Atualiza o cooldown de recrutamento
+            lastRecruitmentDay.set(country.tag, currentDay);
+            
+            // Adiciona regimento ao exército existente ou cria novo
+            const targetProvince = ownedProvinces[Math.floor(Math.random() * ownedProvinces.length)];
+            
+            // Guard clause: verifica se targetProvince é válido
+            if (!targetProvince || !targetProvince.id) {
+              console.warn('AI: targetProvince inválido no recrutamento');
+              // CORREÇÃO: Reverte os recursos se falhar
+              updatedCountry.resources.gold += def.cost;
+              updatedCountry.resources.manpower += def.manpowerCost;
+              lastRecruitmentDay.delete(country.tag);
             } else {
-              updatedArmies.push({
-                id: `army_${country.tag}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                owner: country.tag,
-                name: `${country.name} Army`,
-                regiments: [{ type: unitType, strength: 1000, morale: 100 }],
-                location: targetProvince.id,
-                destination: null,
-                movementProgress: 0,
-                movementSpeed: def.mobility,
-                position: null,
-                path: [],
-                targetArmyId: null,
-                targetProvinceId: null
-              });
+              const existingArmy = updatedArmies.find(
+                a => a && a.id && a.owner === country.tag && a.location === targetProvince.id
+              );
+              
+              if (existingArmy) {
+                updatedArmies = updatedArmies.map(a => 
+                  a.id === existingArmy.id
+                    ? { ...a, regiments: [...a.regiments, { type: unitType, strength: 1000, morale: 100 }] }
+                    : a
+                );
+              } else {
+                updatedArmies.push({
+                  id: `army_${country.tag}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  owner: country.tag,
+                  name: `${country.name} Army`,
+                  regiments: [{ type: unitType, strength: 1000, morale: 100 }],
+                  location: targetProvince.id,
+                  destination: null,
+                  movementProgress: 0,
+                  movementSpeed: def.mobility,
+                  position: null,
+                  path: [],
+                  targetArmyId: null,
+                  targetProvinceId: null
+                });
+              }
+              log = isEmergencyRecruitment 
+                ? `🚨 ${country.name} recrutamento de emergência: ${def.name}`
+                : `🗡️ ${country.name} recrutou ${def.name}`;
             }
-            log = isEmergencyRecruitment 
-              ? `🚨 ${country.name} recrutamento de emergência: ${def.name}`
-              : `🗡️ ${country.name} recrutou ${def.name}`;
           }
         }
       }
@@ -580,15 +616,16 @@ export function processAITick(
           // Província VAZIA - invadir mesmo com exército pequeno
           console.log('AI DECISION:', army.id, `INVADIR VAZIO - ${enemyProvince.name} sem tropas inimigas`);
           
-          // Trava o alvo de invasão
+          // CORREÇÃO: Atualiza targetProvinceId E destination em um único map
           updatedArmies = updatedArmies.map(a => 
-            a.id === army.id ? { ...a, targetProvinceId: enemyProvId } : a
-          );
-          
-          // Move para a província
-          updatedArmies = updatedArmies.map(a => 
-            a.id === army.id
-              ? { ...a, destination: enemyProvId, movementProgress: 0, path: [] }
+            a.id === army.id 
+              ? { 
+                  ...a, 
+                  targetProvinceId: enemyProvId,
+                  destination: enemyProvId,
+                  movementProgress: 0,
+                  path: []
+                } 
               : a
           );
           break; // Sai do loop após escolher um alvo
@@ -600,15 +637,16 @@ export function processAITick(
             // IA é mais forte - pode atacar
             console.log('AI DECISION:', army.id, `INVADIR COM CONFRONTO - ${enemyProvince.name} (Ratio: ${forceRatio.toFixed(2)})`);
             
-            // Trava o alvo de invasão
+            // CORREÇÃO: Atualiza targetProvinceId E destination em um único map
             updatedArmies = updatedArmies.map(a => 
-              a.id === army.id ? { ...a, targetProvinceId: enemyProvId } : a
-            );
-            
-            // Move para a província
-            updatedArmies = updatedArmies.map(a => 
-              a.id === army.id
-                ? { ...a, destination: enemyProvId, movementProgress: 0, path: [] }
+              a.id === army.id 
+                ? { 
+                    ...a, 
+                    targetProvinceId: enemyProvId,
+                    destination: enemyProvId,
+                    movementProgress: 0,
+                    path: []
+                  } 
                 : a
             );
             break; // Sai do loop após escolher um alvo
