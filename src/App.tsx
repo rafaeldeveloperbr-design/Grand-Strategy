@@ -620,17 +620,37 @@ const App: React.FC = () => {
     );
     
     // Processa IA apenas para bots válidos
+    console.log(`🤖 [PASSO G] Processando IA para ${activeBots.length} bots`);
+    
     activeBots.forEach(country => {
+      console.log(`🤖 [IA] Processando ${country.name} (${country.tag})`);
+      
       const aiResult = processAITick(
         country, provinces, validArmies, relations, wars, countries, currentDate
       );
+
+      // Log de debug: verificar se exércitos mudaram
+      const armiesBefore = validArmies.filter(a => a.owner === country.tag);
+      const armiesAfter = aiResult.armies.filter(a => a.owner === country.tag);
+      
+      console.log(`🤖 [IA] ${country.name}: ${armiesBefore.length} exércitos antes, ${armiesAfter.length} depois`);
+      
+      // Verifica se algum exército mudou de destino
+      armiesAfter.forEach(army => {
+        if (army.destination) {
+          console.log(`🏃 [IA] ${country.name} - Exército ${army.id} movendo para ${army.destination}`);
+        }
+      });
 
       armies = aiResult.armies;
       relations = aiResult.relations;
       wars = aiResult.wars;
       provinces = aiResult.provinces;
 
-      if (aiResult.log) addLog(aiResult.log);
+      if (aiResult.log) {
+        console.log(`📝 [IA] Log: ${aiResult.log}`);
+        addLog(aiResult.log);
+      }
 
       // Atualiza o país no array
       const countryIndex = countries.findIndex(c => c.tag === country.tag);
