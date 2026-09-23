@@ -378,7 +378,7 @@ export function processAITick(
       w => (w.attacker === country.tag || w.defender === country.tag)
     );
     
-    // CORREÇÃO: Permite ações mesmo sem guerra formal (invasão de províncias vazias)
+    // CORREÇÃO: Permite ações mesmo sem guerra formal (invasão de províncias vazias OU declaração proativa de guerra)
     let enemy: string | null = null;
     
     console.log(`[DEBUG] ${country.tag} - Exército ${army.id} em ${currentProvince.name}, em guerra: ${atWarWith.length > 0}`);
@@ -388,36 +388,36 @@ export function processAITick(
       enemy = war.attacker === country.tag ? war.defender : war.attacker;
       console.log(`[DEBUG] ${country.tag} - Já em guerra com ${enemy}`);
     } else {
-      // Não está em guerra - busca províncias vazias para invadir
-      console.log(`[DEBUG] ${country.tag} - Buscando províncias vizinhas vazias. Vizinhos: ${currentProvince.neighbors.join(', ')}`);
+      // Não está em guerra - busca províncias inimigas para invadir
+      console.log(`[DEBUG] ${country.tag} - Buscando províncias vizinhas inimigas. Vizinhos: ${currentProvince.neighbors.join(', ')}`);
       
-      const emptyEnemyProvinces = currentProvince.neighbors.filter(nId => {
+      const enemyProvinces = currentProvince.neighbors.filter(nId => {
         const neighbor = updatedProvinces.find(p => p.id === nId);
         if (!neighbor) {
           console.log(`[DEBUG] ${country.tag} - Vizinho ${nId} não encontrado em updatedProvinces`);
           return false;
         }
         
-        // Verifica se a província está vazia (sem exércitos)
-        const armiesInProvince = updatedArmies.filter(a => a.location === nId);
-        const isEmpty = armiesInProvince.length === 0;
         const isEnemy = neighbor.owner !== country.tag;
+        const armiesInProvince = updatedArmies.filter(a => a.location === nId);
+        const enemyStrength = armiesInProvince.reduce((sum, a) => sum + calculateArmySize(a), 0);
+        const myStrength = calculateArmySize(army);
         
-        console.log(`[DEBUG] ${country.tag} - Vizinho ${neighbor.name} (${nId}): dono=${neighbor.owner}, exércitos=${armiesInProvince.length}, vazio=${isEmpty}, inimigo=${isEnemy}`);
+        console.log(`[DEBUG] ${country.tag} - Vizinho ${neighbor.name} (${nId}): dono=${neighbor.owner}, tropas inimigas=${enemyStrength}, minha força=${myStrength}`);
         
-        return isEmpty && isEnemy;
+        return isEnemy;
       });
       
-      console.log(`[DEBUG] ${country.tag} - Províncias vazias encontradas: ${emptyEnemyProvinces.length}`);
+      console.log(`[DEBUG] ${country.tag} - Províncias inimigas encontradas: ${enemyProvinces.length}`);
       
-      if (emptyEnemyProvinces.length > 0) {
-        // Escolhe uma província vazia para invadir
-        const targetProvId = emptyEnemyProvinces[0];
+      if (enemyProvinces.length > 0) {
+        // Escolhe a primeira província inimiga para atacar
+        const targetProvId = enemyProvinces[0];
         const targetProv = updatedProvinces.find(p => p.id === targetProvId);
         
         if (targetProv && targetProv.owner !== country.tag) {
           // Declara guerra automaticamente ao invadir
-          console.log(`[DEBUG] ${country.tag} - Invadindo província vazia ${targetProv.name}, declarando guerra a ${targetProv.owner}`);
+          console.log(`[DEBUG] ${country.tag} - Invadindo província ${targetProv.name}, declarando guerra a ${targetProv.owner}`);
           
           const result = declareWar(updatedRelations, updatedWars, country.tag, targetProv.owner, currentDate);
           updatedRelations = result.relations;
