@@ -337,6 +337,12 @@ export function moveArmy(
 
   // Se é vizinho direto, move sem pathfinding
   if (originProvince.neighbors.includes(destinationId)) {
+    // Validação extra de segurança para vizinhos diretos
+    if (!canMoveToProvince(army.owner, destinationProvince.owner, diplomacy)) {
+      console.log(`❌ Movimento não permitido para vizinho ${destinationProvince.name} (${destinationProvince.owner}): sem relação de guerra ou aliança`);
+      return null;
+    }
+    
     return {
       ...army,
       destination: destinationId,
