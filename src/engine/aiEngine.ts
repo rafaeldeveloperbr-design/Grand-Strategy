@@ -378,10 +378,62 @@ export function processAITick(
       w => (w.attacker === country.tag || w.defender === country.tag)
     );
     
-    if (atWarWith.length === 0) continue; // Não está em guerra, não toma ações militares
+    // CORREÇÃO: Permite ações mesmo sem guerra formal (invasão de províncias vazias)
+    let enemy: string | null = null;
     
-    const war = atWarWith[0];
-    const enemy = war.attacker === country.tag ? war.defender : war.attacker;
+    console.log(`[DEBUG] ${country.tag} - Exército ${army.id} em ${currentProvince.name}, em guerra: ${atWarWith.length > 0}`);
+    
+    if (atWarWith.length > 0) {
+      const war = atWarWith[0];
+      enemy = war.attacker === country.tag ? war.defender : war.attacker;
+      console.log(`[DEBUG] ${country.tag} - Já em guerra com ${enemy}`);
+    } else {
+      // Não está em guerra - busca províncias vazias para invadir
+      console.log(`[DEBUG] ${country.tag} - Buscando províncias vizinhas vazias. Vizinhos: ${currentProvince.neighbors.join(', ')}`);
+      
+      const emptyEnemyProvinces = currentProvince.neighbors.filter(nId => {
+        const neighbor = updatedProvinces.find(p => p.id === nId);
+        if (!neighbor) {
+          console.log(`[DEBUG] ${country.tag} - Vizinho ${nId} não encontrado em updatedProvinces`);
+          return false;
+        }
+        
+        // Verifica se a província está vazia (sem exércitos)
+        const armiesInProvince = updatedArmies.filter(a => a.location === nId);
+        const isEmpty = armiesInProvince.length === 0;
+        const isEnemy = neighbor.owner !== country.tag;
+        
+        console.log(`[DEBUG] ${country.tag} - Vizinho ${neighbor.name} (${nId}): dono=${neighbor.owner}, exércitos=${armiesInProvince.length}, vazio=${isEmpty}, inimigo=${isEnemy}`);
+        
+        return isEmpty && isEnemy;
+      });
+      
+      console.log(`[DEBUG] ${country.tag} - Províncias vazias encontradas: ${emptyEnemyProvinces.length}`);
+      
+      if (emptyEnemyProvinces.length > 0) {
+        // Escolhe uma província vazia para invadir
+        const targetProvId = emptyEnemyProvinces[0];
+        const targetProv = updatedProvinces.find(p => p.id === targetProvId);
+        
+        if (targetProv && targetProv.owner !== country.tag) {
+          // Declara guerra automaticamente ao invadir
+          console.log(`[DEBUG] ${country.tag} - Invadindo província vazia ${targetProv.name}, declarando guerra a ${targetProv.owner}`);
+          
+          const result = declareWar(updatedRelations, updatedWars, country.tag, targetProv.owner, currentDate);
+          updatedRelations = result.relations;
+          updatedWars = result.wars;
+          
+          enemy = targetProv.owner;
+          log = `⚔️ ${country.name} declarou guerra a ${targetProv.owner} ao invadir ${targetProv.name}!`;
+        }
+      }
+      
+      // Se ainda não encontrou inimigo, pula este exército
+      if (!enemy) {
+        console.log(`[DEBUG] ${country.tag} - Nenhum inimigo encontrado, pulando exército ${army.id}`);
+        continue;
+      }
+    }
     
     // === TARGET LOCKING: Verifica se já tem um alvo travado ===
     let targetArmy: Army | null = null;
@@ -590,18 +642,27 @@ export function processAITick(
     }
     
     // Busca províncias inimigas adjacentes (fronteiras diretas apenas)
+    console.log(`[DEBUG] ${country.tag} - Buscando províncias de ${enemy}`);
     const enemyNeighborProvinces = currentProvince.neighbors.filter(nId => {
       const neighbor = updatedProvinces.find(p => p.id === nId);
-      return neighbor && neighbor.owner === enemy;
+      const isEnemy = neighbor && neighbor.owner === enemy;
+      console.log(`[DEBUG] ${country.tag} - Vizinho ${nId}: dono=${neighbor?.owner}, inimigo=${isEnemy}`);
+      return isEnemy;
     });
+    
+    console.log(`[DEBUG] ${country.tag} - Províncias inimigas encontradas: ${enemyNeighborProvinces.length}`);
     
     if (enemyNeighborProvinces.length > 0) {
       const myStrength = calculateArmySize(army);
+      console.log(`[DEBUG] ${country.tag} - Força do exército ${army.id}: ${myStrength}`);
       
       // Avalia cada província vizinha inimiga
       for (const enemyProvId of enemyNeighborProvinces) {
         const enemyProvince = updatedProvinces.find(p => p.id === enemyProvId);
-        if (!enemyProvince) continue;
+        if (!enemyProvince) {
+          console.log(`[DEBUG] ${country.tag} - Província ${enemyProvId} não encontrada`);
+          continue;
+        }
         
         // Verifica se há tropas inimigas na província
         const enemyTroopsInProvince = updatedArmies.filter(a => 
@@ -611,23 +672,27 @@ export function processAITick(
           (sum, a) => sum + calculateArmySize(a), 0
         );
         
+        console.log(`[DEBUG] ${country.tag} - Província ${enemyProvince.name}: tropas inimigas=${enemyStrengthInProvince}`);
+        
         // REGRA: Território vazio vs Confronto
         if (enemyStrengthInProvince === 0) {
           // Província VAZIA - invadir mesmo com exército pequeno
           console.log('AI DECISION:', army.id, `INVADIR VAZIO - ${enemyProvince.name} sem tropas inimigas`);
           
           // CORREÇÃO: Atualiza targetProvinceId E destination em um único map
-          updatedArmies = updatedArmies.map(a => 
-            a.id === army.id 
-              ? { 
-                  ...a, 
-                  targetProvinceId: enemyProvId,
-                  destination: enemyProvId,
-                  movementProgress: 0,
-                  path: []
-                } 
-              : a
-          );
+          updatedArmies = updatedArmies.map(a => {
+            if (a.id === army.id) {
+              console.log(`[DEBUG] ${country.tag} - Movendo exército ${army.id} para ${enemyProvId}`);
+              return { 
+                ...a, 
+                targetProvinceId: enemyProvId,
+                destination: enemyProvId,
+                movementProgress: 0,
+                path: []
+              };
+            }
+            return a;
+          });
           break; // Sai do loop após escolher um alvo
         } else {
           // Província com tropas inimigas - verifica ratio de força
@@ -638,17 +703,19 @@ export function processAITick(
             console.log('AI DECISION:', army.id, `INVADIR COM CONFRONTO - ${enemyProvince.name} (Ratio: ${forceRatio.toFixed(2)})`);
             
             // CORREÇÃO: Atualiza targetProvinceId E destination em um único map
-            updatedArmies = updatedArmies.map(a => 
-              a.id === army.id 
-                ? { 
-                    ...a, 
-                    targetProvinceId: enemyProvId,
-                    destination: enemyProvId,
-                    movementProgress: 0,
-                    path: []
-                  } 
-                : a
-            );
+            updatedArmies = updatedArmies.map(a => {
+              if (a.id === army.id) {
+                console.log(`[DEBUG] ${country.tag} - Movendo exército ${army.id} para ${enemyProvId} com confronto`);
+                return { 
+                  ...a, 
+                  targetProvinceId: enemyProvId,
+                  destination: enemyProvId,
+                  movementProgress: 0,
+                  path: []
+                };
+              }
+              return a;
+            });
             break; // Sai do loop após escolher um alvo
           } else {
             // IA é mais fraca - STAY/DEFEND
@@ -658,6 +725,8 @@ export function processAITick(
           }
         }
       }
+    } else {
+      console.log(`[DEBUG] ${country.tag} - Nenhuma província inimiga adjacente encontrada`);
     }
   }
 
