@@ -114,8 +114,9 @@ export function processRecruitments(
   recruitments: Recruitment[],
   armies: Army[],
   countries: Country[]
-): { recruitments: Recruitment[]; armies: Army[]; countries: Country[] } {
+): { recruitments: Recruitment[]; armies: Army[]; countries: Country[]; completedRecruitments: Recruitment[] } {
   const updatedRecruitments: Recruitment[] = [];
+  const completedRecruitments: Recruitment[] = [];
   let updatedArmies = [...armies];
   const updatedCountries = [...countries];
 
@@ -147,6 +148,9 @@ export function processRecruitments(
         newArmy.regiments = regiments;
         updatedArmies.push(newArmy);
       }
+      
+      // Adiciona aos recrutamentos concluídos para notificação
+      completedRecruitments.push(rec);
     } else {
       // Continua recrutando
       updatedRecruitments.push({ ...rec, daysRemaining: newDays });
@@ -157,6 +161,7 @@ export function processRecruitments(
     recruitments: updatedRecruitments,
     armies: updatedArmies,
     countries: updatedCountries,
+    completedRecruitments,
   };
 }
 

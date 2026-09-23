@@ -21,6 +21,7 @@ import {
 import { UNIT_DEFINITIONS } from '../data/units';
 import { calculateArmySize } from '../engine/combat';
 import { isActiveConstruction } from '../engine/buildings';
+import { getBuildingName, getUnitName } from '../utils/translations';
 
 interface ProvincePanelProps {
   province: Province;

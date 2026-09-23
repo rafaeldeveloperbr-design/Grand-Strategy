@@ -74,6 +74,7 @@ import { processAI } from './engine/aiEngine';
 import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { ToastContainer } from './components/ToastContainer';
+import { getBuildingName, getUnitName } from './utils/translations';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -380,6 +381,27 @@ const App: React.FC = () => {
     const recruitResult = processRecruitments(recruitments, armies, countries);
     armies = recruitResult.armies;
     recruitments = recruitResult.recruitments;
+    
+    // Processa recrutamentos concluídos
+    for (const completed of recruitResult.completedRecruitments) {
+      const unitName = getUnitName(completed.unitType);
+      const province = provinces.find(p => p.id === completed.provinceId);
+      const provinceName = province?.name || 'província';
+      
+      if (completed.count > 1) {
+        addToast(
+          `Treinamento de ${completed.count}x ${unitName} concluído em ${provinceName}!`,
+          'success',
+          'Tropas Recrutadas'
+        );
+      } else {
+        addToast(
+          `Treinamento de ${unitName} concluído em ${provinceName}!`,
+          'success',
+          'Tropa Recrutada'
+        );
+      }
+    }
 
     // ===== PASSO A.5: CONSTRUÇÕES =====
     const constructionResult = processConstructions(buildingConstructions);
@@ -419,8 +441,9 @@ const App: React.FC = () => {
         });
         
         // Mostra toast de conclusão
+        const buildingName = getBuildingName(completed.buildingType);
         addToast(
-          `${completed.buildingType} concluído em ${province.name}!`,
+          `Construção de ${buildingName} finalizada em ${province.name}!`,
           'success',
           'Obra Concluída'
         );
@@ -627,7 +650,16 @@ const App: React.FC = () => {
       playerTechStateRef.current = currentPlayerTechState;
       
       if (playerTechResult.notifications?.length > 0) {
-        playerTechResult.notifications.forEach(notif => addLog(notif));
+        playerTechResult.notifications.forEach(notif => {
+          addLog(notif);
+          
+          // Dispara toast para conclusões
+          if (notif.includes('Foco concluído')) {
+            addToast(notif.replace('✅ ', ''), 'success', 'Foco Concluído');
+          } else if (notif.includes('Pesquisa concluída')) {
+            addToast(notif.replace('🔬 ', ''), 'success', 'Tecnologia Desenvolvida');
+          }
+        });
       }
     }
 
@@ -859,11 +891,7 @@ const App: React.FC = () => {
               : c
           )
         );
-        addToast(
-          `${buildingType} adicionado à fila de construção em ${province.name}`,
-          'warning',
-          'Construção Iniciada'
-        );
+        // Toast removido - notificação será disparada apenas na conclusão
       } else {
         addToast(
           `Ouro insuficiente para construir ${buildingType}`,
@@ -960,11 +988,7 @@ const App: React.FC = () => {
         if (existingRecruitment) {
           // Incrementa a quantidade
           console.log('✅ Agrupando recrutamento:', existingRecruitment.id, 'count:', existingRecruitment.count + 1);
-          addToast(
-            `${unitType} adicionada à fila (${existingRecruitment.count + 1}x)`,
-            'warning',
-            'Recrutamento Agrupado'
-          );
+          // Toast removido - notificação será disparada apenas na conclusão
           return prev.map(r =>
             r.id === existingRecruitment.id ? { ...r, count: r.count + 1 } : r
           );
@@ -979,16 +1003,12 @@ const App: React.FC = () => {
             count: 1,
           };
           console.log('✅ Adicionando recrutamento à fila:', newRecruitment);
-          addToast(
-            `Recrutando ${unitType} em ${province.name} (${costs.days} dias)`,
-            'warning',
-            'Recrutamento Iniciado'
-          );
+          // Toast removido - notificação será disparada apenas na conclusão
           return [...prev, newRecruitment];
         }
       });
     },
-    [provinces, playerCountryTag, playerCountry, addToast]
+    [provinces, playerCountryTag, playerCountry]
   );
 
   /**
