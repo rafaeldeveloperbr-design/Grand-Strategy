@@ -4,6 +4,7 @@
  * ============================================================
  * IA minimalista e imutável com validação diplomática
  * Regra: atribuir destino para exércitos parados respeitando relações diplomáticas
+ * Em tempos de paz, exércitos se posicionam estrategicamente nas fronteiras
  */
 
 import { Army, Province } from '../types';
@@ -40,9 +41,55 @@ function canMoveToProvince(
 }
 
 /**
+ * Verifica se uma província é de fronteira (tem vizinhos de outros países)
+ */
+function isBorderProvince(
+  provinceId: string,
+  provinces: Province[],
+  botCountryId: string
+): boolean {
+  const currentProv = provinces.find(p => p.id === provinceId);
+  if (!currentProv || !currentProv.neighbors) return false;
+
+  // É fronteira se pelo menos UM vizinho pertence a outro país
+  return currentProv.neighbors.some(neighborId => {
+    const neighborProv = provinces.find(p => p.id === neighborId);
+    return neighborProv && neighborProv.owner !== botCountryId;
+  });
+}
+
+/**
+ * Verifica se o país está em guerra com algum vizinho
+ */
+function isAtWarWithNeighbor(
+  botCountryId: string,
+  currentProv: Province,
+  provinces: Province[],
+  diplomacy: DiplomaticRelation[]
+): boolean {
+  return currentProv.neighbors.some(neighborId => {
+    const neighborProv = provinces.find(p => p.id === neighborId);
+    if (!neighborProv || neighborProv.owner === botCountryId) return false;
+
+    // Verifica se está em guerra com este vizinho
+    const relation = diplomacy.find(
+      r => (r.countryA === botCountryId && r.countryB === neighborProv.owner) ||
+           (r.countryA === neighborProv.owner && r.countryB === botCountryId)
+    );
+
+    return relation && relation.status === 'war';
+  });
+}
+
+/**
  * Processa IA para um bot
  * Atribui destinos apenas para exércitos PARADOS (destination === null)
  * Respeita as relações diplomáticas para validar movimentos
+ * 
+ * Lógica estratégica:
+ * - Em guerra: ataca províncias inimigas
+ * - Em paz na fronteira: fica parado (guarda)
+ * - Em paz no interior: move para fronteira
  */
 export function processAI(
   botCountryId: string,
@@ -68,34 +115,82 @@ export function processAI(
       return army;
     }
 
-    // Filtra vizinhos válidos baseado nas relações diplomáticas
-    const validNeighbors = currentProv.neighbors.filter(neighborId => {
-      const prov = provinces.find(p => p.id === neighborId);
-      if (!prov) return false;
-      return canMoveToProvince(botCountryId, prov.owner, diplomacy);
-    });
+    // Verifica se está em guerra com algum vizinho
+    const isAtWar = isAtWarWithNeighbor(botCountryId, currentProv, provinces, diplomacy);
 
-    // Se não houver vizinhos válidos, exército permanece onde está
-    if (validNeighbors.length === 0) {
-      return army;
+    // ===== CENÁRIO A: EM GUERRA ATIVA =====
+    if (isAtWar) {
+      // Filtra vizinhos válidos baseado nas relações diplomáticas
+      const validNeighbors = currentProv.neighbors.filter(neighborId => {
+        const prov = provinces.find(p => p.id === neighborId);
+        if (!prov) return false;
+        return canMoveToProvince(botCountryId, prov.owner, diplomacy);
+      });
+
+      // Se não houver vizinhos válidos, exército permanece onde está
+      if (validNeighbors.length === 0) {
+        return army;
+      }
+
+      // Prioriza províncias de guerra (dono diferente do bot)
+      const warTargets = validNeighbors.filter(neighborId => {
+        const prov = provinces.find(p => p.id === neighborId);
+        return prov && prov.owner !== botCountryId;
+      });
+
+      // Se houver alvos de guerra, escolhe um aleatoriamente entre eles
+      if (warTargets.length > 0) {
+        const chosenDestination = warTargets[Math.floor(Math.random() * warTargets.length)];
+        return {
+          ...army,
+          destination: chosenDestination,
+          movementProgress: 0
+        };
+      }
     }
 
-    // Prioriza províncias de guerra (dono diferente do bot)
-    const warTargets = validNeighbors.filter(neighborId => {
+    // ===== CENÁRIO B: EM PAZ =====
+    
+    // Regra 1: Já está na fronteira? Fica PARADO guardando
+    if (isBorderProvince(army.location!, provinces, botCountryId)) {
+      return army; // Não move, fica parado na fronteira
+    }
+
+    // Regra 2: Está no interior? Move em direção à fronteira
+    // Busca províncias vizinhas que são de fronteira
+    const borderNeighbors = currentProv.neighbors.filter(neighborId => {
       const prov = provinces.find(p => p.id === neighborId);
-      return prov && prov.owner !== botCountryId;
+      if (!prov) return false;
+      // Só pode mover para províncias próprias
+      return prov.owner === botCountryId && isBorderProvince(neighborId, provinces, botCountryId);
     });
 
-    // Se houver alvos de guerra, escolhe um aleatoriamente entre eles
-    // Caso contrário, escolhe qualquer vizinho válido (movimento interno/aliado)
-    const candidates = warTargets.length > 0 ? warTargets : validNeighbors;
-    const chosenDestination = candidates[Math.floor(Math.random() * candidates.length)];
+    // Se encontrou vizinho de fronteira, move para lá
+    if (borderNeighbors.length > 0) {
+      const chosenDestination = borderNeighbors[Math.floor(Math.random() * borderNeighbors.length)];
+      return {
+        ...army,
+        destination: chosenDestination,
+        movementProgress: 0
+      };
+    }
 
-    // Atribui destino (mantém movementProgress em 0)
-    return {
-      ...army,
-      destination: chosenDestination,
-      movementProgress: 0
-    };
+    // Se nenhuma vizinha é de fronteira, escolhe qualquer vizinho próprio para continuar avançando
+    const ownNeighbors = currentProv.neighbors.filter(neighborId => {
+      const prov = provinces.find(p => p.id === neighborId);
+      return prov && prov.owner === botCountryId;
+    });
+
+    if (ownNeighbors.length > 0) {
+      const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
+      return {
+        ...army,
+        destination: chosenDestination,
+        movementProgress: 0
+      };
+    }
+
+    // Se não houver opções, fica parado
+    return army;
   });
 }
