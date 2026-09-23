@@ -98,6 +98,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p1',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
@@ -115,6 +116,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p6',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
@@ -132,6 +134,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p10',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 0.5,
       position: null,
@@ -149,6 +152,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p14',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 1.5,
       position: null,
@@ -166,6 +170,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p17',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 0.75,
       position: null,
@@ -183,6 +188,7 @@ function createInitialArmies(): Army[] {
       ],
       location: 'p20',
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       movementSpeed: 1.0,
       position: null,
@@ -593,7 +599,7 @@ const App: React.FC = () => {
     // Para cada bot ativo, processa IA para atribuir destinos aos exércitos parados
     const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
     activeBots.forEach((country: Country) => {
-      armies = processAI(country.tag, armies, provinces, relations);
+      armies = processAI(country.tag, armies, provinces, relations, wars);
     });
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====

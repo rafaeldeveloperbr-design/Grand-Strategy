@@ -39,6 +39,7 @@ export function createArmy(owner: string, name: string, location: string): Army 
     regiments: [],
     location,
     destination: null,
+    targetDestination: null,
     movementProgress: 0,
     movementSpeed: 1.0,
     position: null,
@@ -170,11 +171,30 @@ export function processArmyMovement(
     // CHEGOU AO DESTINO (progress >= 1.0)
     const targetProvinceId = army.destination;
     
-    // Transiciona localização e reseta destino
+    // Verifica se há mais províncias no path
+    if (army.path.length > 0) {
+      // Remove o primeiro nó do path (localização atual)
+      const remainingPath = army.path.slice(1);
+      
+      // Se ainda há províncias no path, continua movendo
+      if (remainingPath.length > 0) {
+        return {
+          ...army,
+          location: targetProvinceId,
+          destination: remainingPath[0],
+          movementProgress: 0,
+          position: null,
+          path: remainingPath,
+        };
+      }
+    }
+    
+    // Path vazio ou não havia path - chegou ao destino final
     const arrivedArmy: Army = {
       ...army,
       location: targetProvinceId,
       destination: null,
+      targetDestination: null,
       movementProgress: 0,
       position: null,
       path: [],
@@ -216,9 +236,10 @@ export function moveArmy(
     return {
       ...army,
       destination: destinationId,
+      targetDestination: destinationId,
       movementProgress: 0,
       movementSpeed: calculateArmySpeed(army),
-      path: [],
+      path: [destinationId],
     };
   }
 
@@ -231,15 +252,18 @@ export function moveArmy(
     return null; // Caminho não encontrado
   }
 
+  // path contém todas as províncias do caminho (incluindo o destino final)
+  // destination é o primeiro passo, targetDestination é o destino final
   const nextDestination = path[0];
-  const remainingPath = path.slice(1);
+  const fullPath = path; // path completo incluindo destino final
 
   return {
     ...army,
     destination: nextDestination,
+    targetDestination: destinationId,
     movementProgress: 0,
     movementSpeed: calculateArmySpeed(army),
-    path: remainingPath,
+    path: fullPath,
   };
 }
 
@@ -436,6 +460,7 @@ export function splitArmy(
     regiments: transferredRegiments,
     location: sourceArmy.location,
     destination: null,
+    targetDestination: null,
     movementProgress: 0,
     movementSpeed: calculateArmySpeed({ ...sourceArmy, regiments: transferredRegiments }),
     position: null,

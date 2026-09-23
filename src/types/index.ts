@@ -232,15 +232,17 @@ export interface Army {
   regiments: Regiment[];
   /** Província atual (null se em movimento) */
   location: string | null;
-  /** Província de destino (se em movimento) */
+  /** Próximo passo imediato da rota */
   destination: string | null;
+  /** Destino final selecionado pelo jogador */
+  targetDestination: string | null;
   /** Progresso do movimento (0-1, onde 1 = chegou) */
   movementProgress: number;
   /** Velocidade de movimento (baseada no regimento mais lento) */
   movementSpeed: number;
   /** Posição visual atual (para animação) */
   position: { x: number; y: number } | null;
-  /** Fila de caminho para pathfinding (províncias a atravessar) */
+  /** Lista de províncias a percorrer em ordem (rota completa) */
   path: string[];
   /** ID do exército alvo (Target Locking - IA mantém foco até eliminar) */
   targetArmyId?: string | null;
