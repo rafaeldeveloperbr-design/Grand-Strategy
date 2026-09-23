@@ -70,7 +70,7 @@ import {
   updateWarScore,
   DIPLOMATIC_COSTS
 } from './engine/diplomacy';
-import { processAI } from './engine/aiEngine';
+import { processAI, processAIEconomicDecisions } from './engine/aiEngine';
 import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { AILogProvider, useAILog } from './context/AILogContext';
@@ -778,11 +778,42 @@ const App: React.FC = () => {
     });
 
     // ===== PASSO G: IA DOS BOTS =====
-    // Para cada bot ativo, processa IA para atribuir destinos aos exércitos parados
+    // Para cada bot ativo, processa decisões econômicas e movimentação militar
     const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
     const dateString = formatGameDate(snapshot.date);
     
     activeBots.forEach((country: Country) => {
+      // G.1: Decisões Econômicas (construir, recrutar, pesquisar, focos)
+      const botTechState = currentBotTechStates.get(country.tag);
+      if (botTechState) {
+        const economicResult = processAIEconomicDecisions(
+          country,
+          provinces,
+          botTechState,
+          buildingConstructions,
+          recruitments,
+          dateString
+        );
+        
+        // Atualiza estados
+        countries = countries.map(c => c.tag === country.tag ? economicResult.country : c);
+        currentBotTechStates.set(country.tag, economicResult.techState);
+        buildingConstructions = economicResult.buildingConstructions;
+        recruitments = economicResult.recruitments;
+        
+        // Registra logs da IA
+        economicResult.logs.forEach((log: { actionType: 'building' | 'military' | 'tech' | 'focus'; message: string }) => {
+          addAILog(
+            country.name,
+            log.actionType,
+            log.message,
+            dateString,
+            country.color
+          );
+        });
+      }
+      
+      // G.2: Movimentação Militar
       const armiesBefore = armies.filter(a => a.owner === country.tag);
       armies = processAI(country.tag, armies, provinces, relations, wars);
       const armiesAfter = armies.filter(a => a.owner === country.tag);
@@ -805,6 +836,9 @@ const App: React.FC = () => {
         }
       });
     });
+    
+    // Atualiza a ref dos bots com as novas decisões econômicas
+    botTechStatesRef.current = currentBotTechStates;
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
     // Fusão física de exércitos da mesma nação na mesma província
