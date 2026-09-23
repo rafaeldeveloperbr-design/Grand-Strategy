@@ -7,10 +7,39 @@
  */
 
 import { Army, Province, Country, Recruitment, Regiment, UnitType } from '../types';
-import { War } from '../types/diplomacy';
+import { War, DiplomaticRelation } from '../types/diplomacy';
 import { UNIT_DEFINITIONS } from '../data/units';
 import { provincesData } from '../data/provinces';
 import { calculateArmySize } from './combat';
+
+/**
+ * Verifica se um exército pode se mover para uma província específica
+ * baseado nas relações diplomáticas
+ */
+export function canMoveToProvince(
+  armyCountryId: string,
+  targetProvinceOwner: string,
+  diplomacy: DiplomaticRelation[]
+): boolean {
+  // Se o dono da província é o próprio país do exército, sempre pode mover
+  if (targetProvinceOwner === armyCountryId) {
+    return true;
+  }
+
+  // Busca a relação diplomática entre o país do exército e o dono da província
+  const relation = diplomacy.find(
+    r => (r.countryA === armyCountryId && r.countryB === targetProvinceOwner) ||
+         (r.countryA === targetProvinceOwner && r.countryB === armyCountryId)
+  );
+
+  // Se não houver relação cadastrada (neutro/paz padrão), movimento proibido
+  if (!relation) {
+    return false;
+  }
+
+  // Permite movimento APENAS se estiver em guerra
+  return relation.status === 'war';
+}
 
 /**
  * Gera um ID único para exércitos
@@ -131,10 +160,12 @@ export function processRecruitments(
  * Processa movimentação de exércitos (IMUTÁVEL)
  * Atualiza o progresso de movimento de TODOS os exércitos que possuem destino
  * Captura províncias automaticamente e interrompe rota se houver combate
+ * Valida relações diplomáticas antes de capturar províncias
  */
 export function processArmyMovement(
   armies: Army[],
-  provinces: Province[]
+  provinces: Province[],
+  diplomacy: DiplomaticRelation[]
 ): { updatedArmies: Army[]; arrivedArmies: Army[]; updatedProvinces: Province[] } {
   const arrivedArmies: Army[] = [];
   const capturedProvinces: Province[] = [];
@@ -208,12 +239,17 @@ export function processArmyMovement(
       };
     }
 
-    // Não há inimigos - captura a província se pertencer a outro país
+    // Não há inimigos - captura a província se pertencer a outro país E houver guerra declarada
     if (reachedProvince.owner !== army.owner) {
-      capturedProvinces.push({
-        ...reachedProvince,
-        owner: army.owner,
-      });
+      // Valida se há guerra declarada antes de capturar
+      const isAtWar = canMoveToProvince(army.owner, reachedProvince.owner, diplomacy);
+      
+      if (isAtWar) {
+        capturedProvinces.push({
+          ...reachedProvince,
+          owner: army.owner,
+        });
+      }
     }
 
     // Verifica se há mais províncias no path
@@ -269,18 +305,28 @@ export function processArmyMovement(
 /**
  * Inicia o movimento de um exército para uma província (vizinha ou distante)
  * Usa pathfinding para destinos não-vizinhos
+ * Valida relações diplomáticas antes de permitir movimento
  */
 export function moveArmy(
   army: Army,
   destinationId: string,
   provinces: Province[],
-  wars?: War[]
+  diplomacy: DiplomaticRelation[]
 ): Army | null {
   if (!army.location) return null;
   if (army.destination) return null; // Já está se movendo
 
   const originProvince = provinces.find(p => p.id === army.location);
   if (!originProvince) return null;
+
+  const destinationProvince = provinces.find(p => p.id === destinationId);
+  if (!destinationProvince) return null;
+
+  // Valida se pode mover para o destino (diplomacia)
+  if (!canMoveToProvince(army.owner, destinationProvince.owner, diplomacy)) {
+    console.log('❌ Movimento não permitido: sem relação de guerra com', destinationProvince.owner);
+    return null;
+  }
 
   // Se é vizinho direto, move sem pathfinding
   if (originProvince.neighbors.includes(destinationId)) {
@@ -295,8 +341,8 @@ export function moveArmy(
   }
 
   // Usa pathfinding para destino distante
-  console.log('🗺️ Calculando pathfinding:', { from: army.location, to: destinationId, owner: army.owner, wars: wars?.length });
-  const path = findPath(army.location, destinationId, provinces, army.owner, wars);
+  console.log('🗺️ Calculando pathfinding:', { from: army.location, to: destinationId, owner: army.owner });
+  const path = findPath(army.location, destinationId, provinces, army.owner, diplomacy);
   console.log('🗺️ Caminho encontrado:', path);
   if (path.length === 0) {
     console.log('❌ Caminho não encontrado');
@@ -398,12 +444,13 @@ export function calculateArmyOffset(
 
 /**
  * Algoritmo BFS para encontrar o caminho mais curto entre duas províncias.
- * Restringe o caminho a províncias permitidas (próprias ou ocupadas).
+ * Restringe o caminho a províncias permitidas (próprias ou em guerra).
  * 
  * @param startId - ID da província de origem
  * @param endId - ID da província de destino
  * @param provinces - Lista de todas as províncias
  * @param ownerTag - Tag do país dono do exército
+ * @param diplomacy - Array de relações diplomáticas
  * @returns Array de IDs de províncias no caminho (excluindo startId, incluindo endId)
  */
 export function findPath(
@@ -411,7 +458,7 @@ export function findPath(
   endId: string,
   provinces: Province[],
   ownerTag: string,
-  wars?: War[]
+  diplomacy: DiplomaticRelation[]
 ): string[] {
   if (startId === endId) return [];
 
@@ -448,23 +495,8 @@ export function findPath(
       const neighborProvince = provinces.find(p => p.id === neighbor);
       if (!neighborProvince) continue;
 
-      // Permite atravessar:
-      // 1. Províncias próprias
-      // 2. O destino final (sempre permitido)
-      // 3. Províncias de países inimigos (se houver guerra ativa)
-      let isAllowed = neighborProvince.owner === ownerTag || neighbor === endId;
-      
-      // Verifica se há guerra com o dono da província
-      if (!isAllowed && wars && wars.length > 0) {
-        const hasWarWithOwner = wars.some(
-          w => (w.attacker === ownerTag && w.defender === neighborProvince.owner) ||
-               (w.defender === ownerTag && w.attacker === neighborProvince.owner)
-        );
-        console.log('🔍 Verificando guerra para província', neighbor, ':', { owner: neighborProvince.owner, hasWar: hasWarWithOwner });
-        if (hasWarWithOwner) {
-          isAllowed = true;
-        }
-      }
+      // Usa validação diplomática
+      const isAllowed = canMoveToProvince(ownerTag, neighborProvince.owner, diplomacy);
       
       if (isAllowed) {
         visited.add(neighbor);

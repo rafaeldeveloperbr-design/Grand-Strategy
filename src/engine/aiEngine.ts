@@ -90,8 +90,15 @@ function createArmyWithRoute(
   destinationId: string,
   provinces: Province[],
   botCountryId: string,
-  wars: War[]
+  diplomacy: DiplomaticRelation[]
 ): Army {
+  // Valida se pode mover para o destino (diplomacia)
+  const destProv = provinces.find(p => p.id === destinationId);
+  if (destProv && !canMoveToProvince(botCountryId, destProv.owner, diplomacy)) {
+    // Não pode mover para este destino
+    return army;
+  }
+
   // Se é vizinho direto, não precisa de pathfinding
   const currentProv = provinces.find(p => p.id === army.location);
   if (currentProv && currentProv.neighbors.includes(destinationId)) {
@@ -105,7 +112,7 @@ function createArmyWithRoute(
   }
 
   // Usa pathfinding para calcular rota completa
-  const path = findPath(army.location!, destinationId, provinces, botCountryId, wars);
+  const path = findPath(army.location!, destinationId, provinces, botCountryId, diplomacy);
   
   if (path.length === 0) {
     // Caminho não encontrado, não move
@@ -183,7 +190,7 @@ export function processAI(
       // Se houver alvos de guerra, escolhe um aleatoriamente entre eles
       if (warTargets.length > 0) {
         const chosenDestination = warTargets[Math.floor(Math.random() * warTargets.length)];
-        return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, wars);
+        return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, diplomacy);
       }
     }
 
@@ -206,7 +213,7 @@ export function processAI(
     // Se encontrou vizinho de fronteira, move para lá
     if (borderNeighbors.length > 0) {
       const chosenDestination = borderNeighbors[Math.floor(Math.random() * borderNeighbors.length)];
-      return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, wars);
+      return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, diplomacy);
     }
 
     // Se nenhuma vizinha é de fronteira, escolhe qualquer vizinho próprio para continuar avançando
@@ -217,7 +224,7 @@ export function processAI(
 
     if (ownNeighbors.length > 0) {
       const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
-      return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, wars);
+      return createArmyWithRoute(army, chosenDestination, provinces, botCountryId, diplomacy);
     }
 
     // Se não houver opções, fica parado

@@ -368,7 +368,7 @@ const App: React.FC = () => {
     recruitments = recruitResult.recruitments;
 
     // ===== PASSO B: MOVIMENTAÇÃO =====
-    const moveResult = processArmyMovement(armies, provinces);
+    const moveResult = processArmyMovement(armies, provinces, relations);
     armies = moveResult.updatedArmies;
     const arrivedArmies = moveResult.arrivedArmies;
     provinces = moveResult.updatedProvinces; // Atualiza províncias capturadas
@@ -898,14 +898,16 @@ const App: React.FC = () => {
       if (!army || army.owner !== playerCountryTag) return;
       if (army.destination) return; // Já está se movendo
 
-      const moved = moveArmy(army, provinceId, provincesRef.current, wars);
+      const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
       if (moved) {
         setArmies((prev) => prev.map((a) => (a.id === army.id ? moved : a)));
         const destProvince = provincesRef.current.find(p => p.id === provinceId);
         addLog(`🚶 ${army.name} marchando para ${destProvince?.name ?? provinceId}`);
+      } else {
+        addLog(`❌ Movimento não permitido: sem relação de guerra com o destino`);
       }
     },
-    [selectedArmy, playerCountryTag, addLog, wars]
+    [selectedArmy, playerCountryTag, addLog]
   );
 
   /**
