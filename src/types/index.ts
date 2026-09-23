@@ -24,6 +24,24 @@ export interface Building {
 }
 
 /**
+ * Representa uma construção na fila (sistema de fila de construções)
+ */
+export interface BuildingConstruction {
+  /** ID único da construção */
+  id: string;
+  /** ID da província onde está sendo construída */
+  provinceId: string;
+  /** Tipo do edifício sendo construído */
+  buildingType: BuildingType;
+  /** Dias restantes para conclusão */
+  daysRemaining: number;
+  /** Total de dias necessários para construção */
+  totalDays: number;
+  /** Custo em ouro da construção */
+  cost: number;
+}
+
+/**
  * Representa uma província/região no mapa do jogo.
  * Cada província é uma entidade territorial básica.
  */

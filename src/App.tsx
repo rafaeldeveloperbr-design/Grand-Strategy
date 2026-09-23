@@ -55,6 +55,7 @@ import {
   Recruitment,
   UnitType,
   CombatResult,
+  BuildingConstruction,
 } from './types';
 import { CountryTechState } from './types/technology';
 import { DiplomaticRelation, War } from './types/diplomacy';
@@ -70,6 +71,7 @@ import {
   DIPLOMATIC_COSTS
 } from './engine/diplomacy';
 import { processAI } from './engine/aiEngine';
+import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -231,9 +233,11 @@ const App: React.FC = () => {
 
   /** Recrutamentos em andamento */
   const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
-
-  /** Exército selecionado */
-  const [selectedArmy, setSelectedArmy] = useState<string | null>(null);
+  
+  /** Fila de construções */
+  const [buildingConstructions, setBuildingConstructions] = useState<BuildingConstruction[]>([]);
+  
+  /** Exército selecionado */  const [selectedArmy, setSelectedArmy] = useState<string | null>(null);
 
   /** Log de eventos (combate, conquistas) */
   const [eventLog, setEventLog] = useState<string[]>([]);
@@ -295,6 +299,7 @@ const App: React.FC = () => {
   const warsRef = useRef(wars);
   const diplomaticRelationsRef = useRef(diplomaticRelations);
   const dateRef = useRef(date);
+  const buildingConstructionsRef = useRef(buildingConstructions);
   const playerTechStateRef = useRef(playerTechState);
   const botTechStatesRef = useRef(botTechStates);
 
@@ -307,6 +312,7 @@ const App: React.FC = () => {
   useEffect(() => { dateRef.current = date; }, [date]);
   useEffect(() => { playerTechStateRef.current = playerTechState; }, [playerTechState]);
   useEffect(() => { botTechStatesRef.current = botTechStates; }, [botTechStates]);
+  useEffect(() => { buildingConstructionsRef.current = buildingConstructions; }, [buildingConstructions]);
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
@@ -353,6 +359,7 @@ const App: React.FC = () => {
       wars: warsRef.current,
       relations: diplomaticRelationsRef.current,
       date: dateRef.current,
+      buildingConstructions: buildingConstructionsRef.current,
     };
 
     // Trabalha com cópias mutáveis locais
@@ -362,11 +369,53 @@ const App: React.FC = () => {
     let wars = [...snapshot.wars];
     let relations = [...snapshot.relations];
     let recruitments = [...snapshot.recruitments];
+    let buildingConstructions = [...snapshot.buildingConstructions];
 
     // ===== PASSO A: RECRUTAMENTO =====
     const recruitResult = processRecruitments(recruitments, armies, countries);
     armies = recruitResult.armies;
     recruitments = recruitResult.recruitments;
+
+    // ===== PASSO A.5: CONSTRUÇÕES =====
+    const constructionResult = processConstructions(buildingConstructions);
+    buildingConstructions = constructionResult.updatedConstructions;
+    
+    // Processa construções concluídas
+    for (const completed of constructionResult.completedConstructions) {
+      const province = provinces.find(p => p.id === completed.provinceId);
+      if (province) {
+        // Adiciona o edifício à província
+        provinces = provinces.map(p => {
+          if (p.id === completed.provinceId) {
+            const existingBuilding = p.buildings.find(b => b.type === completed.buildingType);
+            if (existingBuilding) {
+              // Upgrade do edifício existente
+              return {
+                ...p,
+                buildings: p.buildings.map(b => 
+                  b.type === completed.buildingType 
+                    ? { ...b, level: b.level + 1, daysRemaining: 0 }
+                    : b
+                )
+              };
+            } else {
+              // Novo edifício
+              return {
+                ...p,
+                buildings: [...p.buildings, {
+                  type: completed.buildingType,
+                  level: 1,
+                  daysRemaining: 0
+                }]
+              };
+            }
+          }
+          return p;
+        });
+        
+        addLog(`🏗️ ${province.name}: ${completed.buildingType} construído!`);
+      }
+    }
 
     // ===== PASSO B: MOVIMENTAÇÃO =====
     const moveResult = processArmyMovement(armies, provinces, relations);
@@ -691,6 +740,7 @@ const App: React.FC = () => {
     setWars(wars);
     setDiplomaticRelations(relations);
     setRecruitments(recruitments);
+    setBuildingConstructions(buildingConstructions);
     setPlayerTechState(currentPlayerTechState);
     setBotTechStates(currentBotTechStates);
     setDate(prevDate => advanceDate(prevDate));
@@ -702,6 +752,7 @@ const App: React.FC = () => {
     warsRef.current = wars;
     diplomaticRelationsRef.current = relations;
     recruitmentsRef.current = recruitments;
+    buildingConstructionsRef.current = buildingConstructions;
     playerTechStateRef.current = currentPlayerTechState;
     botTechStatesRef.current = currentBotTechStates;
   }, [addLog, playerCountryTag]);
@@ -767,13 +818,12 @@ const App: React.FC = () => {
   }, []);
 
   /**
-   * Constrói um edifício em uma província
+   * Adiciona uma construção à fila
    */
   const handleBuild = useCallback(
     (provinceId: string, buildingType: BuildingType) => {
       const province = provinces.find((p) => p.id === provinceId);
       if (!province || province.owner !== playerCountryTag) return;
-      if (province.buildings.some((b) => b.daysRemaining > 0)) return;
 
       const existingBuilding = province.buildings.find((b) => b.type === buildingType);
       const currentLevel = existingBuilding?.level ?? 0;
@@ -781,35 +831,51 @@ const App: React.FC = () => {
       const cost = getBuildingCost(buildingType, currentLevel);
       const buildTime = getBuildingTime(buildingType, currentLevel);
 
-      if (playerCountry.resources.gold < cost) return;
+      const result = queueBuilding(
+        provinceId,
+        buildingType,
+        buildTime,
+        cost,
+        buildingConstructions,
+        playerCountry.resources.gold
+      );
 
+      if (result.success) {
+        setBuildingConstructions(result.updatedConstructions);
+        setAllCountries((prev) =>
+          prev.map((c) =>
+            c.tag === playerCountryTag
+              ? { ...c, resources: { ...c.resources, gold: result.newGold } }
+              : c
+          )
+        );
+        addLog(`🏗️ ${province.name}: ${buildingType} adicionado à fila de construção`);
+      } else {
+        addLog(`❌ Ouro insuficiente para construir ${buildingType}`);
+      }
+    },
+    [provinces, playerCountryTag, playerCountry.resources.gold, buildingConstructions, addLog]
+  );
+
+  /**
+   * Cancela uma construção da fila
+   */
+  const handleCancelBuilding = useCallback(
+    (constructionId: string) => {
+      const result = cancelBuilding(constructionId, buildingConstructions, playerCountry.resources.gold);
+      
+      setBuildingConstructions(result.updatedConstructions);
       setAllCountries((prev) =>
         prev.map((c) =>
           c.tag === playerCountryTag
-            ? { ...c, resources: { ...c.resources, gold: c.resources.gold - cost } }
+            ? { ...c, resources: { ...c.resources, gold: result.newGold } }
             : c
         )
       );
-
-      setProvinces((prev) =>
-        prev.map((p) => {
-          if (p.id !== provinceId) return p;
-          const newBuildings = [...p.buildings];
-          const existingIdx = newBuildings.findIndex((b) => b.type === buildingType);
-          if (existingIdx >= 0) {
-            newBuildings[existingIdx] = {
-              ...newBuildings[existingIdx],
-              level: newBuildings[existingIdx].level + 1,
-              daysRemaining: buildTime,
-            };
-          } else {
-            newBuildings.push({ type: buildingType, level: 1, daysRemaining: buildTime });
-          }
-          return { ...p, buildings: newBuildings };
-        })
-      );
+      
+      addLog(`❌ Construção cancelada. Reembolso: 💰 ${result.refundedGold}`);
     },
-    [provinces, playerCountryTag, playerCountry.resources.gold]
+    [buildingConstructions, playerCountry.resources.gold, playerCountryTag, addLog]
   );
 
   /**
@@ -1249,11 +1315,13 @@ const App: React.FC = () => {
             playerCountry={playerCountry}
             armies={armies}
             recruitments={recruitments}
+            buildingConstructions={buildingConstructions}
             onClose={handleClosePanel}
             onProvinceClick={handleProvinceClick}
             onBuild={handleBuild}
             onRecruit={handleRecruit}
             onCancelRecruitment={handleCancelRecruitment}
+            onCancelBuilding={handleCancelBuilding}
           />
         )}
 

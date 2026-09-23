@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { Province, Country, BuildingType, Army, Recruitment, UnitType } from '../types';
+import { Province, Country, BuildingType, Army, Recruitment, UnitType, BuildingConstruction } from '../types';
 import { getCountryByTag } from '../data/countries';
 import {
   BUILDING_DEFINITIONS,
@@ -20,6 +20,7 @@ import {
 } from '../data/buildings';
 import { UNIT_DEFINITIONS } from '../data/units';
 import { calculateArmySize } from '../engine/combat';
+import { isActiveConstruction } from '../engine/buildings';
 
 interface ProvincePanelProps {
   province: Province;
@@ -27,11 +28,13 @@ interface ProvincePanelProps {
   playerCountry: Country;
   armies: Army[];
   recruitments: Recruitment[];
+  buildingConstructions: BuildingConstruction[];
   onClose: () => void;
   onProvinceClick: (provinceId: string) => void;
   onBuild: (provinceId: string, buildingType: BuildingType) => void;
   onRecruit: (provinceId: string, unitType: UnitType) => void;
   onCancelRecruitment: (recruitmentId: string) => void;
+  onCancelBuilding: (constructionId: string) => void;
 }
 
 type PanelTab = 'info' | 'buildings' | 'military';
@@ -45,11 +48,13 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
   playerCountry,
   armies,
   recruitments,
+  buildingConstructions,
   onClose,
   onProvinceClick,
   onBuild,
   onRecruit,
   onCancelRecruitment,
+  onCancelBuilding,
 }) => {
   const [activeTab, setActiveTab] = useState<PanelTab>('info');
   const ownerCountry = getCountryByTag(province.owner);
@@ -65,7 +70,9 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
     return building?.level ?? 0;
   };
 
-  const hasConstructionInProgress = province.buildings.some(b => b.daysRemaining > 0);
+  // Verifica se há construções na fila para esta província
+  const provinceConstructions = buildingConstructions.filter(c => c.provinceId === province.id);
+  const hasConstructionInProgress = provinceConstructions.length > 0;
 
   const neighborProvinces = province.neighbors.map((nId) => {
     const allProvinces = countries.flatMap((c) =>
@@ -195,27 +202,54 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
         {/* === ABA EDIFÍCIOS === */}
         {activeTab === 'buildings' && isPlayerOwned && (
           <>
-            {hasConstructionInProgress && (
-              <div className="province-panel__section province-panel__section--highlight">
-                <h3 className="province-panel__subtitle">🔨 Em Construção</h3>
-                {province.buildings.filter((b) => b.daysRemaining > 0).map((b) => {
-                  const def = BUILDING_DEFINITIONS[b.type];
-                  const totalTime = getBuildingTime(b.type, b.level - 1);
-                  const progress = ((totalTime - b.daysRemaining) / totalTime) * 100;
-                  return (
-                    <div key={b.type} className="province-panel__construction">
-                      <div className="province-panel__construction-header">
-                        <span>{def.icon} {def.name} (Nv.{b.level})</span>
-                        <span className="province-panel__construction-days">{b.daysRemaining}d</span>
+            {/* Fila de Construções */}
+            {(() => {
+              const provinceConstructions = buildingConstructions.filter(c => c.provinceId === province.id);
+              if (provinceConstructions.length === 0) return null;
+              
+              return (
+                <div className="province-panel__section province-panel__section--highlight">
+                  <h3 className="province-panel__subtitle">🔨 Construções</h3>
+                  {provinceConstructions.map((item, idx) => {
+                    const def = BUILDING_DEFINITIONS[item.buildingType];
+                    const progress = ((item.totalDays - item.daysRemaining) / item.totalDays) * 100;
+                    const isActive = idx === 0; // A primeira da fila na província é a ativa
+                    
+                    return (
+                      <div key={item.id} className="province-panel__construction">
+                        <div className="province-panel__construction-header">
+                          <span>
+                            {def.icon} {def.name}
+                            {!isActive && <small style={{ marginLeft: '8px', opacity: 0.7 }}>(Na Fila)</small>}
+                          </span>
+                          <div className="province-panel__construction-actions">
+                            <span className="province-panel__construction-days">
+                              {isActive ? `${item.daysRemaining}d` : `${item.totalDays}d`}
+                            </span>
+                            <button
+                              className="province-panel__construction-cancel"
+                              onClick={() => onCancelBuilding(item.id)}
+                              title={isActive ? "Cancelar (Reembolso proporcional)" : "Cancelar (Reembolso 100%)"}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        <div className="province-panel__construction-bar">
+                          <div 
+                            className="province-panel__construction-fill" 
+                            style={{ 
+                              width: isActive ? `${progress}%` : '0%',
+                              backgroundColor: isActive ? undefined : '#666'
+                            }} 
+                          />
+                        </div>
                       </div>
-                      <div className="province-panel__construction-bar">
-                        <div className="province-panel__construction-fill" style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             <div className="province-panel__section">
               <h3 className="province-panel__subtitle">Construir</h3>
@@ -227,9 +261,7 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                   const cost = getBuildingCost(type, currentLevel);
                   const buildTime = getBuildingTime(type, currentLevel);
                   const canAfford = playerCountry.resources.gold >= cost;
-                  const cantBuildReason = hasConstructionInProgress
-                    ? 'Obra em andamento'
-                    : !canBuild
+                  const cantBuildReason = !canBuild
                     ? 'Nível máximo'
                     : !canAfford
                     ? 'Ouro insuficiente'
@@ -238,7 +270,7 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                   return (
                     <div
                       key={type}
-                      className={`province-panel__build-option ${!canBuild || !canAfford || hasConstructionInProgress ? 'province-panel__build-option--disabled' : ''}`}
+                      className={`province-panel__build-option ${!canBuild || !canAfford ? 'province-panel__build-option--disabled' : ''}`}
                     >
                       <div className="province-panel__build-option-header">
                         <span className="province-panel__build-icon">{def.icon}</span>
