@@ -22,24 +22,34 @@ export function canMoveToProvince(
   targetProvinceOwner: string,
   diplomacy: DiplomaticRelation[]
 ): boolean {
-  // Se o dono da província é o próprio país do exército, sempre pode mover
+  // 1. Território próprio: SEMPRE permitido
   if (targetProvinceOwner === armyCountryId) {
     return true;
   }
 
-  // Busca a relação diplomática entre o país do exército e o dono da província
-  const relation = diplomacy.find(
-    r => (r.countryA === armyCountryId && r.countryB === targetProvinceOwner) ||
-         (r.countryA === targetProvinceOwner && r.countryB === armyCountryId)
-  );
+  // Se não houver array de diplomacia ou estiver vazio
+  if (!diplomacy || diplomacy.length === 0) {
+    return false;
+  }
 
-  // Se não houver relação cadastrada (neutro/paz padrão), movimento proibido
+  // 2. Busca relação considerando possíveis variações de IDs/Tags
+  const relation = diplomacy.find(r => {
+    const a = r.countryA || (r as any).country1Id || (r as any).from;
+    const b = r.countryB || (r as any).country2Id || (r as any).to;
+    return (a === armyCountryId && b === targetProvinceOwner) ||
+           (a === targetProvinceOwner && b === armyCountryId);
+  });
+
   if (!relation) {
     return false;
   }
 
-  // Permite movimento se estiver em GUERRA ou ALIANÇA
-  return relation.status === 'war' || relation.status === 'alliance';
+  // 3. Extrai a string de status aceitando 'status' ou 'type' em maiúsculo ou minúsculo
+  const rawStatus = relation.status || (relation as any).type || (relation as any).state || '';
+  const normalizedStatus = String(rawStatus).toLowerCase().trim();
+
+  // Permite movimento para GUERRA ('war') ou ALIANÇA ('alliance')
+  return normalizedStatus === 'war' || normalizedStatus === 'alliance';
 }
 
 /**
