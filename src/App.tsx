@@ -410,20 +410,23 @@ const App: React.FC = () => {
       const provinceName = province?.name || 'província';
       const dateString = formatGameDate(snapshot.date);
       
-      if (completed.count > 1) {
-        addToast(
-          `Treinamento de ${completed.count}x ${unitName} concluído em ${provinceName}!`,
-          'success',
-          'Tropas Recrutadas',
-          dateString
-        );
-      } else {
-        addToast(
-          `Treinamento de ${unitName} concluído em ${provinceName}!`,
-          'success',
-          'Tropa Recrutada',
-          dateString
-        );
+      // Mostra toast de conclusão APENAS para o jogador
+      if (completed.owner === playerCountryTag) {
+        if (completed.count > 1) {
+          addToast(
+            `Treinamento de ${completed.count}x ${unitName} concluído em ${provinceName}!`,
+            'success',
+            'Tropas Recrutadas',
+            dateString
+          );
+        } else {
+          addToast(
+            `Treinamento de ${unitName} concluído em ${provinceName}!`,
+            'success',
+            'Tropa Recrutada',
+            dateString
+          );
+        }
       }
       
       // Registra no log da IA se o recrutamento foi de um bot
@@ -478,30 +481,32 @@ const App: React.FC = () => {
           return p;
         });
         
-        // Mostra toast de conclusão
-        const buildingName = getBuildingName(completed.buildingType);
-        const dateString = formatGameDate(snapshot.date);
+      // Mostra toast de conclusão APENAS para o jogador
+      const buildingName = getBuildingName(completed.buildingType);
+      const dateString = formatGameDate(snapshot.date);
+      
+      if (province.owner === playerCountryTag) {
         addToast(
           `Construção de ${buildingName} finalizada em ${province.name}!`,
           'success',
           'Obra Concluída',
           dateString
         );
-        
-        // Registra no log da IA se a construção foi de um bot
-        if (province.owner !== playerCountryTag) {
-          const country = countries.find(c => c.tag === province.owner);
-          if (country) {
-            addAILog(
-              country.name,
-              'building',
-              `Construção de ${buildingName} concluída em ${province.name}`,
-              dateString,
-              country.color
-            );
-          }
-        }
       }
+      
+      // Registra no log da IA se a construção foi de um bot
+      if (province.owner !== playerCountryTag) {
+        const country = countries.find(c => c.tag === province.owner);
+        if (country) {
+          addAILog(
+            country.name,
+            'building',
+            `Construção de ${buildingName} concluída em ${province.name}`,
+            dateString,
+            country.color
+          );
+        }
+      }      }
     }
 
     // ===== PASSO B: MOVIMENTAÇÃO =====
@@ -726,8 +731,34 @@ const App: React.FC = () => {
         if (botTechState) {
           const botTechResult = processDailyTechProgress(botTechState, country);
           currentBotTechStates.set(country.tag, botTechResult.techState);
+          
+          // Registra notificações de conclusão no log da IA (apenas quando conclui, não diariamente)
           if (botTechResult.notifications?.length > 0) {
-            botTechResult.notifications.forEach(notif => addLog(`🤖 ${country.name}: ${notif}`));
+            const dateString = formatGameDate(snapshot.date);
+            botTechResult.notifications.forEach(notif => {
+              addLog(`🤖 ${country.name}: ${notif}`);
+              
+              // Registra no log da IA
+              if (notif.includes('Foco concluído')) {
+                const focusTitle = notif.replace('✅ Foco concluído: ', '');
+                addAILog(
+                  country.name,
+                  'focus',
+                  `Foco Nacional "${focusTitle}" concluído`,
+                  dateString,
+                  country.color
+                );
+              } else if (notif.includes('Pesquisa concluída')) {
+                const techTitle = notif.replace('🔬 Pesquisa concluída: ', '');
+                addAILog(
+                  country.name,
+                  'tech',
+                  `Tecnologia "${techTitle}" pesquisada`,
+                  dateString,
+                  country.color
+                );
+              }
+            });
           }
         }
       }
@@ -735,40 +766,6 @@ const App: React.FC = () => {
     
     // Atualiza a ref dos bots imediatamente
     botTechStatesRef.current = currentBotTechStates;
-    
-    // Registra no log da IA se tecnologias/focos foram concluídos por bots
-    currentBotTechStates.forEach((techState, countryTag) => {
-      const country = countries.find(c => c.tag === countryTag);
-      if (!country) return;
-      
-      // Verifica focos concluídos
-      techState.completedFocuses.forEach(focusId => {
-        const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
-        if (focus && focus.completed) {
-          addAILog(
-            country.name,
-            'focus',
-            `Foco Nacional "${focus.title}" concluído`,
-            formatGameDate(snapshot.date),
-            country.color
-          );
-        }
-      });
-      
-      // Verifica tecnologias concluídas
-      techState.completedTechnologies.forEach(techId => {
-        const tech = TECHNOLOGIES.find(t => t.id === techId);
-        if (tech && tech.researched) {
-          addAILog(
-            country.name,
-            'tech',
-            `Tecnologia "${tech.title}" pesquisada`,
-            formatGameDate(snapshot.date),
-            country.color
-          );
-        }
-      });
-    });
 
     // ===== PASSO F: ATUALIZA WAR SCORE =====
     wars = wars.map(war => {
