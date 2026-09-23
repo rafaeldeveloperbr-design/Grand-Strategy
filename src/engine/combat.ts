@@ -341,10 +341,10 @@ export function checkAllProvinceCombats(
 
         // Adiciona o vencedor (se sobreviveu)
         if (result.winner === 'attacker' && result.attacker.regiments.length > 0) {
-          updatedArmies.push({ ...result.attacker, location: province.id, destination: null, path: [], targetArmyId: null });
+          updatedArmies.push({ ...result.attacker, location: province.id, destination: null, path: [], targetArmyId: null, targetProvinceId: null });
           console.log('🏆 Vencedor:', attacker.owner, 'em', province.name);
         } else if (result.winner === 'defender' && result.defender.regiments.length > 0) {
-          updatedArmies.push({ ...result.defender, location: province.id, destination: null, path: [], targetArmyId: null });
+          updatedArmies.push({ ...result.defender, location: province.id, destination: null, path: [], targetArmyId: null, targetProvinceId: null });
           console.log('🏆 Vencedor:', defender.owner, 'em', province.name);
         }
 

@@ -44,6 +44,7 @@ export function createArmy(owner: string, name: string, location: string): Army 
     position: null,
     path: [],
     targetArmyId: null,
+    targetProvinceId: null,
   };
 }
 

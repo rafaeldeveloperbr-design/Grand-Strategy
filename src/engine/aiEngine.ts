@@ -178,17 +178,26 @@ export function processAITick(
   }
 
   // 2. Gestão Militar - Recrutar tropas
-  if (updatedCountry.resources.gold > 100 && updatedCountry.resources.manpower > 1000) {
+  const armiesInCountry = updatedArmies.filter(a => a && a.id && a.owner === country.tag);
+  const totalTroops = armiesInCountry.reduce((sum, a) => sum + calculateArmySize(a), 0);
+  
+  // RECRUTAMENTO DE EMERGÊNCIA: Se tem < 2000 tropas e tem recursos, recrutar automaticamente
+  const isEmergencyRecruitment = totalTroops < 2000 && updatedCountry.resources.gold > 50 && updatedCountry.resources.manpower > 500;
+  const isNormalRecruitment = updatedCountry.resources.gold > 100 && updatedCountry.resources.manpower > 1000;
+  
+  if (isEmergencyRecruitment || isNormalRecruitment) {
     const ownedProvinces = updatedProvinces.filter(p => p && p.id && p.owner === country.tag);
     
     // Guard clause: verifica se há províncias válidas
     if (ownedProvinces.length === 0) {
       console.warn(`AI: ${country.tag} não possui províncias válidas para recrutar`);
     } else {
-      const armiesInCountry = updatedArmies.filter(a => a && a.id && a.owner === country.tag);
+      // Recruta se tem poucas tropas OU é recrutamento de emergência
+      const shouldRecruit = isEmergencyRecruitment || 
+                           armiesInCountry.length < 3 || 
+                           (armiesInCountry[0] && calculateArmySize(armiesInCountry[0]) < 3000);
       
-      // Recruta se tem poucas tropas
-      if (armiesInCountry.length < 3 || (armiesInCountry[0] && calculateArmySize(armiesInCountry[0]) < 3000)) {
+      if (shouldRecruit) {
         const unitTypes = Object.keys(UNIT_DEFINITIONS) as Array<keyof typeof UNIT_DEFINITIONS>;
         const unitType = unitTypes[Math.floor(Math.random() * unitTypes.length)];
         const def = UNIT_DEFINITIONS[unitType];
@@ -216,7 +225,7 @@ export function processAITick(
               );
             } else {
               updatedArmies.push({
-                id: `army_${country.tag}_${Date.now()}`,
+                id: `army_${country.tag}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 owner: country.tag,
                 name: `${country.name} Army`,
                 regiments: [{ type: unitType, strength: 1000, morale: 100 }],
@@ -226,10 +235,13 @@ export function processAITick(
                 movementSpeed: def.mobility,
                 position: null,
                 path: [],
-                targetArmyId: null
+                targetArmyId: null,
+                targetProvinceId: null
               });
             }
-            log = `🗡️ ${country.name} recrutou ${def.name}`;
+            log = isEmergencyRecruitment 
+              ? `🚨 ${country.name} recrutamento de emergência: ${def.name}`
+              : `🗡️ ${country.name} recrutou ${def.name}`;
           }
         }
       }
@@ -241,7 +253,7 @@ export function processAITick(
     const neighbors = getNeighborCountries(country.tag, updatedProvinces, allCountries);
     
     for (const neighborTag of neighbors) {
-      if (neighborTag === 'IMP') continue; // Não ataca o jogador (para debug)
+      // REMOVIDO: if (neighborTag === 'IMP') continue; - Agora a IA pode atacar o jogador
       
       const relation = getOrCreateRelation(updatedRelations, country.tag, neighborTag);
       const neighborCountry = allCountries.find(c => c.tag === neighborTag);
@@ -504,75 +516,109 @@ export function processAITick(
       continue;
     }
     
-    // ENGAJAMENTO FORÇADO: Se está adjacente ao jogador e sem rota de fuga
-    const playerArmies = updatedArmies.filter(a => a.owner === enemy);
-    const adjacentPlayerArmy = playerArmies.find(pa => {
-      if (!pa.location) return false;
-      return currentProvince.neighbors.includes(pa.location);
-    });
+    // PRIORIDADE 4: INVASÃO DE PROVÍNCIAS INIMIGAS (Fronteiras Diretas Apenas)
     
-    if (adjacentPlayerArmy) {
-      // Verifica se tem rota de fuga segura (província própria ou vazia)
-      const hasEscapeRoute = currentProvince.neighbors.some(nId => {
-        const neighbor = updatedProvinces.find(p => p.id === nId);
-        if (!neighbor) return false;
-        // Rota segura se for território próprio ou neutro (não inimigo)
-        return neighbor.owner === country.tag || neighbor.owner !== enemy;
-      });
+    // Verifica se já tem um alvo de invasão travado
+    if (army.targetProvinceId) {
+      const targetProvince = updatedProvinces.find(p => p.id === army.targetProvinceId);
       
-      if (!hasEscapeRoute) {
-        // ENCURRALADO - Força engajamento
-        console.log('AI DECISION:', army.id, 'FORCED ENGAGE - Encurralado, forçando combate');
+      // Se o alvo ainda existe e é inimigo, continua marchando
+      if (targetProvince && targetProvince.owner === enemy) {
+        console.log('AI DECISION:', army.id, `INVASION (LOCKED) - Mantendo alvo: ${targetProvince.name}`);
         
-        const enemyNeighbor = currentProvince.neighbors.find(nId => {
-          const neighbor = updatedProvinces.find(p => p.id === nId);
-          return neighbor && neighbor.owner === enemy;
-        });
-        
-        if (enemyNeighbor) {
-          // Validação defensiva: verifica se o exército ainda existe
-          const armyExists = updatedArmies.some(a => a.id === army.id);
-          if (!armyExists) {
-            console.warn(`AI: Exército ${army.id} não existe mais, pulando movimentação`);
-            continue;
-          }
-          
+        // Se já está na província alvo, limpa o target
+        if (army.location === army.targetProvinceId) {
           updatedArmies = updatedArmies.map(a => 
-            a.id === army.id
-              ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
-              : a
+            a.id === army.id ? { ...a, targetProvinceId: null } : a
           );
+          console.log('AI DECISION:', army.id, 'INVASION COMPLETE - Alvo conquistado');
+        } else {
+          // Move em direção ao alvo travado
+          const nextStep = findPathTowards(army.location!, army.targetProvinceId, updatedProvinces);
+          if (nextStep) {
+            updatedArmies = updatedArmies.map(a => 
+              a.id === army.id
+                ? { ...a, destination: nextStep, movementProgress: 0, path: [] }
+                : a
+            );
+          }
         }
         continue;
+      } else {
+        // Alvo não existe mais ou não é mais inimigo, limpa o target
+        console.log('AI DECISION:', army.id, 'INVASION TARGET LOST - Limpando targetProvinceId');
+        updatedArmies = updatedArmies.map(a => 
+          a.id === army.id ? { ...a, targetProvinceId: null } : a
+        );
       }
     }
     
-    // RESTRIÇÃO DE INVASÃO CEGA
-    const MIN_ARMY_SIZE_FOR_INVASION = 3000;
-    if (myStrength < MIN_ARMY_SIZE_FOR_INVASION) {
-      console.log('AI DECISION:', army.id, 'AGUARDAR - Exército muito pequeno para invadir');
-      continue;
-    }
-    
-    // Se chegou aqui, pode invadir território inimigo
-    console.log('AI DECISION:', army.id, 'INVADIR - Sem ameaças e tamanho adequado');
-    
-    const enemyNeighbor = currentProvince.neighbors.find(nId => {
+    // Busca províncias inimigas adjacentes (fronteiras diretas apenas)
+    const enemyNeighborProvinces = currentProvince.neighbors.filter(nId => {
       const neighbor = updatedProvinces.find(p => p.id === nId);
       return neighbor && neighbor.owner === enemy;
     });
     
-    if (enemyNeighbor) {
-      // Validação defensiva: verifica se o exército ainda existe
-      const armyExists = updatedArmies.some(a => a.id === army.id);
-      if (!armyExists) {
-        console.warn(`AI: Exército ${army.id} não existe mais, pulando invasão`);
-      } else {
-        updatedArmies = updatedArmies.map(a => 
-          a.id === army.id
-            ? { ...a, destination: enemyNeighbor, movementProgress: 0, path: [] }
-            : a
+    if (enemyNeighborProvinces.length > 0) {
+      const myStrength = calculateArmySize(army);
+      
+      // Avalia cada província vizinha inimiga
+      for (const enemyProvId of enemyNeighborProvinces) {
+        const enemyProvince = updatedProvinces.find(p => p.id === enemyProvId);
+        if (!enemyProvince) continue;
+        
+        // Verifica se há tropas inimigas na província
+        const enemyTroopsInProvince = updatedArmies.filter(a => 
+          a.owner === enemy && a.location === enemyProvId
         );
+        const enemyStrengthInProvince = enemyTroopsInProvince.reduce(
+          (sum, a) => sum + calculateArmySize(a), 0
+        );
+        
+        // REGRA: Território vazio vs Confronto
+        if (enemyStrengthInProvince === 0) {
+          // Província VAZIA - invadir mesmo com exército pequeno
+          console.log('AI DECISION:', army.id, `INVADIR VAZIO - ${enemyProvince.name} sem tropas inimigas`);
+          
+          // Trava o alvo de invasão
+          updatedArmies = updatedArmies.map(a => 
+            a.id === army.id ? { ...a, targetProvinceId: enemyProvId } : a
+          );
+          
+          // Move para a província
+          updatedArmies = updatedArmies.map(a => 
+            a.id === army.id
+              ? { ...a, destination: enemyProvId, movementProgress: 0, path: [] }
+              : a
+          );
+          break; // Sai do loop após escolher um alvo
+        } else {
+          // Província com tropas inimigas - verifica ratio de força
+          const forceRatio = myStrength / Math.max(1, enemyStrengthInProvince);
+          
+          if (forceRatio >= 1.2) {
+            // IA é mais forte - pode atacar
+            console.log('AI DECISION:', army.id, `INVADIR COM CONFRONTO - ${enemyProvince.name} (Ratio: ${forceRatio.toFixed(2)})`);
+            
+            // Trava o alvo de invasão
+            updatedArmies = updatedArmies.map(a => 
+              a.id === army.id ? { ...a, targetProvinceId: enemyProvId } : a
+            );
+            
+            // Move para a província
+            updatedArmies = updatedArmies.map(a => 
+              a.id === army.id
+                ? { ...a, destination: enemyProvId, movementProgress: 0, path: [] }
+                : a
+            );
+            break; // Sai do loop após escolher um alvo
+          } else {
+            // IA é mais fraca - STAY/DEFEND
+            console.log('AI DECISION:', army.id, `STAY/DEFEND - ${enemyProvince.name} tem tropas superiores (Ratio: ${forceRatio.toFixed(2)})`);
+            // Não faz nada - mantém posição defensiva
+            continue;
+          }
+        }
       }
     }
   }

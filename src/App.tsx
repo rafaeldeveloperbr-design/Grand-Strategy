@@ -103,6 +103,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
     {
       id: 'army_init_2',
@@ -119,6 +120,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
     {
       id: 'army_init_3',
@@ -135,6 +137,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
     {
       id: 'army_init_4',
@@ -151,6 +154,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
     {
       id: 'army_init_5',
@@ -167,6 +171,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
     {
       id: 'army_init_6',
@@ -183,6 +188,7 @@ function createInitialArmies(): Army[] {
       position: null,
       path: [],
       targetArmyId: null,
+      targetProvinceId: null,
     },
   ];
 }

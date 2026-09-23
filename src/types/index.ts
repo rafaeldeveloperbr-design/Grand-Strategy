@@ -244,6 +244,8 @@ export interface Army {
   path: string[];
   /** ID do exército alvo (Target Locking - IA mantém foco até eliminar) */
   targetArmyId?: string | null;
+  /** ID da província alvo de invasão (Target Locking de invasão - IA marcha em linha reta) */
+  targetProvinceId?: string | null;
 }
 
 /**
