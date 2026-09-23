@@ -14,6 +14,7 @@ import { findPath } from './military';
 /**
  * Verifica se um exército pode se mover para uma província específica
  * baseado nas relações diplomáticas
+ * Permite passagem por territórios próprios, aliados ou em guerra
  */
 function canMoveToProvince(
   botCountryId: string,
@@ -36,9 +37,8 @@ function canMoveToProvince(
     return false;
   }
 
-  // Permite movimento APENAS se estiver em guerra
-  // (não há sistema de aliança implementado ainda)
-  return relation.status === 'war';
+  // Permite movimento se estiver em GUERRA ou ALIANÇA
+  return relation.status === 'war' || relation.status === 'alliance';
 }
 
 /**
@@ -80,6 +80,21 @@ function isAtWarWithNeighbor(
 
     return relation && relation.status === 'war';
   });
+}
+
+/**
+ * Verifica se há relação de GUERRA específica entre dois países
+ */
+function isAtWarWith(
+  countryA: string,
+  countryB: string,
+  diplomacy: DiplomaticRelation[]
+): boolean {
+  const relation = diplomacy.find(
+    r => (r.countryA === countryA && r.countryB === countryB) ||
+         (r.countryA === countryB && r.countryB === countryA)
+  );
+  return relation ? relation.status === 'war' : false;
 }
 
 /**
@@ -181,10 +196,12 @@ export function processAI(
         return army;
       }
 
-      // Prioriza províncias de guerra (dono diferente do bot)
+      // Prioriza províncias de GUERRA (não aliados, não neutros)
       const warTargets = validNeighbors.filter(neighborId => {
         const prov = provinces.find(p => p.id === neighborId);
-        return prov && prov.owner !== botCountryId;
+        if (!prov) return false;
+        // Só considera alvo de guerra se estiver explicitamente em guerra
+        return isAtWarWith(botCountryId, prov.owner, diplomacy);
       });
 
       // Se houver alvos de guerra, escolhe um aleatoriamente entre eles

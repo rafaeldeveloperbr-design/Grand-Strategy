@@ -7,7 +7,7 @@
 /**
  * Status da relação entre dois países
  */
-export type DiplomaticStatus = 'peace' | 'war' | 'non_aggression_pact';
+export type DiplomaticStatus = 'peace' | 'war' | 'non_aggression_pact' | 'alliance';
 
 /**
  * Representa a relação diplomática entre dois países

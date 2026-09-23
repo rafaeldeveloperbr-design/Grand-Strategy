@@ -15,6 +15,7 @@ import { calculateArmySize } from './combat';
 /**
  * Verifica se um exército pode se mover para uma província específica
  * baseado nas relações diplomáticas
+ * Permite passagem por territórios próprios, aliados ou em guerra
  */
 export function canMoveToProvince(
   armyCountryId: string,
@@ -37,8 +38,8 @@ export function canMoveToProvince(
     return false;
   }
 
-  // Permite movimento APENAS se estiver em guerra
-  return relation.status === 'war';
+  // Permite movimento se estiver em GUERRA ou ALIANÇA
+  return relation.status === 'war' || relation.status === 'alliance';
 }
 
 /**
@@ -241,15 +242,21 @@ export function processArmyMovement(
 
     // Não há inimigos - captura a província se pertencer a outro país E houver guerra declarada
     if (reachedProvince.owner !== army.owner) {
-      // Valida se há guerra declarada antes de capturar
-      const isAtWar = canMoveToProvince(army.owner, reachedProvince.owner, diplomacy);
+      // Busca relação diplomática específica
+      const relation = diplomacy.find(
+        r => (r.countryA === army.owner && r.countryB === reachedProvince.owner) ||
+             (r.countryA === reachedProvince.owner && r.countryB === army.owner)
+      );
       
-      if (isAtWar) {
+      // SÓ conquista se a relação for explicitamente de GUERRA
+      // Aliados podem transitar, mas não são conquistados
+      if (relation && relation.status === 'war') {
         capturedProvinces.push({
           ...reachedProvince,
           owner: army.owner,
         });
       }
+      // Se for 'alliance', o exército apenas transita, mantendo o owner original
     }
 
     // Verifica se há mais províncias no path
