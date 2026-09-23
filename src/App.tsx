@@ -73,8 +73,10 @@ import {
 import { processAI } from './engine/aiEngine';
 import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { AILogProvider, useAILog } from './context/AILogContext';
 import { ToastContainer } from './components/ToastContainer';
 import { NotificationLogModal } from './components/NotificationLogModal';
+import { AILogModal } from './components/AILogModal';
 import { getBuildingName, getUnitName } from './utils/translations';
 
 /**
@@ -213,6 +215,9 @@ const App: React.FC = () => {
   // === Hook de Toasts ===
   const { addToast, notificationHistory, unreadCount, markAllAsRead } = useToast();
   
+  // === Hook de Log da IA ===
+  const { addAILog } = useAILog();
+  
   // === Estado do Jogo ===
   const [playerCountryTag] = useState<string>('IMP');
   const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
@@ -278,6 +283,9 @@ const App: React.FC = () => {
 
   /** Modal de histórico de notificações aberto */
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  /** Modal de log da IA aberto */
+  const [showAILogModal, setShowAILogModal] = useState(false);
 
   /** Estado de tecnologias do jogador */
   const [playerTechState, setPlayerTechState] = useState<CountryTechState>(() =>
@@ -417,6 +425,20 @@ const App: React.FC = () => {
           dateString
         );
       }
+      
+      // Registra no log da IA se o recrutamento foi de um bot
+      if (completed.owner !== playerCountryTag) {
+        const country = countries.find(c => c.tag === completed.owner);
+        if (country && province) {
+          addAILog(
+            country.name,
+            'military',
+            `Recrutamento de ${unitName} concluído em ${provinceName}`,
+            dateString,
+            country.color
+          );
+        }
+      }
     }
 
     // ===== PASSO A.5: CONSTRUÇÕES =====
@@ -465,6 +487,20 @@ const App: React.FC = () => {
           'Obra Concluída',
           dateString
         );
+        
+        // Registra no log da IA se a construção foi de um bot
+        if (province.owner !== playerCountryTag) {
+          const country = countries.find(c => c.tag === province.owner);
+          if (country) {
+            addAILog(
+              country.name,
+              'building',
+              `Construção de ${buildingName} concluída em ${province.name}`,
+              dateString,
+              country.color
+            );
+          }
+        }
       }
     }
 
@@ -699,6 +735,40 @@ const App: React.FC = () => {
     
     // Atualiza a ref dos bots imediatamente
     botTechStatesRef.current = currentBotTechStates;
+    
+    // Registra no log da IA se tecnologias/focos foram concluídos por bots
+    currentBotTechStates.forEach((techState, countryTag) => {
+      const country = countries.find(c => c.tag === countryTag);
+      if (!country) return;
+      
+      // Verifica focos concluídos
+      techState.completedFocuses.forEach(focusId => {
+        const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+        if (focus && focus.completed) {
+          addAILog(
+            country.name,
+            'focus',
+            `Foco Nacional "${focus.title}" concluído`,
+            formatGameDate(snapshot.date),
+            country.color
+          );
+        }
+      });
+      
+      // Verifica tecnologias concluídas
+      techState.completedTechnologies.forEach(techId => {
+        const tech = TECHNOLOGIES.find(t => t.id === techId);
+        if (tech && tech.researched) {
+          addAILog(
+            country.name,
+            'tech',
+            `Tecnologia "${tech.title}" pesquisada`,
+            formatGameDate(snapshot.date),
+            country.color
+          );
+        }
+      });
+    });
 
     // ===== PASSO F: ATUALIZA WAR SCORE =====
     wars = wars.map(war => {
@@ -710,8 +780,30 @@ const App: React.FC = () => {
     // ===== PASSO G: IA DOS BOTS =====
     // Para cada bot ativo, processa IA para atribuir destinos aos exércitos parados
     const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
+    const dateString = formatGameDate(snapshot.date);
+    
     activeBots.forEach((country: Country) => {
+      const armiesBefore = armies.filter(a => a.owner === country.tag);
       armies = processAI(country.tag, armies, provinces, relations, wars);
+      const armiesAfter = armies.filter(a => a.owner === country.tag);
+      
+      // Registra no log da IA se algum exército se moveu
+      armiesAfter.forEach(armyAfter => {
+        const armyBefore = armiesBefore.find(a => a.id === armyAfter.id);
+        if (armyBefore && armyBefore.destination === null && armyAfter.destination !== null) {
+          const destProvince = provinces.find(p => p.id === armyAfter.destination);
+          if (destProvince) {
+            const isEnemy = destProvince.owner !== country.tag;
+            addAILog(
+              country.name,
+              'military',
+              `Exército moveu para ${destProvince.name}${isEnemy ? ' (território inimigo)' : ''}`,
+              dateString,
+              country.color
+            );
+          }
+        }
+      });
     });
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
@@ -1681,6 +1773,12 @@ const App: React.FC = () => {
           isOpen={showNotificationModal}
           onClose={() => setShowNotificationModal(false)}
         />
+
+        {/* === Modal de Log da IA === */}
+        <AILogModal
+          isOpen={showAILogModal}
+          onClose={() => setShowAILogModal(false)}
+        />
       </div>
 
       {/* === Barra Inferior === */}
@@ -1732,6 +1830,16 @@ const App: React.FC = () => {
           </button>
         </div>
         <div className="game__bottom-info">
+          <span className="game__bottom-label">Log IA:</span>
+          <button
+            className="game__bottom-ai-log-btn"
+            onClick={() => setShowAILogModal(true)}
+            title="Ver log de atividades da IA"
+          >
+            🤖 IA
+          </button>
+        </div>
+        <div className="game__bottom-info">
           <span className="game__bottom-label">Guerras:</span>
           <button
             className="game__bottom-war-btn"
@@ -1761,13 +1869,15 @@ const App: React.FC = () => {
   );
 };
 
-// Wrapper com ToastProvider
-const AppWithToast: React.FC = () => {
+// Wrapper com ToastProvider e AILogProvider
+const AppWithProviders: React.FC = () => {
   return (
     <ToastProvider>
-      <App />
+      <AILogProvider>
+        <App />
+      </AILogProvider>
     </ToastProvider>
   );
 };
 
-export default AppWithToast;
+export default AppWithProviders;
