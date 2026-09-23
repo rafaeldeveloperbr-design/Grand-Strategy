@@ -331,7 +331,7 @@ export function moveArmy(
 
   // Valida se pode mover para o destino (diplomacia)
   if (!canMoveToProvince(army.owner, destinationProvince.owner, diplomacy)) {
-    console.log('❌ Movimento não permitido: sem relação de guerra com', destinationProvince.owner);
+    console.log('❌ Movimento não permitido: sem relação de guerra ou aliança com', destinationProvince.owner);
     return null;
   }
 
