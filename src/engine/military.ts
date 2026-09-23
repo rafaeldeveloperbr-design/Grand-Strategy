@@ -161,12 +161,8 @@ export function processRecruitments(
 }
 
 /**
- * Cancela um recrutamento (ou 1 unidade da fila de recrutamento) e calcula o reembolso proporcional.
- * 
- * @param recruitmentId - ID do recrutamento a ser cancelado
- * @param recruitments - Lista atual de recrutamentos
- * @param currentGold - Ouro atual do jogador
- * @returns Objeto com a lista atualizada de recrutamentos e o novo saldo de ouro
+ * Cancela 1 unidade do grupo de recrutamento e calcula o reembolso proporcional.
+ * Preserva o progresso da unidade restante na fila sem reiniciar os dias.
  */
 export function cancelRecruitment(
   recruitmentId: string,
@@ -179,36 +175,33 @@ export function cancelRecruitment(
   }
 
   const unitDef = UNIT_DEFINITIONS[rec.unitType];
-  const totalCost = unitDef.cost; // Custo original de 1 unidade
-  const totalDays = unitDef.trainingTime; // Tempo total original (ex: 30d)
+  const totalCost = unitDef.cost;
+  const totalDays = unitDef.trainingTime;
   const daysRemaining = rec.daysRemaining;
 
-  // 1. Calcula a porcentagem de tempo que resta para a unidade atual
+  // 1. Reembolso proporcional da unidade atual
   const progressRatio = daysRemaining / totalDays;
-
-  // 2. Garante um reembolso mínimo de 10% se estiver no último dia, ou proporcional até 100%
-  const refundFactor = Math.max(0.10, progressRatio);
-
-  // 3. Arredonda o valor a ser reembolsado para a unidade em andamento
+  const refundFactor = Math.max(0.10, progressRatio); // Mínimo de 10%
   const refundedGold = Math.floor(totalCost * refundFactor);
 
-  // 4. Atualiza a fila de recrutamento
+  // 2. Atualização da fila
   let updatedRecruitments: Recruitment[];
 
   if (rec.count > 1) {
-    // Se havia mais de 1 unidade agrupada, remove 1 e reseta os dias restantes da próxima para o total
+    // Se há mais de 1 tropa agrupada, diminui 1 da quantidade (count - 1)
+    // E MANTÉM o daysRemaining exatamente como estava para a tropa seguinte continuar de onde parou!
     updatedRecruitments = recruitments.map(r => {
       if (r.id === recruitmentId) {
         return {
           ...r,
           count: r.count - 1,
-          daysRemaining: totalDays // A próxima unidade da fila começa do zero
+          // MANTIDO: daysRemaining continua sem alterar
         };
       }
       return r;
     });
   } else {
-    // Se só havia 1 unidade, remove a linha da fila
+    // Se só tinha 1 tropa, remove o item da fila
     updatedRecruitments = recruitments.filter(r => r.id !== recruitmentId);
   }
 
