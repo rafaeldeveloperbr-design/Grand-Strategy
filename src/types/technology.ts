@@ -70,4 +70,7 @@ export interface CountryTechState {
   activeResearchId: string | null;
   completedFocuses: string[];
   completedTechnologies: string[];
+  // Progresso isolado por país (não compartilhado globalmente)
+  focusProgressDays: number;
+  researchProgressDays: number;
 }

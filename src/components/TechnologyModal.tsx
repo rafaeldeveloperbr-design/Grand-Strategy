@@ -97,7 +97,10 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
             const isActive = techState?.activeFocusId === focus.id;
             const isCompleted = techState?.completedFocuses?.includes(focus.id) ?? false;
             const canStart = canStartFocus(focus.id);
-            const progress = focus.durationDays > 0 ? (focus.currentProgressDays / focus.durationDays) * 100 : 0;
+            
+            // USA PROGRESSO ISOLADO DO PAÍS (não do array global)
+            const currentProgressDays = isActive ? (techState?.focusProgressDays || 0) : 0;
+            const progress = focus.durationDays > 0 ? (currentProgressDays / focus.durationDays) * 100 : 0;
 
             return (
               <div
@@ -146,7 +149,7 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
                       />
                     </div>
                     <span className="tech-modal__progress-text">
-                      {focus.currentProgressDays} / {focus.durationDays} dias
+                      {currentProgressDays} / {focus.durationDays} dias
                     </span>
                   </div>
                 )}
@@ -196,7 +199,10 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
                   const isActive = techState?.activeResearchId === tech.id;
                   const isResearched = techState?.completedTechnologies?.includes(tech.id) ?? false;
                   const canStart = canStartResearch(tech.id);
-                  const progress = tech.durationDays > 0 ? (tech.currentProgressDays / tech.durationDays) * 100 : 0;
+                  
+                  // USA PROGRESSO ISOLADO DO PAÍS (não do array global)
+                  const currentProgressDays = isActive ? (techState?.researchProgressDays || 0) : 0;
+                  const progress = tech.durationDays > 0 ? (currentProgressDays / tech.durationDays) * 100 : 0;
 
                   return (
                     <div
@@ -250,7 +256,7 @@ export const TechnologyModal: React.FC<TechnologyModalProps> = ({
                             />
                           </div>
                           <span className="tech-modal__progress-text">
-                            {tech.currentProgressDays} / {tech.durationDays} dias
+                            {currentProgressDays} / {tech.durationDays} dias
                           </span>
                         </div>
                       )}

@@ -305,6 +305,7 @@ export function processAIEconomicDecisions(
       updatedTechState = {
         ...updatedTechState,
         activeFocusId: selectedFocus.id,
+        focusProgressDays: 0, // Reseta progresso isolado
       };
 
       logs.push({
@@ -347,6 +348,7 @@ export function processAIEconomicDecisions(
       updatedTechState = {
         ...updatedTechState,
         activeResearchId: affordableTech.id,
+        researchProgressDays: 0, // Reseta progresso isolado
       };
 
       logs.push({
