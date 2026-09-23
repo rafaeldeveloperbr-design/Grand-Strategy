@@ -371,6 +371,7 @@ const App: React.FC = () => {
     const moveResult = processArmyMovement(armies, provinces);
     armies = moveResult.updatedArmies;
     const arrivedArmies = moveResult.arrivedArmies;
+    provinces = moveResult.updatedProvinces; // Atualiza províncias capturadas
 
     // ===== PASSO C: DETECÇÃO E RESOLUÇÃO DE BATALHA =====
     // C.1: Processa exércitos que chegaram ao destino

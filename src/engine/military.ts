@@ -130,12 +130,14 @@ export function processRecruitments(
 /**
  * Processa movimentação de exércitos (IMUTÁVEL)
  * Atualiza o progresso de movimento de TODOS os exércitos que possuem destino
+ * Captura províncias automaticamente e interrompe rota se houver combate
  */
 export function processArmyMovement(
   armies: Army[],
   provinces: Province[]
-): { updatedArmies: Army[]; arrivedArmies: Army[] } {
+): { updatedArmies: Army[]; arrivedArmies: Army[]; updatedProvinces: Province[] } {
   const arrivedArmies: Army[] = [];
+  const capturedProvinces: Province[] = [];
 
   // Usa map para processar TODOS os exércitos de forma imutável
   const updatedArmies = armies.map(army => {
@@ -169,8 +171,51 @@ export function processArmyMovement(
     }
 
     // CHEGOU AO DESTINO (progress >= 1.0)
-    const targetProvinceId = army.destination;
+    const reachedProvinceId = army.destination;
+    const reachedProvince = provinces.find(p => p.id === reachedProvinceId);
     
+    if (!reachedProvince) {
+      // Província não encontrada, para o exército
+      return {
+        ...army,
+        location: reachedProvinceId,
+        destination: null,
+        targetDestination: null,
+        movementProgress: 0,
+        position: null,
+        path: [],
+      };
+    }
+
+    // Verifica se há exércitos inimigos na província recém-alcançada
+    const enemyArmiesInProvince = armies.filter(a => 
+      a.id !== army.id && 
+      a.location === reachedProvinceId && 
+      a.owner !== army.owner
+    );
+
+    // Se há exércitos inimigos, interrompe a rota para combate
+    if (enemyArmiesInProvince.length > 0) {
+      // Interrompe a caminhada
+      return {
+        ...army,
+        location: reachedProvinceId,
+        destination: null,
+        targetDestination: null,
+        movementProgress: 0,
+        position: null,
+        path: [],
+      };
+    }
+
+    // Não há inimigos - captura a província se pertencer a outro país
+    if (reachedProvince.owner !== army.owner) {
+      capturedProvinces.push({
+        ...reachedProvince,
+        owner: army.owner,
+      });
+    }
+
     // Verifica se há mais províncias no path
     if (army.path.length > 0) {
       // Remove o primeiro nó do path (localização atual)
@@ -180,7 +225,7 @@ export function processArmyMovement(
       if (remainingPath.length > 0) {
         return {
           ...army,
-          location: targetProvinceId,
+          location: reachedProvinceId,
           destination: remainingPath[0],
           movementProgress: 0,
           position: null,
@@ -192,7 +237,7 @@ export function processArmyMovement(
     // Path vazio ou não havia path - chegou ao destino final
     const arrivedArmy: Army = {
       ...army,
-      location: targetProvinceId,
+      location: reachedProvinceId,
       destination: null,
       targetDestination: null,
       movementProgress: 0,
@@ -212,7 +257,13 @@ export function processArmyMovement(
     return !hasArrived;
   });
 
-  return { updatedArmies: movingArmies, arrivedArmies };
+  // Atualiza províncias capturadas
+  const updatedProvinces = provinces.map(prov => {
+    const captured = capturedProvinces.find(cp => cp.id === prov.id);
+    return captured || prov;
+  });
+
+  return { updatedArmies: movingArmies, arrivedArmies, updatedProvinces };
 }
 
 /**
