@@ -348,10 +348,16 @@ const App: React.FC = () => {
       date: dateRef.current,
     };
 
-    console.log('🔄 [TICK START] Snapshot:', {
+    console.log('\n🔄 [TICK START] Snapshot:', {
       armies: snapshot.armies.length,
       recruitments: snapshot.recruitments.length,
       provinces: snapshot.provinces.length,
+    });
+    
+    const armiesWithDestinationStart = snapshot.armies.filter(a => a.destination);
+    console.log(`🔄 [TICK START] Exércitos com destination no início do tick: ${armiesWithDestinationStart.length}`);
+    armiesWithDestinationStart.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
     });
 
     // Trabalha com cópias mutáveis locais
@@ -370,9 +376,18 @@ const App: React.FC = () => {
     console.log('✅ [PASSO A] Recrutamentos processados, exércitos:', armies.length);
 
     // ===== PASSO B: MOVIMENTAÇÃO =====
+    console.log(`\n🚶 [PASSO B] Iniciando movimentação`);
+    const armiesWithDestination = armies.filter(a => a.destination);
+    console.log(`🚶 [PASSO B] Exércitos com destination: ${armiesWithDestination.length}`);
+    armiesWithDestination.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+    });
+    
     const moveResult = processArmyMovement(armies, provinces);
     armies = moveResult.armies;
     const arrivedArmies = moveResult.arrivedArmies;
+    
+    console.log(`✅ [PASSO B] Movimentação concluída: ${moveResult.armies.length} exércitos, ${arrivedArmies.length} chegaram`);
 
     // ===== PASSO C: DETECÇÃO E RESOLUÇÃO DE BATALHA =====
     // C.1: Processa exércitos que chegaram ao destino
@@ -620,9 +635,16 @@ const App: React.FC = () => {
     );
     
     // Processa IA apenas para bots válidos
+    console.log(`\n🤖 [PASSO G] Iniciando IA`);
     console.log(`🤖 [PASSO G] Processando IA para ${activeBots.length} bots`);
     console.log(`📊 [PASSO G] Exércitos válidos: ${validArmies.length}`);
     console.log(`📊 [PASSO G] Províncias no mapa: ${provinces.length}`);
+    
+    const armiesWithDestinationBeforeIA = validArmies.filter(a => a.destination);
+    console.log(`🤖 [PASSO G] Exércitos com destination ANTES da IA: ${armiesWithDestinationBeforeIA.length}`);
+    armiesWithDestinationBeforeIA.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+    });
     
     activeBots.forEach(country => {
       console.log(`\n🤖 [IA] ========== Processando ${country.name} (${country.tag}) ==========`);
@@ -667,8 +689,18 @@ const App: React.FC = () => {
         countries[countryIndex] = aiResult.country;
       }
     });
+    
+    const armiesWithDestinationAfterIA = armies.filter(a => a.destination);
+    console.log(`\n🤖 [PASSO G] Exércitos com destination DEPOIS da IA: ${armiesWithDestinationAfterIA.length}`);
+    armiesWithDestinationAfterIA.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+    });
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
+    console.log(`\n🔀 [PASSO H] Iniciando fusão de exércitos`);
+    const armiesWithDestinationBeforeMerge = armies.filter(a => a.destination);
+    console.log(`🔀 [PASSO H] Exércitos com destination ANTES da fusão: ${armiesWithDestinationBeforeMerge.length}`);
+    
     // Fusão física de exércitos da mesma nação na mesma província
     const armiesToMerge = new Map<string, Army[]>(); // provinceId -> armies
     
@@ -719,8 +751,12 @@ const App: React.FC = () => {
       
       console.log(`🔀 [MERGE] ${primaryArmy.owner} fundiu ${secondaryArmies.length + 1} exércitos em ${primaryArmy.location}`);
     }
+    
+    const armiesWithDestinationAfterMerge = armies.filter(a => a.destination);
+    console.log(`🔀 [PASSO H] Exércitos com destination DEPOIS da fusão: ${armiesWithDestinationAfterMerge.length}`);
 
     // ===== PASSO I: VERIFICA CONDIÇÕES DE FIM DE JOGO =====
+    console.log(`\n🏁 [PASSO I] Verificando condições de fim de jogo`);
     if (!hasTriggeredEndGame) {
       const playerCountryData = countries.find(c => c.tag === playerCountryTag);
       if (playerCountryData) {
@@ -747,11 +783,20 @@ const App: React.FC = () => {
         }
       }
     }
+    
+    const armiesWithDestinationBeforeEnd = armies.filter(a => a.destination);
+    console.log(`🏁 [PASSO I] Exércitos com destination no final: ${armiesWithDestinationBeforeEnd.length}`);
 
     // ===== APLICA TODAS AS ATUALIZAÇÕES DE UMA VEZ =====
-    console.log('✅ [TICK END] Estado final:', {
+    console.log('\n✅ [TICK END] Estado final:', {
       armies: armies.length,
       recruitments: recruitments.length,
+    });
+    
+    const armiesWithDestinationFinal = armies.filter(a => a.destination);
+    console.log(`✅ [TICK END] Exércitos com destination no final do tick: ${armiesWithDestinationFinal.length}`);
+    armiesWithDestinationFinal.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
     });
 
     setArmies(armies);
@@ -773,6 +818,11 @@ const App: React.FC = () => {
     recruitmentsRef.current = recruitments;
     playerTechStateRef.current = currentPlayerTechState;
     botTechStatesRef.current = currentBotTechStates;
+    
+    console.log(`\n🎯 [APPLY STATE] Exércitos com destination aplicados: ${armiesWithDestinationFinal.length}`);
+    armiesWithDestinationFinal.forEach(army => {
+      console.log(`  → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+    });
   }, [addLog, playerCountryTag]);
 
   /**

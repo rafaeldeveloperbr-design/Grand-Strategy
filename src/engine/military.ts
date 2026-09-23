@@ -145,8 +145,11 @@ export function processArmyMovement(
   console.log(`🚶 [MOVIMENTO] Processando ${armies.length} exércitos`);
 
   for (const army of armies) {
+    console.log(`🚶 [MOVIMENTO] Verificando exército ${army.id} (${army.owner}): destination=${army.destination || 'null'}, location=${army.location}, progress=${army.movementProgress.toFixed(2)}`);
+    
     if (!army.destination) {
       // Não está se movendo
+      console.log(`🚶 [MOVIMENTO] ${army.id} não tem destination, adicionando sem mudança`);
       updatedArmies.push(army);
       continue;
     }
@@ -156,6 +159,11 @@ export function processArmyMovement(
     // Avança o movimento
     const newProgress = army.movementProgress + army.movementSpeed;
     console.log(`🚶 [MOVIMENTO] ${army.id}: newProgress=${newProgress.toFixed(2)} (old=${army.movementProgress.toFixed(2)} + speed=${army.movementSpeed})`);
+    
+    // Debug: verificar se movementProgress foi resetado
+    if (army.movementProgress === 0 && army.destination) {
+      console.log(`⚠️ [MOVIMENTO] ${army.id}: movementProgress está em 0! Isso pode indicar que a IA resetou o progresso.`);
+    }
 
     if (newProgress >= 1.0) {
       // Chegou ao próximo waypoint
@@ -175,6 +183,7 @@ export function processArmyMovement(
           position: null,
           path: remainingPath,
         };
+        console.log(`✅ [MOVIMENTO] ${army.id} chegou ao waypoint: location=${continuingArmy.location}, destination=${continuingArmy.destination}, path restante=[${remainingPath.join(', ')}]`);
         updatedArmies.push(continuingArmy);
       } else {
         // Chegou ao destino final
@@ -186,6 +195,7 @@ export function processArmyMovement(
           position: null,
           path: [],
         };
+        console.log(`✅ [MOVIMENTO] ${army.id} chegou ao destino final: location=${arrivedArmy.location}, destination=null`);
         arrivedArmies.push(arrivedArmy);
       }
     } else {
@@ -203,14 +213,28 @@ export function processArmyMovement(
 
       console.log(`🚶 [MOVIMENTO] ${army.id} continua se movendo: progress=${newProgress.toFixed(2)}`);
 
-      updatedArmies.push({
+      const updatedArmy = {
         ...army,
         movementProgress: newProgress,
         position,
-      });
+      };
+      
+      console.log(`✅ [MOVIMENTO] ${army.id} atualizado: progress=${updatedArmy.movementProgress.toFixed(2)}, destination=${updatedArmy.destination}`);
+      
+      updatedArmies.push(updatedArmy);
     }
   }
 
+  console.log(`\n✅ [MOVIMENTO] Resultado final:`);
+  console.log(`  → Exércitos atualizados: ${updatedArmies.length}`);
+  console.log(`  → Exércitos que chegaram: ${arrivedArmies.length}`);
+  
+  const armiesWithDestination = updatedArmies.filter(a => a.destination);
+  console.log(`  → Exércitos ainda se movendo: ${armiesWithDestination.length}`);
+  armiesWithDestination.forEach(army => {
+    console.log(`    → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+  });
+  
   return { armies: updatedArmies, arrivedArmies };
 }
 

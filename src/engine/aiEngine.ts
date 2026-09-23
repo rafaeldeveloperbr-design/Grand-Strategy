@@ -38,6 +38,7 @@ export function processAITick(
   let log: string | undefined;
 
   // Filtra exércitos deste país que não estão em movimento
+  console.log(`\n🔍 [IA] ${country.name}: Filtrando exércitos que NÃO estão se movendo`);
   const myArmies = updatedArmies.filter(army => {
     const isValid = army && 
       army.owner === country.tag && 
@@ -45,18 +46,29 @@ export function processAITick(
       army.location;
     
     if (army && army.owner === country.tag) {
-      console.log(`🔍 [IA] ${country.name}: Exército ${army.id} - location=${army.location}, destination=${army.destination || 'null'}, movementProgress=${army.movementProgress}`);
+      const isMoving = !!army.destination;
+      console.log(`🔍 [IA] ${country.name}: Exército ${army.id} - location=${army.location}, destination=${army.destination || 'null'}, movementProgress=${army.movementProgress.toFixed(2)}, está se movendo=${isMoving}, será processado=${isValid}`);
     }
     
     return isValid;
   });
+  
+  console.log(`🔍 [IA] ${country.name}: Exércitos que NÃO estão se movendo: ${myArmies.length}`);
 
   // Para cada exército, tenta mover para província vizinha com dono diferente
-  console.log(`🔍 [IA] ${country.name}: Verificando ${myArmies.length} exércitos`);
+  console.log(`\n🔍 [IA] ${country.name}: Verificando ${myArmies.length} exércitos que NÃO estão se movendo`);
   console.log(`📊 [IA] Total de províncias no mapa: ${provinces.length}`);
   
+  // Debug: mostrar todos os exércitos deste país
+  const allMyArmies = updatedArmies.filter(a => a.owner === country.tag);
+  console.log(`🔍 [IA] ${country.name}: Total de exércitos deste país no mapa: ${allMyArmies.length}`);
+  allMyArmies.forEach(army => {
+    const isMoving = !!army.destination;
+    console.log(`  → ${army.id}: location=${army.location}, destination=${army.destination || 'null'}, movementProgress=${army.movementProgress.toFixed(2)}, está se movendo=${isMoving}`);
+  });
+  
   for (const army of myArmies) {
-    console.log(`🔍 [IA] ${country.name}: Processando exército ${army.id} em ${army.location}`);
+    console.log(`\n🔍 [IA] ${country.name}: Processando exército ${army.id} em ${army.location} (destination=${army.destination || 'null'})`);
     
     const currentProvince = provinces.find(p => p.id === army.location);
     
@@ -103,11 +115,20 @@ export function processAITick(
       
       if (targetProvince) {
         console.log(`✅ [IA] ${country.name}: Movendo exército ${army.id} para ${targetProvince.name} (${targetProvinceId})`);
+        console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} ANTES: destination=${army.destination || 'null'}, movementProgress=${army.movementProgress.toFixed(2)}`);
+        
+        // Verifica se o exército já está se movendo
+        if (army.destination) {
+          console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} JÁ ESTÁ SE MOVENDO para ${army.destination}! NÃO sobrescrevendo.`);
+          continue;
+        }
         
         // Atualiza o exército com novo destino
         updatedArmies = updatedArmies.map(a => {
           if (a.id === army.id) {
             log = `🏃 ${country.name} moveu exército para ${targetProvince.name}`;
+            
+            console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} DEPOIS: destination=${targetProvinceId}, movementProgress=0.00`);
             
             return {
               ...a,
