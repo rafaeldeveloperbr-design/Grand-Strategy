@@ -72,6 +72,8 @@ import {
 } from './engine/diplomacy';
 import { processAI } from './engine/aiEngine';
 import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { ToastContainer } from './components/ToastContainer';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -206,6 +208,9 @@ function createInitialArmies(): Army[] {
  * Componente raiz da aplicação
  */
 const App: React.FC = () => {
+  // === Hook de Toasts ===
+  const { addToast } = useToast();
+  
   // === Estado do Jogo ===
   const [playerCountryTag] = useState<string>('IMP');
   const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
@@ -413,7 +418,12 @@ const App: React.FC = () => {
           return p;
         });
         
-        addLog(`🏗️ ${province.name}: ${completed.buildingType} construído!`);
+        // Mostra toast de conclusão
+        addToast(
+          `${completed.buildingType} concluído em ${province.name}!`,
+          'success',
+          'Obra Concluída'
+        );
       }
     }
 
@@ -849,12 +859,20 @@ const App: React.FC = () => {
               : c
           )
         );
-        addLog(`🏗️ ${province.name}: ${buildingType} adicionado à fila de construção`);
+        addToast(
+          `${buildingType} adicionado à fila de construção em ${province.name}`,
+          'warning',
+          'Construção Iniciada'
+        );
       } else {
-        addLog(`❌ Ouro insuficiente para construir ${buildingType}`);
+        addToast(
+          `Ouro insuficiente para construir ${buildingType}`,
+          'error',
+          'Erro'
+        );
       }
     },
-    [provinces, playerCountryTag, playerCountry.resources.gold, buildingConstructions, addLog]
+    [provinces, playerCountryTag, playerCountry.resources.gold, buildingConstructions, addToast]
   );
 
   /**
@@ -873,9 +891,15 @@ const App: React.FC = () => {
         )
       );
       
-      addLog(`❌ Construção cancelada. Reembolso: 💰 ${result.refundedGold}`);
+      if (result.refundedGold > 0) {
+        addToast(
+          `Construção cancelada. +${result.refundedGold} Ouro reembolsado!`,
+          'success',
+          'Reembolso'
+        );
+      }
     },
-    [buildingConstructions, playerCountry.resources.gold, playerCountryTag, addLog]
+    [buildingConstructions, playerCountry.resources.gold, playerCountryTag, addToast]
   );
 
   /**
@@ -936,6 +960,11 @@ const App: React.FC = () => {
         if (existingRecruitment) {
           // Incrementa a quantidade
           console.log('✅ Agrupando recrutamento:', existingRecruitment.id, 'count:', existingRecruitment.count + 1);
+          addToast(
+            `${unitType} adicionada à fila (${existingRecruitment.count + 1}x)`,
+            'warning',
+            'Recrutamento Agrupado'
+          );
           return prev.map(r =>
             r.id === existingRecruitment.id ? { ...r, count: r.count + 1 } : r
           );
@@ -950,12 +979,16 @@ const App: React.FC = () => {
             count: 1,
           };
           console.log('✅ Adicionando recrutamento à fila:', newRecruitment);
+          addToast(
+            `Recrutando ${unitType} em ${province.name} (${costs.days} dias)`,
+            'warning',
+            'Recrutamento Iniciado'
+          );
           return [...prev, newRecruitment];
         }
       });
-      addLog(`🗡️ Recrutando ${unitType} em ${province.name} (${costs.days} dias)`);
     },
-    [provinces, playerCountryTag, playerCountry, addLog]
+    [provinces, playerCountryTag, playerCountry, addToast]
   );
 
   /**
@@ -986,9 +1019,15 @@ const App: React.FC = () => {
         )
       );
 
-      addLog(`❌ Recrutamento cancelado. Reembolso: 💰 ${result.refundedGold}`);
+      if (result.refundedGold > 0) {
+        addToast(
+          `Recrutamento cancelado. +${result.refundedGold} Ouro reembolsado!`,
+          'success',
+          'Reembolso'
+        );
+      }
     },
-    [recruitments, playerCountry, playerCountryTag, addLog]
+    [recruitments, playerCountry, playerCountryTag, addToast]
   );
 
   /**
@@ -1651,8 +1690,20 @@ const App: React.FC = () => {
           <span className="game__bottom-value game__bottom-value--highlight">4 - Diplomacia</span>
         </div>
       </div>
+
+      {/* === Container de Toasts === */}
+      <ToastContainer />
     </div>
   );
 };
 
-export default App;
+// Wrapper com ToastProvider
+const AppWithToast: React.FC = () => {
+  return (
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  );
+};
+
+export default AppWithToast;
