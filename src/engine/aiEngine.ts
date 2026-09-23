@@ -47,27 +47,48 @@ export function processAITick(
 
   // Para cada exército, tenta mover para província vizinha com dono diferente
   console.log(`🔍 [IA] ${country.name}: Verificando ${myArmies.length} exércitos`);
+  console.log(`📊 [IA] Total de províncias no mapa: ${provinces.length}`);
   
   for (const army of myArmies) {
+    console.log(`🔍 [IA] ${country.name}: Processando exército ${army.id} em ${army.location}`);
+    
     const currentProvince = provinces.find(p => p.id === army.location);
-    if (!currentProvince || !currentProvince.neighbors) {
-      console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} sem província atual ou vizinhos`);
+    
+    // Debug: verificar se encontrou a província
+    if (!currentProvince) {
+      console.error(`❌ [IA] ${country.name}: Província ${army.location} NÃO ENCONTRADA no array de províncias!`);
+      console.log(`📋 [IA] IDs disponíveis:`, provinces.map(p => p.id).join(', '));
+      continue;
+    }
+    
+    if (!currentProvince.neighbors || currentProvince.neighbors.length === 0) {
+      console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} em ${currentProvince.name} sem vizinhos`);
       continue;
     }
 
-    console.log(`🔍 [IA] ${country.name}: Exército ${army.id} em ${currentProvince.name}, vizinhos: ${currentProvince.neighbors.length}`);
+    console.log(`🔍 [IA] ${country.name}: Exército ${army.id} em ${currentProvince.name} (owner: ${currentProvince.owner})`);
+    console.log(`🔍 [IA] ${country.name}: Vizinhos: [${currentProvince.neighbors.join(', ')}]`);
 
     // Busca vizinhos com dono diferente do país atual
-    const availableNeighbors = currentProvince.neighbors.filter(neighborId => {
+    const availableNeighbors: string[] = [];
+    
+    for (const neighborId of currentProvince.neighbors) {
       const neighborProvince = provinces.find(p => p.id === neighborId);
-      const isAvailable = neighborProvince && neighborProvince.owner !== country.tag;
-      if (neighborProvince) {
-        console.log(`  → Vizinho ${neighborProvince.name}: dono=${neighborProvince.owner}, disponível=${isAvailable}`);
+      
+      if (!neighborProvince) {
+        console.warn(`⚠️ [IA] ${country.name}: Vizinho ${neighborId} NÃO ENCONTRADO!`);
+        continue;
       }
-      return isAvailable;
-    });
+      
+      const isAvailable = neighborProvince.owner !== country.tag;
+      console.log(`  → ${neighborId} (${neighborProvince.name}): dono=${neighborProvince.owner}, meu país=${country.tag}, disponível=${isAvailable}`);
+      
+      if (isAvailable) {
+        availableNeighbors.push(neighborId);
+      }
+    }
 
-    console.log(`🔍 [IA] ${country.name}: ${availableNeighbors.length} vizinhos disponíveis`);
+    console.log(`🔍 [IA] ${country.name}: ${availableNeighbors.length} vizinhos disponíveis: [${availableNeighbors.join(', ')}]`);
 
     // Se encontrou vizinho com dono diferente, move para o primeiro
     if (availableNeighbors.length > 0) {
@@ -75,12 +96,11 @@ export function processAITick(
       const targetProvince = provinces.find(p => p.id === targetProvinceId);
       
       if (targetProvince) {
-        console.log(`✅ [IA] ${country.name}: Movendo exército ${army.id} para ${targetProvince.name}`);
+        console.log(`✅ [IA] ${country.name}: Movendo exército ${army.id} para ${targetProvince.name} (${targetProvinceId})`);
         
         // Atualiza o exército com novo destino
         updatedArmies = updatedArmies.map(a => {
           if (a.id === army.id) {
-            // Log apenas quando realmente mover
             log = `🏃 ${country.name} moveu exército para ${targetProvince.name}`;
             
             return {
@@ -92,6 +112,8 @@ export function processAITick(
           }
           return a;
         });
+      } else {
+        console.error(`❌ [IA] ${country.name}: Província alvo ${targetProvinceId} não encontrada!`);
       }
     } else {
       console.log(`⚠️ [IA] ${country.name}: Exército ${army.id} sem vizinhos disponíveis para mover`);

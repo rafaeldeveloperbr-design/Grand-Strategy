@@ -621,22 +621,31 @@ const App: React.FC = () => {
     
     // Processa IA apenas para bots válidos
     console.log(`🤖 [PASSO G] Processando IA para ${activeBots.length} bots`);
+    console.log(`📊 [PASSO G] Exércitos válidos: ${validArmies.length}`);
+    console.log(`📊 [PASSO G] Províncias no mapa: ${provinces.length}`);
     
     activeBots.forEach(country => {
-      console.log(`🤖 [IA] Processando ${country.name} (${country.tag})`);
+      console.log(`\n🤖 [IA] ========== Processando ${country.name} (${country.tag}) ==========`);
+      
+      // Debug: mostrar exércitos deste país antes da IA
+      const armiesBefore = validArmies.filter(a => a.owner === country.tag);
+      console.log(`🤖 [IA] ${country.name}: ${armiesBefore.length} exércitos`);
+      armiesBefore.forEach(army => {
+        console.log(`  → ${army.id}: location=${army.location}, destination=${army.destination || 'null'}`);
+      });
       
       const aiResult = processAITick(
         country, provinces, validArmies, relations, wars, countries, currentDate
       );
 
       // Log de debug: verificar se exércitos mudaram
-      const armiesBefore = validArmies.filter(a => a.owner === country.tag);
       const armiesAfter = aiResult.armies.filter(a => a.owner === country.tag);
       
-      console.log(`🤖 [IA] ${country.name}: ${armiesBefore.length} exércitos antes, ${armiesAfter.length} depois`);
+      console.log(`🤖 [IA] ${country.name}: ${armiesAfter.length} exércitos depois da IA`);
       
       // Verifica se algum exército mudou de destino
       armiesAfter.forEach(army => {
+        console.log(`  → ${army.id}: location=${army.location}, destination=${army.destination || 'null'}`);
         if (army.destination) {
           console.log(`🏃 [IA] ${country.name} - Exército ${army.id} movendo para ${army.destination}`);
         }
