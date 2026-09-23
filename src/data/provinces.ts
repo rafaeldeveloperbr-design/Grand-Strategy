@@ -125,7 +125,7 @@ export const provincesData: Province[] = [
   },
   {
     id: 'p16', name: 'Portus Orientalis', owner: 'KHA', color: '#F57F17',
-    neighbors: ['p5', 'p9', 'p15', 'p18'], population: 25000, maxPopulation: 50000,
+    neighbors: ['p5', 'p9', 'p15', 'p18', 'p20'], population: 25000, maxPopulation: 50000,
     development: 4, buildings: [], defense: 3,
     center: { x: 570, y: 370 },
     path: 'M450,350 L580,300 L710,310 L700,380 L690,430 L440,410 L450,350 Z',
@@ -155,7 +155,7 @@ export const provincesData: Province[] = [
   // === LIGA MERCANTIL DE PORTUS (Sudeste/Costa) ===
   {
     id: 'p20', name: 'Portus Mercatus', owner: 'LIG', color: '#00695C',
-    neighbors: ['p19', 'p21'], population: 28000, maxPopulation: 50000,
+    neighbors: ['p16', 'p19', 'p21'], population: 28000, maxPopulation: 50000,
     development: 7, buildings: [], defense: 3,
     center: { x: 730, y: 380 },
     path: 'M710,310 L780,300 L790,370 L780,440 L690,430 L700,380 Z',

@@ -455,14 +455,7 @@ export function calculateArmyOffset(
 
 /**
  * Algoritmo BFS para encontrar o caminho mais curto entre duas províncias.
- * Restringe o caminho a províncias permitidas (próprias ou em guerra).
- * 
- * @param startId - ID da província de origem
- * @param endId - ID da província de destino
- * @param provinces - Lista de todas as províncias
- * @param ownerTag - Tag do país dono do exército
- * @param diplomacy - Array de relações diplomáticas
- * @returns Array de IDs de províncias no caminho (excluindo startId, incluindo endId)
+ * Restringe o caminho EXCLUSIVAMENTE a províncias permitidas (próprias, aliadas ou em guerra).
  */
 export function findPath(
   startId: string,
@@ -473,13 +466,11 @@ export function findPath(
 ): string[] {
   if (startId === endId) return [];
 
-  // Cria mapa de adjacência
   const adjacencyMap = new Map<string, string[]>();
   for (const province of provinces) {
-    adjacencyMap.set(province.id, province.neighbors);
+    adjacencyMap.set(province.id, province.neighbors || []);
   }
 
-  // BFS
   const queue: string[] = [startId];
   const visited = new Set<string>([startId]);
   const parent = new Map<string, string>();
@@ -488,7 +479,6 @@ export function findPath(
     const current = queue.shift()!;
 
     if (current === endId) {
-      // Reconstrói o caminho
       const path: string[] = [];
       let node: string | undefined = endId;
       while (node && node !== startId) {
@@ -502,11 +492,11 @@ export function findPath(
     for (const neighbor of neighbors) {
       if (visited.has(neighbor)) continue;
 
-      // Verifica se a província é permitida
       const neighborProvince = provinces.find(p => p.id === neighbor);
       if (!neighborProvince) continue;
 
-      // Usa validação diplomática
+      // Importante: O destino FINAL sempre deve ser acessível se passar no canMoveToProvince,
+      // mesmo que seja uma província em guerra.
       const isAllowed = canMoveToProvince(ownerTag, neighborProvince.owner, diplomacy);
       
       if (isAllowed) {
@@ -517,7 +507,6 @@ export function findPath(
     }
   }
 
-  // Caminho não encontrado
   return [];
 }
 
