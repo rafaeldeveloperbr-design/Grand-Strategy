@@ -86,9 +86,7 @@ export function processRecruitments(
 ): { recruitments: Recruitment[]; armies: Army[]; countries: Country[] } {
   const updatedRecruitments: Recruitment[] = [];
   let updatedArmies = [...armies];
-  let updatedCountries = [...countries];
-
-  console.log('🔄 processRecruitments: processando', recruitments.length, 'recrutamentos');
+  const updatedCountries = [...countries];
 
   for (const rec of recruitments) {
     const newDays = rec.daysRemaining - 1;
@@ -104,7 +102,6 @@ export function processRecruitments(
 
       if (existingArmy) {
         // Adiciona ao exército existente
-        console.log('✅ [RECRUIT] Regimento adicionado ao exército existente:', existingArmy.id);
         updatedArmies = updatedArmies.map(a =>
           a.id === existingArmy.id
             ? { ...a, regiments: [...a.regiments, regiment] }
@@ -114,7 +111,6 @@ export function processRecruitments(
         // Cria novo exército
         const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
         newArmy.regiments = [regiment];
-        console.log('🎖️ [NEW ARMY CREATED]:', newArmy);
         updatedArmies.push(newArmy);
       }
     } else {
@@ -122,8 +118,6 @@ export function processRecruitments(
       updatedRecruitments.push({ ...rec, daysRemaining: newDays });
     }
   }
-
-  console.log('📊 processRecruitments: resultado', updatedRecruitments.length, 'recrutamentos restantes,', updatedArmies.length, 'exércitos totais');
 
   return {
     recruitments: updatedRecruitments,
@@ -133,109 +127,72 @@ export function processRecruitments(
 }
 
 /**
- * Processa movimentação de exércitos com suporte a pathfinding
+ * Processa movimentação de exércitos (IMUTÁVEL)
+ * Atualiza o progresso de movimento de TODOS os exércitos que possuem destino
  */
 export function processArmyMovement(
   armies: Army[],
   provinces: Province[]
-): { armies: Army[]; arrivedArmies: Army[] } {
-  const updatedArmies: Army[] = [];
+): { updatedArmies: Army[]; arrivedArmies: Army[] } {
   const arrivedArmies: Army[] = [];
 
-  console.log(`🚶 [MOVIMENTO] Processando ${armies.length} exércitos`);
-
-  for (const army of armies) {
-    console.log(`🚶 [MOVIMENTO] Verificando exército ${army.id} (${army.owner}): destination=${army.destination || 'null'}, location=${army.location}, progress=${army.movementProgress.toFixed(2)}`);
-    
+  // Usa map para processar TODOS os exércitos de forma imutável
+  const updatedArmies = armies.map(army => {
+    // Se não tem destino, permanece parado
     if (!army.destination) {
-      // Não está se movendo
-      console.log(`🚶 [MOVIMENTO] ${army.id} não tem destination, adicionando sem mudança`);
-      updatedArmies.push(army);
-      continue;
+      return army;
     }
 
-    console.log(`🚶 [MOVIMENTO] Exército ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}, speed=${army.movementSpeed}`);
+    // Incrementa progresso
+    const nextProgress = army.movementProgress + army.movementSpeed;
 
-    // Avança o movimento
-    const newProgress = army.movementProgress + army.movementSpeed;
-    console.log(`🚶 [MOVIMENTO] ${army.id}: newProgress=${newProgress.toFixed(2)} (old=${army.movementProgress.toFixed(2)} + speed=${army.movementSpeed})`);
-    
-    // Debug: verificar se movementProgress foi resetado
-    if (army.movementProgress === 0 && army.destination) {
-      console.log(`⚠️ [MOVIMENTO] ${army.id}: movementProgress está em 0! Isso pode indicar que a IA resetou o progresso.`);
-    }
-
-    if (newProgress >= 1.0) {
-      // Chegou ao próximo waypoint
-      const reachedProvince = army.destination;
-      console.log(`✅ [MOVIMENTO] ${army.id} chegou em ${reachedProvince}!`);
-      
-      // Se há mais províncias no path, continua para a próxima
-      if (army.path.length > 0) {
-        const nextDestination = army.path[0];
-        const remainingPath = army.path.slice(1);
-        
-        const continuingArmy: Army = {
-          ...army,
-          location: reachedProvince,
-          destination: nextDestination,
-          movementProgress: 0,
-          position: null,
-          path: remainingPath,
-        };
-        console.log(`✅ [MOVIMENTO] ${army.id} chegou ao waypoint: location=${continuingArmy.location}, destination=${continuingArmy.destination}, path restante=[${remainingPath.join(', ')}]`);
-        updatedArmies.push(continuingArmy);
-      } else {
-        // Chegou ao destino final
-        const arrivedArmy: Army = {
-          ...army,
-          location: reachedProvince,
-          destination: null,
-          movementProgress: 0,
-          position: null,
-          path: [],
-        };
-        console.log(`✅ [MOVIMENTO] ${army.id} chegou ao destino final: location=${arrivedArmy.location}, destination=null`);
-        arrivedArmies.push(arrivedArmy);
-      }
-    } else {
-      // Continua se movendo - calcula posição intermediária
+    // Se ainda não chegou ao destino (progress < 1.0)
+    if (nextProgress < 1.0) {
+      // Calcula posição intermediária para animação
       const originProvince = provinces.find(p => p.id === army.location);
       const destProvince = provinces.find(p => p.id === army.destination);
       
       let position = null;
       if (originProvince && destProvince) {
         position = {
-          x: originProvince.center.x + (destProvince.center.x - originProvince.center.x) * newProgress,
-          y: originProvince.center.y + (destProvince.center.y - originProvince.center.y) * newProgress,
+          x: originProvince.center.x + (destProvince.center.x - originProvince.center.x) * nextProgress,
+          y: originProvince.center.y + (destProvince.center.y - originProvince.center.y) * nextProgress,
         };
       }
 
-      console.log(`🚶 [MOVIMENTO] ${army.id} continua se movendo: progress=${newProgress.toFixed(2)}`);
-
-      const updatedArmy = {
-        ...army,
-        movementProgress: newProgress,
-        position,
+      return { 
+        ...army, 
+        movementProgress: nextProgress,
+        position
       };
-      
-      console.log(`✅ [MOVIMENTO] ${army.id} atualizado: progress=${updatedArmy.movementProgress.toFixed(2)}, destination=${updatedArmy.destination}`);
-      
-      updatedArmies.push(updatedArmy);
     }
-  }
 
-  console.log(`\n✅ [MOVIMENTO] Resultado final:`);
-  console.log(`  → Exércitos atualizados: ${updatedArmies.length}`);
-  console.log(`  → Exércitos que chegaram: ${arrivedArmies.length}`);
-  
-  const armiesWithDestination = updatedArmies.filter(a => a.destination);
-  console.log(`  → Exércitos ainda se movendo: ${armiesWithDestination.length}`);
-  armiesWithDestination.forEach(army => {
-    console.log(`    → ${army.id} (${army.owner}): ${army.location} → ${army.destination}, progress=${army.movementProgress.toFixed(2)}`);
+    // CHEGOU AO DESTINO (progress >= 1.0)
+    const targetProvinceId = army.destination;
+    
+    // Transiciona localização e reseta destino
+    const arrivedArmy: Army = {
+      ...army,
+      location: targetProvinceId,
+      destination: null,
+      movementProgress: 0,
+      position: null,
+      path: [],
+    };
+    
+    arrivedArmies.push(arrivedArmy);
+    
+    // Retorna o exército que chegou (será removido do array principal)
+    return arrivedArmy;
   });
-  
-  return { armies: updatedArmies, arrivedArmies };
+
+  // Remove exércitos que chegaram do array principal (eles estão em arrivedArmies)
+  const movingArmies = updatedArmies.filter(army => {
+    const hasArrived = arrivedArmies.some(a => a.id === army.id);
+    return !hasArrived;
+  });
+
+  return { updatedArmies: movingArmies, arrivedArmies };
 }
 
 /**
