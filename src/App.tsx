@@ -593,7 +593,7 @@ const App: React.FC = () => {
     // Para cada bot ativo, processa IA para atribuir destinos aos exércitos parados
     const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
     activeBots.forEach((country: Country) => {
-      armies = processAI(country.tag, armies, provinces);
+      armies = processAI(country.tag, armies, provinces, relations);
     });
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
