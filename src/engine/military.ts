@@ -123,8 +123,11 @@ export function processRecruitments(
     const newDays = rec.daysRemaining - 1;
 
     if (newDays <= 0) {
-      // Recrutamento concluído - cria o regimento
-      const regiment = createRegiment(rec.unitType);
+      // Recrutamento concluído - cria múltiplos regimentos se count > 1
+      const regiments: Regiment[] = [];
+      for (let i = 0; i < rec.count; i++) {
+        regiments.push(createRegiment(rec.unitType));
+      }
       
       // Verifica se já existe um exército nesta província
       const existingArmy = updatedArmies.find(
@@ -132,16 +135,16 @@ export function processRecruitments(
       );
 
       if (existingArmy) {
-        // Adiciona ao exército existente
+        // Adiciona todos os regimentos ao exército existente
         updatedArmies = updatedArmies.map(a =>
           a.id === existingArmy.id
-            ? { ...a, regiments: [...a.regiments, regiment] }
+            ? { ...a, regiments: [...a.regiments, ...regiments] }
             : a
         );
       } else {
-        // Cria novo exército
+        // Cria novo exército com todos os regimentos
         const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
-        newArmy.regiments = [regiment];
+        newArmy.regiments = regiments;
         updatedArmies.push(newArmy);
       }
     } else {

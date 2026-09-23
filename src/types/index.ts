@@ -264,6 +264,8 @@ export interface Recruitment {
   unitType: UnitType;
   /** Dias restantes */
   daysRemaining: number;
+  /** Quantidade de unidades sendo recrutadas (agrupamento) */
+  count: number;
 }
 
 /**

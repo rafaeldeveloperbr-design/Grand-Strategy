@@ -315,7 +315,7 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                   return (
                     <div key={rec.id} className="province-panel__construction">
                       <div className="province-panel__construction-header">
-                        <span>{def.icon} {def.name}</span>
+                        <span>{def.icon} {rec.count > 1 ? `${rec.count}x ` : ''}{def.name}</span>
                         <span className="province-panel__construction-days">{rec.daysRemaining}d</span>
                       </div>
                       <div className="province-panel__construction-bar">

@@ -856,19 +856,35 @@ const App: React.FC = () => {
         )
       );
 
-      // Adiciona recrutamento
-      const newRecruitment: Recruitment = {
-        id: generateRecruitmentId(),
-        provinceId,
-        owner: playerCountryTag,
-        unitType,
-        daysRemaining: costs.days,
-      };
-      console.log('✅ Adicionando recrutamento à fila:', newRecruitment);
+      // Adiciona recrutamento (agrupando se já existir idêntico)
       setRecruitments((prev) => {
-        const updated = [...prev, newRecruitment];
-        console.log('📋 Fila de recrutamentos atualizada:', updated);
-        return updated;
+        // Verifica se já existe um recrutamento idêntico
+        const existingRecruitment = prev.find(
+          r => r.owner === playerCountryTag &&
+               r.provinceId === provinceId &&
+               r.unitType === unitType &&
+               r.daysRemaining === costs.days
+        );
+
+        if (existingRecruitment) {
+          // Incrementa a quantidade
+          console.log('✅ Agrupando recrutamento:', existingRecruitment.id, 'count:', existingRecruitment.count + 1);
+          return prev.map(r =>
+            r.id === existingRecruitment.id ? { ...r, count: r.count + 1 } : r
+          );
+        } else {
+          // Cria novo item com count = 1
+          const newRecruitment: Recruitment = {
+            id: generateRecruitmentId(),
+            provinceId,
+            owner: playerCountryTag,
+            unitType,
+            daysRemaining: costs.days,
+            count: 1,
+          };
+          console.log('✅ Adicionando recrutamento à fila:', newRecruitment);
+          return [...prev, newRecruitment];
+        }
       });
       addLog(`🗡️ Recrutando ${unitType} em ${province.name} (${costs.days} dias)`);
     },
