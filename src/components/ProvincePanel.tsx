@@ -31,6 +31,7 @@ interface ProvincePanelProps {
   onProvinceClick: (provinceId: string) => void;
   onBuild: (provinceId: string, buildingType: BuildingType) => void;
   onRecruit: (provinceId: string, unitType: UnitType) => void;
+  onCancelRecruitment: (recruitmentId: string) => void;
 }
 
 type PanelTab = 'info' | 'buildings' | 'military';
@@ -48,6 +49,7 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
   onProvinceClick,
   onBuild,
   onRecruit,
+  onCancelRecruitment,
 }) => {
   const [activeTab, setActiveTab] = useState<PanelTab>('info');
   const ownerCountry = getCountryByTag(province.owner);
@@ -316,7 +318,16 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                     <div key={rec.id} className="province-panel__construction">
                       <div className="province-panel__construction-header">
                         <span>{def.icon} {rec.count > 1 ? `${rec.count}x ` : ''}{def.name}</span>
-                        <span className="province-panel__construction-days">{rec.daysRemaining}d</span>
+                        <div className="province-panel__construction-actions">
+                          <span className="province-panel__construction-days">{rec.daysRemaining}d</span>
+                          <button
+                            className="province-panel__construction-cancel"
+                            onClick={() => onCancelRecruitment(rec.id)}
+                            title="Cancelar recrutamento"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                       <div className="province-panel__construction-bar">
                         <div className="province-panel__construction-fill" style={{ width: `${progress}%` }} />

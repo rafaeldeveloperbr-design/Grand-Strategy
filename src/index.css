@@ -687,6 +687,33 @@ html, body, #root {
   font-weight: 700;
 }
 
+.province-panel__construction-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.province-panel__construction-cancel {
+  background: var(--accent-red);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.province-panel__construction-cancel:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
 .province-panel__construction-bar {
   width: 100%;
   height: 6px;

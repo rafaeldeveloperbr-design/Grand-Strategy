@@ -32,6 +32,7 @@ import {
   splitArmy,
   splitArmyHalf,
   generateRecruitmentId,
+  cancelRecruitment,
 } from './engine/military';
 import { resolveBattle, calculateArmySize, checkAllProvinceCombats } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
@@ -892,6 +893,39 @@ const App: React.FC = () => {
   );
 
   /**
+   * Cancela um recrutamento e reembolsa ouro proporcionalmente
+   */
+  const handleCancelRecruitment = useCallback(
+    (recruitmentId: string) => {
+      const rec = recruitments.find(r => r.id === recruitmentId);
+      if (!rec) return;
+
+      const result = cancelRecruitment(recruitmentId, recruitments, playerCountry.resources.gold);
+
+      // Atualiza recrutamentos
+      setRecruitments(result.updatedRecruitments);
+
+      // Reembolsa ouro
+      setAllCountries((prev) =>
+        prev.map((c) =>
+          c.tag === playerCountryTag
+            ? {
+                ...c,
+                resources: {
+                  ...c.resources,
+                  gold: result.newGold,
+                },
+              }
+            : c
+        )
+      );
+
+      addLog(`❌ Recrutamento cancelado. Reembolso: 💰 ${result.refundedGold}`);
+    },
+    [recruitments, playerCountry, playerCountryTag, addLog]
+  );
+
+  /**
    * Seleciona um exército
    */
   const handleArmyClick = useCallback((armyId: string) => {
@@ -1219,6 +1253,7 @@ const App: React.FC = () => {
             onProvinceClick={handleProvinceClick}
             onBuild={handleBuild}
             onRecruit={handleRecruit}
+            onCancelRecruitment={handleCancelRecruitment}
           />
         )}
 
