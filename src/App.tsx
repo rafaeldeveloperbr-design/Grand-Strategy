@@ -74,6 +74,7 @@ import { processAI } from './engine/aiEngine';
 import { queueBuilding, processConstructions, cancelBuilding, isActiveConstruction } from './engine/buildings';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { ToastContainer } from './components/ToastContainer';
+import { NotificationLogModal } from './components/NotificationLogModal';
 import { getBuildingName, getUnitName } from './utils/translations';
 
 /**
@@ -210,7 +211,7 @@ function createInitialArmies(): Army[] {
  */
 const App: React.FC = () => {
   // === Hook de Toasts ===
-  const { addToast } = useToast();
+  const { addToast, notificationHistory, unreadCount, markAllAsRead } = useToast();
   
   // === Estado do Jogo ===
   const [playerCountryTag] = useState<string>('IMP');
@@ -274,6 +275,9 @@ const App: React.FC = () => {
 
   /** Modal de tecnologias aberto */
   const [showTechModal, setShowTechModal] = useState(false);
+
+  /** Modal de histórico de notificações aberto */
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   /** Estado de tecnologias do jogador */
   const [playerTechState, setPlayerTechState] = useState<CountryTechState>(() =>
@@ -341,6 +345,15 @@ const App: React.FC = () => {
     setEventLog((prev) => [msg, ...prev].slice(0, 20));
   }, []);
 
+  /** Formata a data do jogo para exibição em notificações */
+  const formatGameDate = useCallback((date: GameDate): string => {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return `${date.day} de ${months[date.month - 1]}, ${date.year}`;
+  }, []);
+
   // === Game Loop ===
   const advanceDate = useCallback((currentDate: GameDate): GameDate => {
     let { day, month, year } = currentDate;
@@ -387,18 +400,21 @@ const App: React.FC = () => {
       const unitName = getUnitName(completed.unitType);
       const province = provinces.find(p => p.id === completed.provinceId);
       const provinceName = province?.name || 'província';
+      const dateString = formatGameDate(snapshot.date);
       
       if (completed.count > 1) {
         addToast(
           `Treinamento de ${completed.count}x ${unitName} concluído em ${provinceName}!`,
           'success',
-          'Tropas Recrutadas'
+          'Tropas Recrutadas',
+          dateString
         );
       } else {
         addToast(
           `Treinamento de ${unitName} concluído em ${provinceName}!`,
           'success',
-          'Tropa Recrutada'
+          'Tropa Recrutada',
+          dateString
         );
       }
     }
@@ -442,10 +458,12 @@ const App: React.FC = () => {
         
         // Mostra toast de conclusão
         const buildingName = getBuildingName(completed.buildingType);
+        const dateString = formatGameDate(snapshot.date);
         addToast(
           `Construção de ${buildingName} finalizada em ${province.name}!`,
           'success',
-          'Obra Concluída'
+          'Obra Concluída',
+          dateString
         );
       }
     }
@@ -650,14 +668,15 @@ const App: React.FC = () => {
       playerTechStateRef.current = currentPlayerTechState;
       
       if (playerTechResult.notifications?.length > 0) {
+        const dateString = formatGameDate(snapshot.date);
         playerTechResult.notifications.forEach(notif => {
           addLog(notif);
           
           // Dispara toast para conclusões
           if (notif.includes('Foco concluído')) {
-            addToast(notif.replace('✅ ', ''), 'success', 'Foco Concluído');
+            addToast(notif.replace('✅ ', ''), 'success', 'Foco Concluído', dateString);
           } else if (notif.includes('Pesquisa concluída')) {
-            addToast(notif.replace('🔬 ', ''), 'success', 'Tecnologia Desenvolvida');
+            addToast(notif.replace('🔬 ', ''), 'success', 'Tecnologia Desenvolvida', dateString);
           }
         });
       }
@@ -923,11 +942,12 @@ const App: React.FC = () => {
         addToast(
           `Construção cancelada. +${result.refundedGold} Ouro reembolsado!`,
           'success',
-          'Reembolso'
+          'Reembolso',
+          formatGameDate(dateRef.current)
         );
       }
     },
-    [buildingConstructions, playerCountry.resources.gold, playerCountryTag, addToast]
+    [buildingConstructions, playerCountry.resources.gold, playerCountryTag, addToast, formatGameDate]
   );
 
   /**
@@ -1043,11 +1063,12 @@ const App: React.FC = () => {
         addToast(
           `Recrutamento cancelado. +${result.refundedGold} Ouro reembolsado!`,
           'success',
-          'Reembolso'
+          'Reembolso',
+          formatGameDate(dateRef.current)
         );
       }
     },
-    [recruitments, playerCountry, playerCountryTag, addToast]
+    [recruitments, playerCountry, playerCountryTag, addToast, formatGameDate]
   );
 
   /**
@@ -1654,6 +1675,12 @@ const App: React.FC = () => {
             onRestart={handleEndGameRestart}
           />
         )}
+
+        {/* === Modal de Histórico de Notificações === */}
+        <NotificationLogModal
+          isOpen={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+        />
       </div>
 
       {/* === Barra Inferior === */}
@@ -1685,6 +1712,23 @@ const App: React.FC = () => {
             title="Ver histórico de batalhas"
           >
             📜 {battleHistory.length}
+          </button>
+        </div>
+        <div className="game__bottom-info">
+          <span className="game__bottom-label">Avisos:</span>
+          <button
+            className="game__bottom-notifications-btn"
+            onClick={() => {
+              setShowNotificationModal(true);
+              markAllAsRead();
+            }}
+            title="Ver histórico de avisos"
+          >
+            🔔 {unreadCount > 0 ? (
+              <span className="game__bottom-notifications-badge">{unreadCount}</span>
+            ) : (
+              notificationHistory.length
+            )}
           </button>
         </div>
         <div className="game__bottom-info">
