@@ -18,7 +18,8 @@ export type RewardEffectType =
   | 'BUILD_COST'
   | 'BUILD_TIME'
   | 'MANPOWER'
-  | 'STABILITY';
+  | 'STABILITY'
+  | 'RESEARCH_SPEED';
 
 /**
  * Efeito de recompensa de tecnologia/foco

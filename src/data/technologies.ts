@@ -91,6 +91,108 @@ export const NATIONAL_FOCUSES: NationalFocus[] = [
       type: 'MANPOWER',
       value: 0.15 // +15% mão de obra
     }
+  },
+  
+  // === NOVOS FOCOS MILITARES ===
+  {
+    id: 'focus_army_modernization',
+    title: 'Modernização do Exército',
+    description: 'Reforma completa das forças armadas para aumentar a eficiência militar.',
+    icon: '🎖️',
+    durationDays: 80,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'MANPOWER',
+      value: 200 // +200 manpower instantâneo
+    },
+    prerequisites: ['focus_military_modernization']
+  },
+  {
+    id: 'focus_border_fortification',
+    title: 'Fortalecimento das Fronteiras',
+    description: 'Investimento massivo em defesas de fronteira.',
+    icon: '🏰',
+    durationDays: 75,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'BUILD_COST',
+      value: -0.20 // -20% custo de fortificações
+    },
+    prerequisites: ['focus_fortification_program']
+  },
+  
+  // === NOVOS FOCOS ECONÔMICOS ===
+  {
+    id: 'focus_agrarian_reform',
+    title: 'Reforma Agrária',
+    description: 'Redistribuição de terras para aumentar a produção agrícola.',
+    icon: '🌾',
+    durationDays: 70,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'GOLD_INCOME',
+      value: 100 // +100 ouro instantâneo
+    }
+  },
+  {
+    id: 'focus_commercial_expansion',
+    title: 'Expansão Comercial',
+    description: 'Expansão agressiva das rotas comerciais e mercados.',
+    icon: '📈',
+    durationDays: 85,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'GOLD_INCOME',
+      value: 0.20 // +20% renda de mercados/portos
+    },
+    prerequisites: ['focus_economic_expansion']
+  },
+  {
+    id: 'focus_manufacturing_incentive',
+    title: 'Incentivo à Manufatura',
+    description: 'Subsídios e incentivos para desenvolvimento industrial.',
+    icon: '🏭',
+    durationDays: 90,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'BUILD_TIME',
+      value: -0.15 // -15% tempo de construção
+    },
+    prerequisites: ['focus_commercial_expansion']
+  },
+  
+  // === NOVOS FOCOS POLÍTICOS ===
+  {
+    id: 'focus_kingdom_centralization',
+    title: 'Centralização do Reino',
+    description: 'Consolidação do poder central para maior estabilidade e eficiência.',
+    icon: '👑',
+    durationDays: 80,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'STABILITY',
+      value: 0.10 // +0.10 estabilidade/mês
+    }
+  },
+  {
+    id: 'focus_scientific_patronage',
+    title: 'Patronato Científico',
+    description: 'Investimento em pesquisa e desenvolvimento científico.',
+    icon: '🔬',
+    durationDays: 75,
+    currentProgressDays: 0,
+    completed: false,
+    rewardEffect: {
+      type: 'RESEARCH_SPEED',
+      value: 0.20 // +20% velocidade de pesquisa
+    },
+    prerequisites: ['focus_kingdom_centralization']
   }
 ];
 
@@ -248,6 +350,143 @@ export const TECHNOLOGIES: Technology[] = [
     rewardEffect: {
       type: 'BUILD_COST',
       value: -0.20 // -20% custo de fortificações
+    }
+  },
+  
+  // === NOVAS TECNOLOGIAS MILITARES (TIER 2-3) ===
+  {
+    id: 'tech_siege_artillery',
+    title: 'Artilharia de Cerco Avançada',
+    description: 'Desenvolvimento de artilharia especializada em derrubar fortificações.',
+    category: 'MILITARY',
+    icon: '🎯',
+    costGold: 900,
+    durationDays: 100,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_artillery_development'],
+    rewardEffect: {
+      type: 'COMBAT_POWER',
+      value: 0.20, // +20% dano contra fortificações
+      unitType: 'artillery'
+    }
+  },
+  {
+    id: 'tech_line_infantry_doctrine',
+    title: 'Doutrina de Infantaria em Linha',
+    description: 'Táticas de formação em linha para maximizar a defesa da infantaria.',
+    category: 'MILITARY',
+    icon: '🛡️',
+    costGold: 700,
+    durationDays: 80,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_improved_weapons'],
+    rewardEffect: {
+      type: 'COMBAT_POWER',
+      value: 0.10, // +10% defesa para infantaria
+      unitType: 'infantry'
+    }
+  },
+  {
+    id: 'tech_heavy_cavalry_tactics',
+    title: 'Táticas de Cavalaria Pesada',
+    description: 'Técnicas avançadas de combate para cavalaria pesada.',
+    category: 'MILITARY',
+    icon: '⚔️',
+    costGold: 850,
+    durationDays: 90,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_cavalry_tactics'],
+    rewardEffect: {
+      type: 'COMBAT_POWER',
+      value: 0.15, // +15% ataque para cavalaria
+      unitType: 'cavalry'
+    }
+  },
+  {
+    id: 'tech_military_logistics',
+    title: 'Logística Militar',
+    description: 'Sistemas avançados de suprimentos para reduzir custos de manutenção.',
+    category: 'MILITARY',
+    icon: '📦',
+    costGold: 1000,
+    durationDays: 110,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_siege_artillery', 'tech_line_infantry_doctrine'],
+    rewardEffect: {
+      type: 'MANPOWER',
+      value: -0.10 // -10% custo de manutenção
+    }
+  },
+  
+  // === NOVAS TECNOLOGIAS ECONÔMICAS (TIER 2-3) ===
+  {
+    id: 'tech_mercantilism',
+    title: 'Mercantilismo',
+    description: 'Políticas econômicas para maximizar a eficiência de mercados e portos.',
+    category: 'ECONOMY',
+    icon: '💹',
+    costGold: 800,
+    durationDays: 85,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_trade_routes'],
+    rewardEffect: {
+      type: 'GOLD_INCOME',
+      value: 0.15 // +15% eficiência de mercados/portos
+    }
+  },
+  {
+    id: 'tech_pre_industrial_manufacturing',
+    title: 'Manufatura Pré-Industrial',
+    description: 'Técnicas de produção em massa para acelerar construções.',
+    category: 'ECONOMY',
+    icon: '🏭',
+    costGold: 1100,
+    durationDays: 120,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_mercantilism', 'tech_tax_reform'],
+    rewardEffect: {
+      type: 'BUILD_TIME',
+      value: -0.15 // -15% tempo de construção
+    }
+  },
+  
+  // === NOVAS TECNOLOGIAS POLÍTICAS (TIER 1-2) ===
+  {
+    id: 'tech_centralized_admin',
+    title: 'Administração Centralizada',
+    description: 'Sistema administrativo unificado para aumentar a estabilidade.',
+    category: 'INFRASTRUCTURE',
+    icon: '🏛️',
+    costGold: 500,
+    durationDays: 60,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: [],
+    rewardEffect: {
+      type: 'STABILITY',
+      value: 0.05 // +0.05 estabilidade/mês
+    }
+  },
+  {
+    id: 'tech_science_academy',
+    title: 'Academia de Ciências',
+    description: 'Instituição de pesquisa para acelerar o desenvolvimento tecnológico.',
+    category: 'INFRASTRUCTURE',
+    icon: '🔬',
+    costGold: 750,
+    durationDays: 90,
+    currentProgressDays: 0,
+    researched: false,
+    prerequisites: ['tech_centralized_admin'],
+    rewardEffect: {
+      type: 'RESEARCH_SPEED',
+      value: 0.15 // +15% velocidade de pesquisa
     }
   }
 ];
