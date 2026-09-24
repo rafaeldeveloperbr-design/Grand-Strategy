@@ -524,7 +524,7 @@ const App: React.FC = () => {
     }
 
     // ===== PASSO A.5: CONSTRUÇÕES =====
-    const constructionResult = processConstructions(buildingConstructions);
+    const constructionResult = processConstructions(buildingConstructions, provinces);
     buildingConstructions = constructionResult.updatedConstructions;
     
     // Processa construções concluídas

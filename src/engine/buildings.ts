@@ -5,7 +5,7 @@
  * Gerencia a fila de construções, processamento diário e cancelamento
  */
 
-import { BuildingConstruction, BuildingType } from '../types';
+import { BuildingConstruction, BuildingType, Province } from '../types';
 
 /**
  * Adiciona uma construção à fila se o jogador tiver ouro suficiente
@@ -42,9 +42,11 @@ export function queueBuilding(
 /**
  * Processa a passagem de tempo para as construções.
  * APENAS a primeira construção de cada província avança os dias.
+ * Valida propriedade da província a cada dia para cancelar construções em províncias perdidas
  */
 export function processConstructions(
-  constructions: BuildingConstruction[]
+  constructions: BuildingConstruction[],
+  provinces: Province[] = []
 ): { updatedConstructions: BuildingConstruction[]; completedConstructions: BuildingConstruction[] } {
   const completedConstructions: BuildingConstruction[] = [];
   
@@ -52,6 +54,18 @@ export function processConstructions(
   const processedProvinces = new Set<string>();
 
   const updatedConstructions = constructions.map(item => {
+    // VALIDAÇÃO DE PROPRIEDADE: Verifica se o dono da província ainda possui a província
+    const province = provinces.find(p => p.id === item.provinceId);
+    
+    // Se a província não existe mais ou mudou de dono:
+    // Nota: Como não temos o país que ordenou a construção no BuildingConstruction,
+    // verificamos se a província ainda existe. O cancelamento por mudança de dono
+    // é feito pela função cancelProvinceActivities no App.tsx
+    if (!province) {
+      console.log(`❌ Construção cancelada: província ${item.provinceId} não existe mais`);
+      return null; // Descarta a construção
+    }
+
     // Se esta província já teve sua obra ativa processada hoje, as demais continuam na fila (sem decrementar)
     if (processedProvinces.has(item.provinceId)) {
       return item;

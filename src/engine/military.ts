@@ -110,6 +110,7 @@ export function calculateArmySpeed(army: Army): number {
 
 /**
  * Processa recrutamentos em andamento
+ * Valida propriedade da província a cada dia para cancelar recrutamentos em províncias perdidas
  */
 export function processRecruitments(
   recruitments: Recruitment[],
@@ -123,9 +124,18 @@ export function processRecruitments(
   const updatedCountries = [...countries];
 
   for (const rec of recruitments) {
+    // VALIDAÇÃO DE PROPRIEDADE: Verifica se o dono da província ainda é o mesmo que ordenou o recrutamento
+    const province = provinces.find(p => p.id === rec.provinceId);
+    
+    // Se a província não existe mais ou o dono atual NÃO é o país que ordenou o recrutamento:
+    if (!province || province.owner !== rec.owner) {
+      // Descarta a ordem imediatamente sem concluir a unidade!
+      console.log(`❌ Recrutamento cancelado: ${rec.owner} não é mais dono de ${rec.provinceId}`);
+      continue; // Pula para o próximo recrutamento
+    }
+
     // Calcula bônus de velocidade de recrutamento baseado nos edifícios da província
     let recruitmentSpeedBonus = 0;
-    const province = provinces.find(p => p.id === rec.provinceId);
     if (province) {
       for (const building of province.buildings) {
         if (building.daysRemaining <= 0 && building.type === 'barracks') {
