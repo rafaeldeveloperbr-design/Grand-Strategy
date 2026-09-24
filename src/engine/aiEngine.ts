@@ -11,6 +11,7 @@ import { Army, Province, Country, BuildingType, UnitType, Recruitment, BuildingC
 import { DiplomaticRelation, War } from '../types/diplomacy';
 import { CountryTechState } from '../types/technology';
 import { findPath } from './military';
+import { calculateArmyBasePower } from './combat';
 import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technologies';
 import { BUILDING_DEFINITIONS, getBuildingCost, getBuildingTime } from '../data/buildings';
 import { UNIT_DEFINITIONS } from '../data/units';
@@ -149,13 +150,109 @@ function createArmyWithRoute(
 }
 
 /**
+ * Encontra o exército inimigo mais próximo de um exército da IA
+ */
+function findNearestEnemyArmy(
+  aiArmy: Army,
+  enemyArmies: Army[],
+  provinces: Province[]
+): Army | null {
+  if (enemyArmies.length === 0 || !aiArmy.location) return null;
+
+  let nearestEnemy: Army | null = null;
+  let minDistance = Infinity;
+
+  for (const enemyArmy of enemyArmies) {
+    if (!enemyArmy.location) continue;
+
+    // Calcula distância usando BFS simplificado
+    const distance = calculateDistance(aiArmy.location, enemyArmy.location, provinces);
+    
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestEnemy = enemyArmy;
+    }
+  }
+
+  return nearestEnemy;
+}
+
+/**
+ * Calcula distância entre duas províncias (número de províncias no caminho)
+ */
+function calculateDistance(
+  fromId: string,
+  toId: string,
+  provinces: Province[]
+): number {
+  if (fromId === toId) return 0;
+
+  const visited = new Set<string>();
+  const queue: Array<{ id: string; distance: number }> = [{ id: fromId, distance: 0 }];
+  visited.add(fromId);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    if (current.id === toId) {
+      return current.distance;
+    }
+
+    const province = provinces.find(p => p.id === current.id);
+    if (!province) continue;
+
+    for (const neighborId of province.neighbors) {
+      if (!visited.has(neighborId)) {
+        visited.add(neighborId);
+        queue.push({ id: neighborId, distance: current.distance + 1 });
+      }
+    }
+  }
+
+  return Infinity; // Caminho não encontrado
+}
+
+/**
+ * Encontra a província própria mais próxima para defesa
+ */
+function findClosestHomeProvince(
+  currentLocation: string,
+  homeProvinces: Province[],
+  allProvinces: Province[]
+): Province | null {
+  if (homeProvinces.length === 0) return null;
+
+  let closestProvince: Province | null = null;
+  let minDistance = Infinity;
+
+  for (const homeProv of homeProvinces) {
+    // Prioriza províncias de fronteira para defesa
+    const isBorder = isBorderProvince(homeProv.id, allProvinces, homeProv.owner);
+    const distance = calculateDistance(currentLocation, homeProv.id, allProvinces);
+    
+    // Ajusta distância para priorizar fronteiras
+    const adjustedDistance = isBorder ? distance * 0.8 : distance;
+    
+    if (adjustedDistance < minDistance) {
+      minDistance = adjustedDistance;
+      closestProvince = homeProv;
+    }
+  }
+
+  return closestProvince;
+}
+
+/**
  * Processa IA para um bot
  * Atribui destinos apenas para exércitos PARADOS (destination === null)
  * Respeita as relações diplomáticas para validar movimentos
  * Usa pathfinding para rotas de longa distância
  * 
- * Lógica estratégica:
- * - Em guerra: ataca províncias inimigas
+ * Lógica estratégica (IA CAÇADORA):
+ * - Em guerra com exércitos inimigos visíveis:
+ *   - Se IA é mais forte: MODO CAÇADOR - persegue e destrói exército inimigo
+ *   - Se IA é mais fraca: MODO DEFENSIVO - recua para proteger território próprio
+ * - Em guerra sem exércitos inimigos próximos: captura províncias inimigas
  * - Em paz na fronteira: fica parado (guarda)
  * - Em paz no interior: move para fronteira
  */
@@ -187,8 +284,50 @@ export function processAI(
     // Verifica se está em guerra com algum vizinho
     const isAtWar = isAtWarWithNeighbor(botCountryId, currentProv, provinces, diplomacy);
 
-    // ===== CENÁRIO A: EM GUERRA ATIVA =====
+    // ===== CENÁRIO A: EM GUERRA ATIVA - LÓGICA DE IA CAÇADORA =====
     if (isAtWar) {
+      // Identifica todos os países em guerra com este bot
+      const enemyCountries = wars
+        .filter(w => w.attacker === botCountryId || w.defender === botCountryId)
+        .map(w => w.attacker === botCountryId ? w.defender : w.attacker);
+
+      // Encontra todos os exércitos inimigos no mapa
+      const enemyArmies = armies.filter(a => 
+        enemyCountries.includes(a.owner) && a.location !== null
+      );
+
+      // Calcula poder do exército da IA
+      const aiArmyPower = calculateArmyBasePower(army);
+
+      // ===== MODO CAÇADOR: Se há exércitos inimigos visíveis =====
+      if (enemyArmies.length > 0) {
+        const nearestEnemy = findNearestEnemyArmy(army, enemyArmies, provinces);
+        
+        if (nearestEnemy && nearestEnemy.location) {
+          const enemyArmyPower = calculateArmyBasePower(nearestEnemy);
+          
+          // Se a IA é mais forte ou igual: MODO CAÇADOR
+          if (aiArmyPower >= enemyArmyPower) {
+            console.log(`🎯 [IA CAÇADORA] ${botCountryId} caçando exército inimigo em ${nearestEnemy.location}`);
+            return createArmyWithRoute(army, nearestEnemy.location, provinces, botCountryId, diplomacy);
+          }
+          // Se a IA é mais fraca: MODO DEFENSIVO
+          else {
+            const homeProvinces = provinces.filter(p => p.owner === botCountryId);
+            const defensiveProvince = findClosestHomeProvince(army.location!, homeProvinces, provinces);
+            
+            if (defensiveProvince && army.location !== defensiveProvince.id) {
+              console.log(`🛡️ [IA DEFENSIVA] ${botCountryId} recuando para defender ${defensiveProvince.name}`);
+              return createArmyWithRoute(army, defensiveProvince.id, provinces, botCountryId, diplomacy);
+            }
+            
+            // Se já está em província defensiva, fica parado
+            return army;
+          }
+        }
+      }
+
+      // ===== CONQUISTA DE PROVÍNCIAS: Só se não houver exércitos inimigos ativos =====
       // Filtra vizinhos válidos baseado nas relações diplomáticas
       const validNeighbors = currentProv.neighbors.filter(neighborId => {
         const prov = provinces.find(p => p.id === neighborId);
