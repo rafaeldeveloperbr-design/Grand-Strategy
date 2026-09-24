@@ -372,6 +372,75 @@ const App: React.FC = () => {
     return `${date.day} de ${months[date.month - 1]}, ${date.year}`;
   }, []);
 
+  /**
+   * Cancela recrutamentos e construções quando uma província muda de dono
+   */
+  const cancelProvinceActivities = useCallback((
+    provinceId: string,
+    oldOwner: string,
+    newOwner: string,
+    currentRecruitments: Recruitment[],
+    currentConstructions: BuildingConstruction[]
+  ): { recruitments: Recruitment[]; constructions: BuildingConstruction[] } => {
+    // Cancela recrutamentos na província conquistada
+    const cancelledRecruitments = currentRecruitments.filter(r => r.provinceId === provinceId);
+    const remainingRecruitments = currentRecruitments.filter(r => r.provinceId !== provinceId);
+
+    // Cancela construções na província conquistada
+    const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
+    const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
+
+    // Registra logs de cancelamento
+    if (cancelledRecruitments.length > 0) {
+      const province = provincesRef.current.find(p => p.id === provinceId);
+      const provinceName = province?.name || provinceId;
+      
+      cancelledRecruitments.forEach(rec => {
+        const unitName = getUnitName(rec.unitType);
+        const country = countriesRef.current.find(c => c.tag === oldOwner);
+        
+        if (country) {
+          addAILog(
+            country.name,
+            'military',
+            `Recrutamento de ${unitName} cancelado em ${provinceName} (província perdida)`,
+            formatGameDate(dateRef.current),
+            country.color
+          );
+        }
+        
+        addLog(`❌ Recrutamento de ${unitName} cancelado em ${provinceName}`);
+      });
+    }
+
+    if (cancelledConstructions.length > 0) {
+      const province = provincesRef.current.find(p => p.id === provinceId);
+      const provinceName = province?.name || provinceId;
+      
+      cancelledConstructions.forEach(construction => {
+        const buildingName = getBuildingName(construction.buildingType);
+        const country = countriesRef.current.find(c => c.tag === oldOwner);
+        
+        if (country) {
+          addAILog(
+            country.name,
+            'building',
+            `Construção de ${buildingName} cancelada em ${provinceName} (província perdida)`,
+            formatGameDate(dateRef.current),
+            country.color
+          );
+        }
+        
+        addLog(`❌ Construção de ${buildingName} cancelada em ${provinceName}`);
+      });
+    }
+
+    return {
+      recruitments: remainingRecruitments,
+      constructions: remainingConstructions
+    };
+  }, [addLog, addAILog, formatGameDate]);
+
   // === Game Loop ===
   const advanceDate = useCallback((currentDate: GameDate): GameDate => {
     let { day, month, year } = currentDate;
@@ -580,6 +649,17 @@ const App: React.FC = () => {
             return c;
           });
           
+          // Cancela recrutamentos e construções na província conquistada
+          const cancelResult = cancelProvinceActivities(
+            province.id,
+            oldOwner,
+            arrived.owner,
+            recruitments,
+            buildingConstructions
+          );
+          recruitments = cancelResult.recruitments;
+          buildingConstructions = cancelResult.constructions;
+          
           // Atualiza resultado com mudança territorial
           result.territoryChanged = true;
           result.newOwner = arrived.owner;
@@ -621,6 +701,18 @@ const App: React.FC = () => {
             if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
             return c;
           });
+          
+          // Cancela recrutamentos e construções na província ocupada
+          const cancelResult = cancelProvinceActivities(
+            province.id,
+            oldOwner,
+            arrived.owner,
+            recruitments,
+            buildingConstructions
+          );
+          recruitments = cancelResult.recruitments;
+          buildingConstructions = cancelResult.constructions;
+          
           addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
         }
       }
@@ -657,6 +749,17 @@ const App: React.FC = () => {
           if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
           return c;
         });
+        
+        // Cancela recrutamentos e construções na província conquistada
+        const cancelResult = cancelProvinceActivities(
+          province.id,
+          oldOwner,
+          battle.result.attacker.owner,
+          recruitments,
+          buildingConstructions
+        );
+        recruitments = cancelResult.recruitments;
+        buildingConstructions = cancelResult.constructions;
         
         // Atualiza resultado com mudança territorial
         battle.result.territoryChanged = true;
