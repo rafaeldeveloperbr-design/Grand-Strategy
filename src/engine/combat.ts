@@ -15,10 +15,14 @@ import { Army, Regiment, Province, CombatResult, GameDate } from '../types';
 /**
  * Multiplicadores de poder por tipo de unidade
  */
-const UNIT_POWER_MULTIPLIERS = {
+const UNIT_POWER_MULTIPLIERS: Record<string, number> = {
   infantry: 1.0,
   cavalry: 1.5,
   artillery: 2.0,
+  archers: 1.2,
+  heavy_cavalry: 2.2,
+  elite_guard: 3.0,
+  siege_engine: 2.5,
 };
 
 /**
@@ -57,7 +61,7 @@ export function calculateArmyMorale(army: Army): number {
 
 /**
  * Calcula o poder base de um exército
- * Fórmula: (Infantaria × 1) + (Cavalaria × 1.5) + (Artilharia × 2.0)
+ * Fórmula baseada nos multiplicadores de cada tipo de unidade
  * Aplica bônus de tecnologia se fornecidos
  */
 export function calculateArmyBasePower(
@@ -71,9 +75,9 @@ export function calculateArmyBasePower(
   let totalPower = 0;
 
   for (const regiment of army.regiments) {
-    let multiplier = UNIT_POWER_MULTIPLIERS[regiment.type];
+    let multiplier = UNIT_POWER_MULTIPLIERS[regiment.type] || 1.0;
     
-    // Aplica bônus de tecnologia se disponível
+    // Aplica bônus de tecnologia se disponível (apenas para unidades originais)
     if (techBonuses) {
       if (regiment.type === 'infantry') {
         multiplier *= (1 + techBonuses.infantry);

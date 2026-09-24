@@ -9,7 +9,7 @@
 /**
  * Tipos de edifícios disponíveis para construção
  */
-export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification';
+export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification' | 'workshop' | 'temple' | 'port' | 'university';
 
 /**
  * Representa um edifício em construção ou já construído
@@ -164,6 +164,12 @@ export interface BuildingBonus {
   growthBonus?: number;
   /** Redução de tempo de recrutamento militar (%) */
   recruitmentSpeedBonus?: number;
+  /** Bônus de velocidade de construção (%) */
+  buildSpeedBonus?: number;
+  /** Bônus de estabilidade por mês */
+  stabilityBonus?: number;
+  /** Bônus de velocidade de pesquisa (%) */
+  researchSpeedBonus?: number;
 }
 
 /**
@@ -204,7 +210,7 @@ export interface GameDate {
 /**
  * Tipos de unidades militares
  */
-export type UnitType = 'infantry' | 'cavalry' | 'artillery';
+export type UnitType = 'infantry' | 'cavalry' | 'artillery' | 'archers' | 'heavy_cavalry' | 'elite_guard' | 'siege_engine';
 
 /**
  * Definição de um tipo de unidade militar

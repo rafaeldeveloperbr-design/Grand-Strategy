@@ -67,6 +67,58 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
       defense: 3,
     },
   },
+  workshop: {
+    type: 'workshop',
+    name: 'Oficina',
+    description: '+15% Velocidade de Construção. Acelera a construção de todos os edifícios na província.',
+    icon: '🔨',
+    baseCost: 400,
+    costMultiplier: 1.6,
+    baseBuildTime: 45,
+    maxLevel: 5,
+    bonusPerLevel: {
+      buildSpeedBonus: 15,
+    },
+  },
+  temple: {
+    type: 'temple',
+    name: 'Templo',
+    description: '+0.05 Estabilidade/mês. Aumenta a estabilidade do país e a lealdade da população.',
+    icon: '⛪',
+    baseCost: 350,
+    costMultiplier: 1.5,
+    baseBuildTime: 40,
+    maxLevel: 5,
+    bonusPerLevel: {
+      stabilityBonus: 0.05,
+    },
+  },
+  port: {
+    type: 'port',
+    name: 'Porto',
+    description: '+15 Renda de Ouro. Aumenta o comércio marítimo e a renda da província (apenas litoral).',
+    icon: '⚓',
+    baseCost: 500,
+    costMultiplier: 1.7,
+    baseBuildTime: 60,
+    maxLevel: 5,
+    bonusPerLevel: {
+      goldIncome: 15,
+    },
+  },
+  university: {
+    type: 'university',
+    name: 'Universidade',
+    description: '+20% Velocidade de Pesquisa. Acelera o desenvolvimento de novas tecnologias.',
+    icon: '📚',
+    baseCost: 600,
+    costMultiplier: 1.8,
+    baseBuildTime: 75,
+    maxLevel: 5,
+    bonusPerLevel: {
+      researchSpeedBonus: 20,
+    },
+  },
 };
 
 /**
