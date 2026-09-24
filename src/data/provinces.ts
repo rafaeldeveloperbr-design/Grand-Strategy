@@ -101,13 +101,7 @@ export const provincesData: Province[] = [
     center: { x: 80, y: 200 },
     path: 'M30,130 L100,100 L100,160 L120,200 L100,260 L30,250 L20,190 Z',
   },
-  {
-    id: 'p13', name: 'Fjord Profundis', owner: 'RNO', color: '#1B5E20',
-    neighbors: ['p7', 'p12', 'p17'], population: 8000, maxPopulation: 20000,
-    development: 2, buildings: [], defense: 1,
-    center: { x: 60, y: 380 },
-    path: 'M20,310 L80,370 L90,420 L80,470 L20,460 L10,400 L10,350 Z',
-  },
+
   // === KHANATO DE STEPPE (Nordeste) ===
   {
     id: 'p14', name: 'Steppe Magna', owner: 'KHA', color: '#F57F17',
@@ -133,7 +127,7 @@ export const provincesData: Province[] = [
   // === TEOCRACIA DE SOLARA (Sul) ===
   {
     id: 'p17', name: 'Solara Sacra', owner: 'THC', color: '#6A1B9A',
-    neighbors: ['p8', 'p13', 'p18'], population: 22000, maxPopulation: 40000,
+    neighbors: ['p8', 'p18'], population: 22000, maxPopulation: 40000,
     development: 5, buildings: [], defense: 3,
     center: { x: 150, y: 480 },
     path: 'M80,470 L180,440 L190,430 L200,490 L180,540 L80,530 L60,500 Z',

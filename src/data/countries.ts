@@ -37,7 +37,7 @@ export const countries: Country[] = [
     adjective: 'Nordiana',
     color: '#1B5E20',
     colorLight: '#4CAF50',
-    provinces: ['p10', 'p11', 'p12', 'p13'],
+    provinces: ['p10', 'p11', 'p12'],
     resources: { gold: 2800, manpower: 6500, maxManpower: 19500, stability: 90, prestige: 45 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🛡️',
