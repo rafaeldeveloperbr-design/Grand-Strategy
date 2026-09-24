@@ -19,6 +19,7 @@ import { BattleReportModal } from './components/BattleReportModal';
 import { BattleHistoryModal } from './components/BattleHistoryModal';
 import { TechnologyModal } from './components/TechnologyModal';
 import { EndGameModal } from './components/EndGameModal';
+import { SettingsModal } from './components/SettingsModal';
 import { provincesData } from './data/provinces';
 import { countries as initialCountries } from './data/countries';
 import { processDailyTick } from './engine/economy';
@@ -59,6 +60,7 @@ import {
 } from './types';
 import { CountryTechState } from './types/technology';
 import { DiplomaticRelation, War } from './types/diplomacy';
+import { AIDifficulty, DIFFICULTY_SPEED_MULTIPLIERS, DIFFICULTY_DESCRIPTIONS, DIFFICULTY_ICONS } from './types/difficulty';
 import {
   declareWar,
   makePeace,
@@ -225,6 +227,9 @@ const App: React.FC = () => {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
+  
+  /** Dificuldade da IA */
+  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
 
   /** Dados dinâmicos das províncias */
   const [provinces, setProvinces] = useState<Province[]>(() =>
@@ -286,6 +291,9 @@ const App: React.FC = () => {
 
   /** Modal de log da IA aberto */
   const [showAILogModal, setShowAILogModal] = useState(false);
+  
+  /** Modal de configurações aberto */
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   /** Estado de tecnologias do jogador */
   const [playerTechState, setPlayerTechState] = useState<CountryTechState>(() =>
@@ -320,6 +328,7 @@ const App: React.FC = () => {
   const buildingConstructionsRef = useRef(buildingConstructions);
   const playerTechStateRef = useRef(playerTechState);
   const botTechStatesRef = useRef(botTechStates);
+  const aiDifficultyRef = useRef(aiDifficulty);
 
   useEffect(() => { provincesRef.current = provinces; }, [provinces]);
   useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
@@ -331,6 +340,7 @@ const App: React.FC = () => {
   useEffect(() => { playerTechStateRef.current = playerTechState; }, [playerTechState]);
   useEffect(() => { botTechStatesRef.current = botTechStates; }, [botTechStates]);
   useEffect(() => { buildingConstructionsRef.current = buildingConstructions; }, [buildingConstructions]);
+  useEffect(() => { aiDifficultyRef.current = aiDifficulty; }, [aiDifficulty]);
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
@@ -702,7 +712,7 @@ const App: React.FC = () => {
     // Processa progresso de tecnologias do jogador
     const playerCountry = countries.find(c => c?.tag === playerCountryTag);
     if (currentPlayerTechState && playerCountry) {
-      const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry);
+      const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry, aiDifficultyRef.current, true);
       currentPlayerTechState = playerTechResult.techState;
       
       // Atualiza a ref imediatamente com o novo estado
@@ -729,7 +739,7 @@ const App: React.FC = () => {
       if (country?.tag && country.tag !== playerCountryTag) {
         const botTechState = currentBotTechStates.get(country.tag);
         if (botTechState) {
-          const botTechResult = processDailyTechProgress(botTechState, country);
+          const botTechResult = processDailyTechProgress(botTechState, country, aiDifficultyRef.current, false);
           currentBotTechStates.set(country.tag, botTechResult.techState);
           
           // Registra notificações de conclusão no log da IA (apenas quando conclui, não diariamente)
@@ -1482,6 +1492,18 @@ const App: React.FC = () => {
     window.location.reload();
   }, []);
 
+  /**
+   * Handler para mudar a dificuldade da IA
+   */
+  const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
+    setAiDifficulty(newDifficulty);
+    addToast(
+      `Dificuldade da IA alterada para: ${DIFFICULTY_DESCRIPTIONS[newDifficulty]}`,
+      'info',
+      'Configuração Alterada'
+    );
+  }, [addToast]);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -1492,6 +1514,7 @@ const App: React.FC = () => {
         gameSpeed={gameSpeed}
         onSpeedChange={handleSpeedChange}
         onTechClick={() => setShowTechModal(true)}
+        onSettingsClick={() => setShowSettingsModal(true)}
       />
 
       {/* === Área Principal === */}
@@ -1803,6 +1826,14 @@ const App: React.FC = () => {
         <NotificationLogModal
           isOpen={showNotificationModal}
           onClose={() => setShowNotificationModal(false)}
+        />
+
+        {/* === Modal de Configurações === */}
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          aiDifficulty={aiDifficulty}
+          onDifficultyChange={handleDifficultyChange}
         />
 
         {/* === Modal de Log da IA === */}

@@ -19,6 +19,7 @@ interface TopBarProps {
   gameSpeed: number;
   onSpeedChange: (speed: number) => void;
   onTechClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
 /**
@@ -49,6 +50,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   gameSpeed,
   onSpeedChange,
   onTechClick,
+  onSettingsClick,
 }) => {
   const { resources, economy } = playerCountry;
   const goldBalance = economy.goldIncome - economy.goldExpense;
@@ -144,6 +146,15 @@ export const TopBar: React.FC<TopBarProps> = ({
             title="Tecnologias e Focos Nacionais"
           >
             🔬 Tecnologias
+          </button>
+        )}
+        {onSettingsClick && (
+          <button
+            className="top-bar__settings-btn"
+            onClick={onSettingsClick}
+            title="Configurações"
+          >
+            ⚙️
           </button>
         )}
       </div>

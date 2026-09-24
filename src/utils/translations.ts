@@ -85,3 +85,14 @@ export function getTechName(id: string): string {
 export function getFocusName(id: string): string {
   return FOCUS_NAMES[id] || id;
 }
+
+export const DIFFICULTY_NAMES: Record<string, string> = {
+  easy: 'Fácil (10% Velocidade IA)',
+  medium: 'Médio (40% Velocidade IA)',
+  hard: 'Difícil (60% Velocidade IA)',
+  impossible: 'Impossível (100% Velocidade IA)',
+};
+
+export function getDifficultyName(difficulty: string): string {
+  return DIFFICULTY_NAMES[difficulty] || difficulty;
+}

@@ -6,15 +6,23 @@
 
 import { Country, Province } from '../types';
 import { NationalFocus, Technology, CountryTechState, RewardEffect } from '../types/technology';
+import { AIDifficulty, DIFFICULTY_SPEED_MULTIPLIERS } from '../types/difficulty';
 import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technologies';
 
 /**
  * Processa o progresso diário de focos e tecnologias de um país
  * IMPORTANTE: Usa progresso isolado por país (não modifica arrays globais)
+ * 
+ * @param techState - Estado de tecnologias do país
+ * @param country - País
+ * @param aiDifficulty - Nível de dificuldade da IA (opcional, padrão: 'medium')
+ * @param isPlayer - Se é o jogador humano (ignora multiplicador de dificuldade)
  */
 export function processDailyTechProgress(
   techState: CountryTechState,
-  country: Country
+  country: Country,
+  aiDifficulty: AIDifficulty = 'medium',
+  isPlayer: boolean = false
 ): {
   techState: CountryTechState;
   notifications: string[];
@@ -26,6 +34,10 @@ export function processDailyTechProgress(
     console.warn('processDailyTechProgress: techState ou country inválido');
     return { techState: techState || createInitialTechState('UNKNOWN'), notifications };
   }
+  
+  // Calcula o multiplicador de velocidade baseado na dificuldade
+  // Jogador sempre usa 1.0, IA usa o multiplicador da dificuldade
+  const speedMultiplier = isPlayer ? 1.0 : DIFFICULTY_SPEED_MULTIPLIERS[aiDifficulty];
   
   // Cria uma cópia profunda do estado para evitar mutações
   let updatedTechState = {
@@ -41,11 +53,14 @@ export function processDailyTechProgress(
     const focus = NATIONAL_FOCUSES?.find(f => f?.id === updatedTechState.activeFocusId);
     
     if (focus) {
-      // Incrementa o progresso ISOLADO do país em +1 dia
-      const newProgressDays = updatedTechState.focusProgressDays + 1;
+      // Incrementa o progresso ISOLADO do país com multiplicador de dificuldade
+      const progressIncrement = 1 * speedMultiplier;
+      const newProgressDays = updatedTechState.focusProgressDays + progressIncrement;
       updatedTechState.focusProgressDays = newProgressDays;
       
-      console.log(`📊 [${country.tag}] Foco "${focus.title}": ${newProgressDays}/${focus.durationDays} dias`);
+      if (!isPlayer) {
+        console.log(`📊 [${country.tag}] Foco "${focus.title}": ${newProgressDays.toFixed(2)}/${focus.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
+      }
 
       // Verifica se o foco foi concluído
       if (newProgressDays >= focus.durationDays) {
@@ -69,11 +84,14 @@ export function processDailyTechProgress(
       const dailyCost = tech.costGold / tech.durationDays;
       
       if (country.resources?.gold >= dailyCost) {
-        // Incrementa o progresso ISOLADO do país em +1 dia
-        const newProgressDays = updatedTechState.researchProgressDays + 1;
+        // Incrementa o progresso ISOLADO do país com multiplicador de dificuldade
+        const progressIncrement = 1 * speedMultiplier;
+        const newProgressDays = updatedTechState.researchProgressDays + progressIncrement;
         updatedTechState.researchProgressDays = newProgressDays;
         
-        console.log(`📊 [${country.tag}] Pesquisa "${tech.title}": ${newProgressDays}/${tech.durationDays} dias`);
+        if (!isPlayer) {
+          console.log(`📊 [${country.tag}] Pesquisa "${tech.title}": ${newProgressDays.toFixed(2)}/${tech.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
+        }
 
         // Verifica se a pesquisa foi concluída
         if (newProgressDays >= tech.durationDays) {
@@ -90,10 +108,9 @@ export function processDailyTechProgress(
       }
     }
   }
-
+  
   return { techState: updatedTechState, notifications };
 }
-
 /**
  * Inicia um foco nacional
  */
