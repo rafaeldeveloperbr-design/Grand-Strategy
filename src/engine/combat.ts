@@ -276,7 +276,105 @@ export function resolveBattle(
 }
 
 /**
+ * Resolve uma batalha em grupo: múltiplos defensores contra um atacante
+ * Combina forças defensivas e distribui baixas proporcionalmente
+ */
+export function resolveProvinceBattle(
+  attackerArmy: Army,
+  provinceId: string,
+  armies: Army[],
+  province: Province,
+  currentDate: GameDate,
+  techBonusesByCountry?: Map<string, { infantry: number; cavalry: number; artillery: number }>
+): {
+  result: CombatResult | null;
+  updatedDefenderArmies: Army[];
+} {
+  // 1. Encontra TODOS os exércitos defensores presentes na província
+  const defenderArmies = armies.filter(
+    (a) => a.location === provinceId && 
+           a.owner !== attackerArmy.owner &&
+           a.id !== attackerArmy.id
+  );
+
+  if (defenderArmies.length === 0) {
+    return { result: null, updatedDefenderArmies: [] };
+  }
+
+  // 2. Combina todos os regimentos dos defensores para o cálculo do combate
+  const combinedDefenderRegiments = defenderArmies.flatMap((a) => a.regiments);
+  
+  // Cria um exército defensor combinado (usa o primeiro como referência de dono)
+  const combinedDefender: Army = {
+    ...defenderArmies[0],
+    id: `combined_defender_${Date.now()}`,
+    regiments: combinedDefenderRegiments
+  };
+
+  console.log(`🛡️ Batalha em grupo: ${defenderArmies.length} exércitos defensores combinados em ${province.name}`);
+  console.log(`   Defensores: ${defenderArmies.map(a => `${a.owner}(${calculateArmySize(a)})`).join(', ')}`);
+  console.log(`   Força combinada: ${calculateArmySize(combinedDefender)} tropas`);
+
+  // 3. Resolve a batalha contra a força combinada
+  const attackerBonuses = techBonusesByCountry?.get(attackerArmy.owner);
+  const defenderBonuses = techBonusesByCountry?.get(combinedDefender.owner);
+  
+  const result = resolveBattle(
+    attackerArmy,
+    combinedDefender,
+    province,
+    currentDate,
+    attackerBonuses,
+    defenderBonuses
+  );
+
+  // 4. Distribui as baixas proporcionalmente entre os defensores originais
+  const totalDefenderSize = calculateArmySize(combinedDefender);
+  const totalDefenderCasualties = result.defenderCasualties;
+  
+  const updatedDefenderArmies: Army[] = [];
+
+  if (result.winner === 'defender' || totalDefenderCasualties > 0) {
+    // Calcula o percentual de perdas
+    const lossPercent = totalDefenderSize > 0 ? totalDefenderCasualties / totalDefenderSize : 0;
+    
+    console.log(`📊 Distribuição de baixas: ${totalDefenderCasualties} perdas (${(lossPercent * 100).toFixed(1)}%)`);
+
+    // Aplica perdas proporcionalmente a cada exército defensor
+    for (const defenderArmy of defenderArmies) {
+      const armySize = calculateArmySize(defenderArmy);
+      const armyCasualties = Math.floor(armySize * lossPercent);
+      
+      console.log(`   ${defenderArmy.owner}: ${armySize} → ${Math.max(0, armySize - armyCasualties)} tropas`);
+      
+      // Distribui as perdas dentro do exército
+      const updatedArmy = distributeLosses(defenderArmy, armyCasualties);
+      
+      // Só adiciona se ainda tiver tropas
+      if (calculateArmySize(updatedArmy) > 0) {
+        updatedDefenderArmies.push({
+          ...updatedArmy,
+          location: provinceId,
+          destination: null,
+          path: [],
+          targetArmyId: null,
+          targetProvinceId: null
+        });
+      } else {
+        console.log(`💀 Exército ${defenderArmy.owner} destruído em ${province.name}`);
+      }
+    }
+  } else {
+    // Se não houve perdas (caso raro), mantém todos os defensores
+    updatedDefenderArmies.push(...defenderArmies);
+  }
+
+  return { result, updatedDefenderArmies };
+}
+
+/**
  * Verifica automaticamente combates em todas as províncias
+ * Usa batalha em grupo: combina todos os defensores contra o atacante
  */
 export function checkAllProvinceCombats(
   armies: Army[],
@@ -303,57 +401,98 @@ export function checkAllProvinceCombats(
 
     if (armiesInProvince.length < 2) continue; // Precisa de pelo menos 2 exércitos
 
-    // Verifica todos os pares de exércitos
-    for (let i = 0; i < armiesInProvince.length; i++) {
-      for (let j = i + 1; j < armiesInProvince.length; j++) {
-        const army1 = armiesInProvince[i];
-        const army2 = armiesInProvince[j];
+    // Agrupa exércitos por país
+    const armiesByCountry = new Map<string, Army[]>();
+    for (const army of armiesInProvince) {
+      if (!armiesByCountry.has(army.owner)) {
+        armiesByCountry.set(army.owner, []);
+      }
+      armiesByCountry.get(army.owner)!.push(army);
+    }
 
-        // Verifica se estão em guerra
-        const areAtWar = wars.some(
-          w => (w.attacker === army1.owner && w.defender === army2.owner) ||
-               (w.defender === army1.owner && w.attacker === army2.owner)
+    // Se há apenas um país na província, não há combate
+    if (armiesByCountry.size < 2) continue;
+
+    // Determina atacante e defensor(es)
+    // Atacante = quem não é dono da província
+    const provinceOwner = province.owner;
+    let attackerCountry: string | null = null;
+    let defenderCountry: string | null = null;
+
+    for (const country of armiesByCountry.keys()) {
+      if (country === provinceOwner) {
+        defenderCountry = country;
+      } else {
+        // Verifica se está em guerra com o dono da província
+        const isAtWar = wars.some(
+          w => (w.attacker === country && w.defender === provinceOwner) ||
+               (w.defender === country && w.attacker === provinceOwner)
         );
-
-        if (!areAtWar) continue;
-
-        console.log('⚔️ Combate automático em', province.name, ':', army1.owner, 'vs', army2.owner);
-
-        // Determina atacante e defensor
-        // Atacante = quem não é dono da província (ou o primeiro se ambos não são donos)
-        let attacker = army1;
-        let defender = army2;
-
-        if (army1.owner === province.owner) {
-          attacker = army2;
-          defender = army1;
+        
+        if (isAtWar) {
+          attackerCountry = country;
         }
+      }
+    }
 
-        // Resolve o combate (com bônus de tecnologia se disponíveis)
-        const attackerBonuses = techBonusesByCountry?.get(attacker.owner);
-        const defenderBonuses = techBonusesByCountry?.get(defender.owner);
-        const result = resolveBattle(attacker, defender, province, currentDate, attackerBonuses, defenderBonuses);
+    // Se não há atacante ou defensor válido, pula
+    if (!attackerCountry || !defenderCountry) continue;
 
-        battles.push({ result, provinceId: province.id });
+    const attackerArmies = armiesByCountry.get(attackerCountry) || [];
+    const defenderArmies = armiesByCountry.get(defenderCountry) || [];
 
-        // Remove os exércitos originais
-        const idx1 = updatedArmies.findIndex(a => a.id === army1.id);
-        const idx2 = updatedArmies.findIndex(a => a.id === army2.id);
+    if (attackerArmies.length === 0 || defenderArmies.length === 0) continue;
 
-        if (idx1 !== -1) updatedArmies.splice(idx1, 1);
-        if (idx2 !== -1) updatedArmies.splice(idx2 - (idx1 < idx2 ? 1 : 0), 1);
+    // Usa o primeiro exército atacante (poderia ser combinado também se houvesse múltiplos atacantes)
+    const mainAttacker = attackerArmies[0];
 
-        // Adiciona o vencedor (se sobreviveu)
-        if (result.winner === 'attacker' && result.attacker.regiments.length > 0) {
-          updatedArmies.push({ ...result.attacker, location: province.id, destination: null, path: [], targetArmyId: null, targetProvinceId: null });
-          console.log('🏆 Vencedor:', attacker.owner, 'em', province.name);
-        } else if (result.winner === 'defender' && result.defender.regiments.length > 0) {
-          updatedArmies.push({ ...result.defender, location: province.id, destination: null, path: [], targetArmyId: null, targetProvinceId: null });
-          console.log('🏆 Vencedor:', defender.owner, 'em', province.name);
-        }
+    console.log(`⚔️ Combate em grupo em ${province.name}: ${attackerCountry} vs ${defenderCountry}`);
+    console.log(`   Atacantes: ${attackerArmies.length} exércitos (${calculateArmySize(mainAttacker)} tropas principais)`);
+    console.log(`   Defensores: ${defenderArmies.length} exércitos`);
 
-        // Sai do loop interno pois os exércitos foram processados
-        break;
+    // Resolve a batalha em grupo
+    const { result, updatedDefenderArmies } = resolveProvinceBattle(
+      mainAttacker,
+      province.id,
+      updatedArmies,
+      province,
+      currentDate,
+      techBonusesByCountry
+    );
+
+    if (result) {
+      battles.push({ result, provinceId: province.id });
+
+      // Remove todos os exércitos envolvidos (atacantes e defensores originais)
+      for (const army of attackerArmies) {
+        const idx = updatedArmies.findIndex(a => a.id === army.id);
+        if (idx !== -1) updatedArmies.splice(idx, 1);
+      }
+      for (const army of defenderArmies) {
+        const idx = updatedArmies.findIndex(a => a.id === army.id);
+        if (idx !== -1) updatedArmies.splice(idx, 1);
+      }
+
+      // Adiciona o atacante atualizado (se sobreviveu)
+      if (result.winner === 'attacker' && result.attacker.regiments.length > 0) {
+        updatedArmies.push({
+          ...result.attacker,
+          location: province.id,
+          destination: null,
+          path: [],
+          targetArmyId: null,
+          targetProvinceId: null
+        });
+        console.log(`🏆 Vencedor: ${attackerCountry} em ${province.name}`);
+      }
+
+      // Adiciona os defensores atualizados (se sobreviveram)
+      for (const defenderArmy of updatedDefenderArmies) {
+        updatedArmies.push(defenderArmy);
+      }
+
+      if (result.winner === 'defender' && updatedDefenderArmies.length > 0) {
+        console.log(`🏆 Vencedor: ${defenderCountry} em ${province.name}`);
       }
     }
   }
