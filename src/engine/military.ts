@@ -9,6 +9,7 @@
 import { Army, Province, Country, Recruitment, Regiment, UnitType } from '../types';
 import { War, DiplomaticRelation } from '../types/diplomacy';
 import { UNIT_DEFINITIONS } from '../data/units';
+import { BUILDING_DEFINITIONS } from '../data/buildings';
 import { provincesData } from '../data/provinces';
 import { calculateArmySize } from './combat';
 
@@ -113,7 +114,8 @@ export function calculateArmySpeed(army: Army): number {
 export function processRecruitments(
   recruitments: Recruitment[],
   armies: Army[],
-  countries: Country[]
+  countries: Country[],
+  provinces: Province[] = []
 ): { recruitments: Recruitment[]; armies: Army[]; countries: Country[]; completedRecruitments: Recruitment[] } {
   const updatedRecruitments: Recruitment[] = [];
   const completedRecruitments: Recruitment[] = [];
@@ -121,7 +123,23 @@ export function processRecruitments(
   const updatedCountries = [...countries];
 
   for (const rec of recruitments) {
-    const newDays = rec.daysRemaining - 1;
+    // Calcula bônus de velocidade de recrutamento baseado nos edifícios da província
+    let recruitmentSpeedBonus = 0;
+    const province = provinces.find(p => p.id === rec.provinceId);
+    if (province) {
+      for (const building of province.buildings) {
+        if (building.daysRemaining <= 0 && building.type === 'barracks') {
+          const def = BUILDING_DEFINITIONS[building.type];
+          if (def.bonusPerLevel.recruitmentSpeedBonus) {
+            recruitmentSpeedBonus += def.bonusPerLevel.recruitmentSpeedBonus * building.level;
+          }
+        }
+      }
+    }
+
+    // Aplica bônus de velocidade (cada ponto de bônus reduz 1 dia adicional)
+    const daysReduction = Math.floor(recruitmentSpeedBonus / 100);
+    const newDays = rec.daysRemaining - 1 - daysReduction;
 
     if (newDays <= 0) {
       // Recrutamento concluído - cria múltiplos regimentos se count > 1

@@ -399,7 +399,7 @@ const App: React.FC = () => {
     let buildingConstructions = [...snapshot.buildingConstructions];
 
     // ===== PASSO A: RECRUTAMENTO =====
-    const recruitResult = processRecruitments(recruitments, armies, countries);
+    const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
     armies = recruitResult.armies;
     recruitments = recruitResult.recruitments;
     

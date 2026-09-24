@@ -280,6 +280,9 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                             {def.name}
                             {currentLevel > 0 && <span className="province-panel__build-level"> → Nv.{currentLevel + 1}</span>}
                           </span>
+                          <span className="province-panel__build-desc">
+                            {def.description}
+                          </span>
                         </div>
                       </div>
                       <div className="province-panel__build-costs">

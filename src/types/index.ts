@@ -162,6 +162,8 @@ export interface BuildingBonus {
   defense?: number;
   /** Bônus de crescimento populacional (%) */
   growthBonus?: number;
+  /** Redução de tempo de recrutamento militar (%) */
+  recruitmentSpeedBonus?: number;
 }
 
 /**
