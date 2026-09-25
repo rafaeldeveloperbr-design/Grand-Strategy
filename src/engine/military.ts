@@ -261,6 +261,11 @@ export function processArmyMovement(
 
   // Usa map para processar TODOS os exércitos de forma imutável
   const updatedArmies = armies.map(army => {
+    // Se está em combate, não pode se mover
+    if (army.inCombat) {
+      return army;
+    }
+    
     // Se não tem destino, permanece parado
     if (!army.destination) {
       return army;

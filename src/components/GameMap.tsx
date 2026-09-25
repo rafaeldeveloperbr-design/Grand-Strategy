@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Province, Country, Army, Recruitment, BuildingConstruction } from '../types';
+import { Province, Country, Army, Recruitment, BuildingConstruction, ActiveBattle } from '../types';
 import { ArmyMarker } from './ArmyMarker';
 import { calculateArmyOffset } from '../engine/military';
 import { getBuildingName, getUnitName } from '../utils/translations';
@@ -25,6 +25,7 @@ interface MapProps {
   armies: Army[];
   recruitments: Recruitment[];
   buildingConstructions: BuildingConstruction[];
+  activeBattles: ActiveBattle[];
   selectedProvince: string | null;
   hoveredProvince: string | null;
   selectedArmy: string | null;
@@ -43,6 +44,7 @@ export const GameMap: React.FC<MapProps> = ({
   armies,
   recruitments,
   buildingConstructions,
+  activeBattles,
   selectedProvince,
   hoveredProvince,
   selectedArmy,

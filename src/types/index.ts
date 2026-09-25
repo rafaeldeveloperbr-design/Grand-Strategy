@@ -280,6 +280,40 @@ export interface Army {
   targetArmyId?: string | null;
   /** ID da província alvo de invasão (Target Locking de invasão - IA marcha em linha reta) */
   targetProvinceId?: string | null;
+  /** Indica se o exército está em combate (bloqueia movimento) */
+  inCombat?: boolean;
+}
+
+/**
+ * Representa uma batalha ativa em andamento
+ */
+export interface ActiveBattle {
+  /** ID único da batalha */
+  id: string;
+  /** ID da província onde ocorre a batalha */
+  provinceId: string;
+  /** ID do exército atacante */
+  attackerArmyId: string;
+  /** ID do exército defensor */
+  defenderArmyId: string;
+  /** Duração total da batalha em dias */
+  daysTotal: number;
+  /** Dias restantes para o fim da batalha */
+  daysRemaining: number;
+  /** Tropas iniciais do atacante */
+  attackerInitialTroops: number;
+  /** Tropas iniciais do defensor */
+  defenderInitialTroops: number;
+  /** Tropas atuais do atacante */
+  attackerCurrentTroops: number;
+  /** Tropas atuais do defensor */
+  defenderCurrentTroops: number;
+  /** Baixas acumuladas do atacante */
+  attackerCasualties: number;
+  /** Baixas acumuladas do defensor */
+  defenderCasualties: number;
+  /** Data de início da batalha */
+  startDate: GameDate;
 }
 
 /**
