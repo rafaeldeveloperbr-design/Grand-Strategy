@@ -12,6 +12,7 @@ import { BuildingConstruction, BuildingType, Province } from '../types';
  */
 export function queueBuilding(
   provinceId: string,
+  owner: string,
   buildingType: BuildingType,
   totalDays: number,
   cost: number,
@@ -26,6 +27,7 @@ export function queueBuilding(
   const newConstruction: BuildingConstruction = {
     id: `const_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     provinceId,
+    owner,
     buildingType,
     daysRemaining: totalDays,
     totalDays,

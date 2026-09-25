@@ -31,6 +31,8 @@ export interface BuildingConstruction {
   id: string;
   /** ID da província onde está sendo construída */
   provinceId: string;
+  /** País dono da construção */
+  owner: string;
   /** Tipo do edifício sendo construído */
   buildingType: BuildingType;
   /** Dias restantes para conclusão */

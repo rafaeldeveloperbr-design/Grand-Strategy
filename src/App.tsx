@@ -394,40 +394,17 @@ const App: React.FC = () => {
     currentConstructions: BuildingConstruction[],
     currentProvinces: Province[]
   ): { recruitments: Recruitment[]; constructions: BuildingConstruction[]; provinces: Province[] } => {
-    console.log(`\n🔍 [DIAGNÓSTICO] cancelProvinceActivities chamado para ${provinceId}`);
-    console.log(`   Dono anterior: ${oldOwner} → Novo dono: ${newOwner}`);
-    console.log(`   Recrutamentos antes: ${currentRecruitments.length}`);
-    console.log(`   Construções antes: ${currentConstructions.length}`);
-    console.log(`   Construções na província ${provinceId}:`, 
-      currentConstructions.filter(c => c.provinceId === provinceId).length);
-
     // Cancela recrutamentos na província conquistada
     const cancelledRecruitments = currentRecruitments.filter(r => r.provinceId === provinceId);
     const remainingRecruitments = currentRecruitments.filter(r => r.provinceId !== provinceId);
-
-    console.log(`   Recrutamentos cancelados: ${cancelledRecruitments.length}`);
-    console.log(`   Recrutamentos restantes: ${remainingRecruitments.length}`);
 
     // Cancela construções na província conquistada
     const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
     const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
 
-    console.log(`   Construções canceladas: ${cancelledConstructions.length}`);
-    console.log(`   Construções restantes: ${remainingConstructions.length}`);
-
-    if (cancelledConstructions.length > 0) {
-      console.log(`🚧 Construções sendo canceladas:`, cancelledConstructions.map(c => ({
-        id: c.id,
-        type: c.buildingType,
-        days: c.daysRemaining
-      })));
-    }
-
     // 🧹 LIMPA EDIFÍCIOS CONCLUÍDOS DA PROVÍNCIA
     const updatedProvinces = currentProvinces.map(p => {
       if (p.id === provinceId && p.buildings.length > 0) {
-        const buildingCount = p.buildings.length;
-        console.log(`🧹 Limpando ${buildingCount} edifício(s) concluído(s) de ${p.name}`);
         return { ...p, buildings: [] };
       }
       return p;
@@ -731,13 +708,6 @@ const App: React.FC = () => {
         });
         
         // Cancela recrutamentos e construções na província ocupada
-        console.log(`\n🏰 Transferindo controle da província ${province.id} (${province.name}) para ${arrived.owner} (ocupação sem resistência)`);
-        console.log(`🏗️ Estado ANTES da limpeza:`);
-        console.log(`   Recrutamentos: ${recruitments.length}`);
-        console.log(`   Construções: ${buildingConstructions.length}`);
-        console.log(`   Construções em ${province.id}:`, 
-          buildingConstructions.filter(c => c.provinceId === province.id).length);
-        
         const cancelResult = cancelProvinceActivities(
           province.id,
           oldOwner,
@@ -746,10 +716,6 @@ const App: React.FC = () => {
           buildingConstructions,
           provinces
         );
-        
-        console.log(`🧹 Estado DEPOIS da limpeza:`);
-        console.log(`   Recrutamentos: ${cancelResult.recruitments.length} (removidos: ${recruitments.length - cancelResult.recruitments.length})`);
-        console.log(`   Construções: ${cancelResult.constructions.length} (removidas: ${buildingConstructions.length - cancelResult.constructions.length})`);
         
         recruitments = cancelResult.recruitments;
         buildingConstructions = cancelResult.constructions;
@@ -971,13 +937,6 @@ const App: React.FC = () => {
           });
           
         // 🧹 LIMPEZA AUTOMÁTICA: Usa a função cancelProvinceActivities
-        console.log(`\n🏰 Transferindo controle da província ${province.id} (${province.name}) para ${attacker.owner}`);
-        console.log(`🏗️ Estado ANTES da limpeza:`);
-        console.log(`   Recrutamentos: ${recruitments.length}`);
-        console.log(`   Construções: ${buildingConstructions.length}`);
-        console.log(`   Construções em ${province.id}:`, 
-          buildingConstructions.filter(c => c.provinceId === province.id).length);
-        
         const cancelResult = cancelProvinceActivities(
           province.id,
           oldOwner,
@@ -986,10 +945,6 @@ const App: React.FC = () => {
           buildingConstructions,
           provinces
         );
-        
-        console.log(`🧹 Estado DEPOIS da limpeza:`);
-        console.log(`   Recrutamentos: ${cancelResult.recruitments.length} (removidos: ${recruitments.length - cancelResult.recruitments.length})`);
-        console.log(`   Construções: ${cancelResult.constructions.length} (removidas: ${buildingConstructions.length - cancelResult.constructions.length})`);
         
         recruitments = cancelResult.recruitments;
         buildingConstructions = cancelResult.constructions;
@@ -1292,10 +1247,6 @@ const App: React.FC = () => {
     }
 
     // ===== APLICA TODAS AS ATUALIZAÇÕES DE UMA VEZ =====
-    console.log(`\n💾 Aplicando atualizações de estado:`);
-    console.log(`   Recrutamentos: ${recruitments.length}`);
-    console.log(`   Construções: ${buildingConstructions.length}`);
-    
     setArmies(armies);
     setProvinces(provinces);
     setAllCountries(countries);
@@ -1396,6 +1347,7 @@ const App: React.FC = () => {
 
       const result = queueBuilding(
         provinceId,
+        playerCountryTag,
         buildingType,
         buildTime,
         cost,

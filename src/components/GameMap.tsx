@@ -266,17 +266,14 @@ export const GameMap: React.FC<MapProps> = ({
   /**
    * Verifica se há atividades em uma província
    */
-  const getProvinceActivities = (provinceId: string) => {
-    const constructions = buildingConstructions.filter(c => c.provinceId === provinceId);
-    const recruitmentsHere = recruitments.filter(r => r.provinceId === provinceId);
-    
-    if (constructions.length > 0 || recruitmentsHere.length > 0) {
-      console.log(`🗺️ [GameMap] Atividades em ${provinceId}:`, {
-        constructions: constructions.length,
-        recruitments: recruitmentsHere.length,
-        constructionDetails: constructions.map(c => ({ id: c.id, type: c.buildingType, days: c.daysRemaining }))
-      });
-    }
+  const getProvinceActivities = (provinceId: string, provinceOwner: string) => {
+    // Filtro de segurança: apenas mostra construções do dono atual
+    const constructions = buildingConstructions.filter(
+      c => c.provinceId === provinceId && c.owner === provinceOwner
+    );
+    const recruitmentsHere = recruitments.filter(
+      r => r.provinceId === provinceId && r.owner === provinceOwner
+    );
     
     return {
       hasConstructions: constructions.length > 0,
@@ -406,7 +403,7 @@ export const GameMap: React.FC<MapProps> = ({
               
               {/* Indicadores de atividades */}
               {(() => {
-                const activities = getProvinceActivities(province.id);
+                const activities = getProvinceActivities(province.id, province.owner);
                 const hasActivities = activities.hasConstructions || activities.hasRecruitments;
                 
                 if (!hasActivities) return null;

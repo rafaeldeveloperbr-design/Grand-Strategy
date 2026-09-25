@@ -539,6 +539,7 @@ export function processAIEconomicDecisions(
             const newConstruction: BuildingConstruction = {
               id: `const_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
               provinceId: targetProvince.id,
+              owner: country.tag,
               buildingType: chosenBuilding,
               daysRemaining: buildTime,
               totalDays: buildTime,

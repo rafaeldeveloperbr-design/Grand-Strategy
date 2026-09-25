@@ -80,17 +80,11 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
     return { id: nId, country: neighborCountry };
   });
 
-  // Filtra atividades em andamento para o painel lateral
-  const provinceConstructions = buildingConstructions.filter(c => c.provinceId === province.id);
+  // Filtra atividades em andamento para o painel lateral (apenas do dono atual)
+  const provinceConstructions = buildingConstructions.filter(
+    c => c.provinceId === province.id && c.owner === province.owner
+  );
   const hasActivities = provinceConstructions.length > 0 || recruitmentsHere.length > 0;
-  
-  if (hasActivities) {
-    console.log(`📋 [ProvincePanel] Atividades em ${province.name}:`, {
-      constructions: provinceConstructions.length,
-      recruitments: recruitmentsHere.length,
-      constructionDetails: provinceConstructions.map(c => ({ id: c.id, type: c.buildingType, days: c.daysRemaining }))
-    });
-  }
 
   return (
     <div className="province-panel">
