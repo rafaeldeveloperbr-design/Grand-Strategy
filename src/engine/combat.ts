@@ -638,10 +638,13 @@ export function processDailyBattle(
   
   const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
   
+  console.log(`⚔️ Batalha ${battle.id}: Dia ${battle.daysTotal - daysRemaining}/${battle.daysTotal} - ${daysRemaining} dias restantes`);
+  
   if (finished) {
     console.log(`✅ Batalha finalizada em ${province.name} após ${battle.daysTotal} dias`);
     console.log(`   Atacante: ${battle.attackerInitialTroops} → ${attackerCurrentTroops} (${attackerCasualties} baixas)`);
     console.log(`   Defensor: ${battle.defenderInitialTroops} → ${defenderCurrentTroops} (${defenderCasualties} baixas)`);
+    console.log(`   Motivo: ${daysRemaining <= 0 ? 'Dias esgotados' : attackerCurrentTroops <= 0 ? 'Atacante destruído' : 'Defensor destruído'}`);
   }
   
   return {

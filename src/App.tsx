@@ -730,25 +730,27 @@ const App: React.FC = () => {
 
     // C.3: Processa batalhas contínuas ativas
     const finishedBattles: ActiveBattle[] = [];
+    const stillActiveBattles: ActiveBattle[] = [];
     
-    for (let i = 0; i < updatedActiveBattles.length; i++) {
-      const battle = updatedActiveBattles[i];
+    console.log(`📊 Processando ${updatedActiveBattles.length} batalhas ativas`);
+    
+    for (const battle of updatedActiveBattles) {
       const province = provinces.find(p => p.id === battle.provinceId);
       const attacker = armies.find(a => a.id === battle.attackerArmyId);
       const defender = armies.find(a => a.id === battle.defenderArmyId);
       
       if (!province || !attacker || !defender) {
-        // Batalha inválida - remove
-        updatedActiveBattles.splice(i, 1);
-        i--;
+        // Batalha inválida - não adiciona de volta
+        console.warn(`⚠️ Batalha inválida removida: ${battle.id}`);
         continue;
       }
+      
+      console.log(`⚙️ Processando batalha ${battle.id} em ${province.name}`);
       
       // Processa um dia de batalha
       const result = processDailyBattle(battle, attacker, defender, province);
       
-      // Atualiza batalha e exércitos
-      updatedActiveBattles[i] = result.battle;
+      // Atualiza exércitos com tropas reduzidas
       armies = armies.map(a => {
         if (a.id === attacker.id) return result.attacker;
         if (a.id === defender.id) return result.defender;
@@ -757,25 +759,50 @@ const App: React.FC = () => {
       
       // Verifica se a batalha terminou
       if (result.finished) {
+        // Adiciona à lista de batalhas finalizadas
         finishedBattles.push(result.battle);
-        updatedActiveBattles.splice(i, 1);
-        i--;
+        console.log(`✅ Batalha ${battle.id} finalizada - será processada`);
+      } else {
+        // Batalha continua - atualiza e mantém na lista de ativas
+        stillActiveBattles.push(result.battle);
+        console.log(`⏳ Batalha ${battle.id} continua - ${result.battle.daysRemaining} dias restantes`);
       }
     }
     
+    // Atualiza lista de batalhas ativas (apenas as que não terminaram)
+    updatedActiveBattles = stillActiveBattles;
+    console.log(`📊 ${finishedBattles.length} batalhas finalizadas, ${stillActiveBattles.length} ainda ativas`);
+    
     // Finaliza batalhas concluídas
+    if (finishedBattles.length > 0) {
+      console.log(`🏁 Processando ${finishedBattles.length} batalhas finalizadas`);
+    }
+    
     for (const finishedBattle of finishedBattles) {
       const province = provinces.find(p => p.id === finishedBattle.provinceId);
       const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
       const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
       
-      if (!province || !attacker || !defender) continue;
+      if (!province || !attacker || !defender) {
+        console.warn(`⚠️ Batalha finalizada sem exércitos/província: ${finishedBattle.id}`);
+        continue;
+      }
+      
+      console.log(`🏁 Finalizando batalha ${finishedBattle.id} em ${province.name}`);
+      console.log(`   Atacante: ${attacker.owner} (${finishedBattle.attackerCurrentTroops} tropas restantes)`);
+      console.log(`   Defensor: ${defender.owner} (${finishedBattle.defenderCurrentTroops} tropas restantes)`);
       
       // Finaliza a batalha e obtém o resultado
       const finalResult = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date);
       
-      // Remove exércitos do mapa
+      console.log(`🏆 Vencedor: ${finalResult.winner === 'attacker' ? attacker.owner : defender.owner}`);
+      
+      // Remove exércitos do mapa (serão re-adicionados com inCombat = false)
       armies = armies.filter(a => a.id !== attacker.id && a.id !== defender.id);
+      
+      // Garante que os exércitos não estão mais em combate
+      finalResult.attacker = { ...finalResult.attacker, inCombat: false };
+      finalResult.defender = { ...finalResult.defender, inCombat: false };
       
       // Atualiza guerras com baixas
       wars = wars.map(w => {
@@ -843,6 +870,7 @@ const App: React.FC = () => {
     
     // Atualiza estado de batalhas ativas
     setActiveBattles(updatedActiveBattles);
+    console.log(`✅ Estado atualizado: ${updatedActiveBattles.length} batalhas ativas restantes`);
 
     // ===== PASSO D: ECONOMIA/POPULAÇÃO =====
     countries = countries.map(country => {
