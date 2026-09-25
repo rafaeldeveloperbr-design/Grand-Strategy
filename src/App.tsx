@@ -391,8 +391,9 @@ const App: React.FC = () => {
     oldOwner: string,
     newOwner: string,
     currentRecruitments: Recruitment[],
-    currentConstructions: BuildingConstruction[]
-  ): { recruitments: Recruitment[]; constructions: BuildingConstruction[] } => {
+    currentConstructions: BuildingConstruction[],
+    currentProvinces: Province[]
+  ): { recruitments: Recruitment[]; constructions: BuildingConstruction[]; provinces: Province[] } => {
     // Cancela recrutamentos na província conquistada
     const cancelledRecruitments = currentRecruitments.filter(r => r.provinceId === provinceId);
     const remainingRecruitments = currentRecruitments.filter(r => r.provinceId !== provinceId);
@@ -400,6 +401,16 @@ const App: React.FC = () => {
     // Cancela construções na província conquistada
     const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
     const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
+
+    // 🧹 LIMPA EDIFÍCIOS CONCLUÍDOS DA PROVÍNCIA
+    const updatedProvinces = currentProvinces.map(p => {
+      if (p.id === provinceId && p.buildings.length > 0) {
+        const buildingCount = p.buildings.length;
+        console.log(`🧹 Limpando ${buildingCount} edifício(s) concluído(s) de ${p.name}`);
+        return { ...p, buildings: [] };
+      }
+      return p;
+    });
 
     // Registra logs de cancelamento
     if (cancelledRecruitments.length > 0) {
@@ -448,7 +459,8 @@ const App: React.FC = () => {
 
     return {
       recruitments: remainingRecruitments,
-      constructions: remainingConstructions
+      constructions: remainingConstructions,
+      provinces: updatedProvinces
     };
   }, [addLog, addAILog, formatGameDate]);
 
@@ -703,10 +715,12 @@ const App: React.FC = () => {
           oldOwner,
           arrived.owner,
           recruitments,
-          buildingConstructions
+          buildingConstructions,
+          provinces
         );
         recruitments = cancelResult.recruitments;
         buildingConstructions = cancelResult.constructions;
+        provinces = cancelResult.provinces;
         
         addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
       }
@@ -929,10 +943,12 @@ const App: React.FC = () => {
             oldOwner,
             attacker.owner,
             recruitments,
-            buildingConstructions
+            buildingConstructions,
+            provinces
           );
           recruitments = cancelResult.recruitments;
           buildingConstructions = cancelResult.constructions;
+          provinces = cancelResult.provinces;
           
           const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: attacker.owner };
           
