@@ -923,6 +923,17 @@ const App: React.FC = () => {
             return c;
           });
           
+          // 🧹 LIMPEZA AUTOMÁTICA: Usa a função cancelProvinceActivities
+          const cancelResult = cancelProvinceActivities(
+            province.id,
+            oldOwner,
+            attacker.owner,
+            recruitments,
+            buildingConstructions
+          );
+          recruitments = cancelResult.recruitments;
+          buildingConstructions = cancelResult.constructions;
+          
           const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: attacker.owner };
           
           addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
