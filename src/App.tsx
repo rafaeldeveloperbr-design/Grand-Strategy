@@ -703,8 +703,8 @@ const App: React.FC = () => {
     const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
     armies = autoCombatResult.armies;
     
-    // Usa a ref para garantir valor atualizado (evita stale closure)
-    let currentActiveBattles = [...activeBattlesRef.current];
+    // Usa as batalhas atualizadas (incluindo reforços adicionados)
+    let currentActiveBattles = [...autoCombatResult.updatedBattles];
     
     // Adiciona novas batalhas à lista de batalhas ativas
     if (autoCombatResult.newBattles.length > 0) {
@@ -726,6 +726,23 @@ const App: React.FC = () => {
               'Batalha Iniciada'
             );
           }
+        }
+      }
+    }
+    
+    // Notifica sobre reforços adicionados
+    if (autoCombatResult.reinforcementsAdded.length > 0) {
+      for (const reinforcement of autoCombatResult.reinforcementsAdded) {
+        const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
+        addLog(`⚔️ Reforço: ${reinforcement.armyOwner} enviou ${reinforcement.troops} tropas para ${reinforcement.provinceName} (lado ${sideLabel})`);
+        
+        // Notifica o jogador se for seu exército
+        if (reinforcement.armyOwner === playerCountryTag) {
+          addToast(
+            `Exército entrou como reforço em ${reinforcement.provinceName}! (+${reinforcement.troops} tropas)`,
+            'info',
+            'Reforço Adicionado'
+          );
         }
       }
     }

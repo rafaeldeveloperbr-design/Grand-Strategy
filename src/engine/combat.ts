@@ -452,7 +452,7 @@ export function resolveProvinceBattle(
 
 /**
  * Verifica automaticamente combates em todas as províncias
- * Inicia batalhas contínuas em vez de resolver instantaneamente
+ * Inicia batalhas contínuas e processa reforços em batalhas existentes
  */
 export function checkAllProvinceCombats(
   armies: Army[],
@@ -464,21 +464,120 @@ export function checkAllProvinceCombats(
 ): {
   armies: Army[];
   newBattles: ActiveBattle[];
+  updatedBattles: ActiveBattle[];
+  reinforcementsAdded: Array<{
+    battleId: string;
+    armyId: string;
+    armyOwner: string;
+    side: 'attacker' | 'defender';
+    troops: number;
+    provinceName: string;
+  }>;
 } {
   const updatedArmies = [...armies];
   const newBattles: ActiveBattle[] = [];
+  const updatedBattles: ActiveBattle[] = [...activeBattles];
+  const reinforcementsAdded: Array<{
+    battleId: string;
+    armyId: string;
+    armyOwner: string;
+    side: 'attacker' | 'defender';
+    troops: number;
+    provinceName: string;
+  }> = [];
 
   console.log('⚔️ checkAllProvinceCombats: verificando', provinces.length, 'províncias');
 
   // Percorre todas as províncias
   for (const province of provinces) {
     // Verifica se já existe uma batalha ativa nesta província
-    const existingBattle = activeBattles.find(b => b.provinceId === province.id);
-    if (existingBattle) continue; // Já há batalha em andamento
+    const existingBattleIndex = updatedBattles.findIndex(b => b.provinceId === province.id);
+    const existingBattle = existingBattleIndex !== -1 ? updatedBattles[existingBattleIndex] : null;
 
-    // Encontra todos os exércitos nesta província
+    // Encontra todos os exércitos nesta província que NÃO estão em combate
     const armiesInProvince = updatedArmies.filter(a => a.location === province.id && !a.inCombat);
 
+    if (armiesInProvince.length === 0) continue; // Nenhum exército livre
+
+    // Se já existe uma batalha, processa reforços
+    if (existingBattle) {
+      console.log(`⚔️ Batalha existente em ${province.name} - verificando reforços`);
+      
+      // Obtém os países envolvidos na batalha
+      const attackerArmy = updatedArmies.find(a => a.id === existingBattle.attackerArmyId);
+      const defenderArmy = updatedArmies.find(a => a.id === existingBattle.defenderArmyId);
+      
+      if (!attackerArmy || !defenderArmy) {
+        console.warn(`⚠️ Batalha ${existingBattle.id} sem exércitos válidos - removendo`);
+        updatedBattles.splice(existingBattleIndex, 1);
+        continue;
+      }
+      
+      const attackerCountry = attackerArmy.owner;
+      const defenderCountry = defenderArmy.owner;
+      
+      // Verifica cada exército livre para ver se é reforço
+      for (const army of armiesInProvince) {
+        // Verifica se está em guerra com o defensor (para ser reforço do atacante)
+        const isAtWarWithDefender = wars.some(
+          w => (w.attacker === army.owner && w.defender === defenderCountry) ||
+               (w.defender === army.owner && w.attacker === defenderCountry)
+        );
+        
+        // Verifica se é o defensor (para ser reforço do defensor)
+        const isDefender = army.owner === defenderCountry;
+        
+        if (isAtWarWithDefender) {
+          // Reforço do atacante
+          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou na batalha em ${province.name}!`);
+          const reinforcementTroops = calculateArmySize(army);
+          const updatedBattle = addReinforcementsToBattle(existingBattle, army, 'attacker', province);
+          updatedBattles[existingBattleIndex] = updatedBattle;
+          
+          // Adiciona à lista de reforços
+          reinforcementsAdded.push({
+            battleId: existingBattle.id,
+            armyId: army.id,
+            armyOwner: army.owner,
+            side: 'attacker',
+            troops: reinforcementTroops,
+            provinceName: province.name,
+          });
+          
+          // Marca exército como em combate
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = { ...updatedArmies[idx], inCombat: true };
+          }
+        } else if (isDefender) {
+          // Reforço do defensor
+          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou na batalha em ${province.name}!`);
+          const reinforcementTroops = calculateArmySize(army);
+          const updatedBattle = addReinforcementsToBattle(existingBattle, army, 'defender', province);
+          updatedBattles[existingBattleIndex] = updatedBattle;
+          
+          // Adiciona à lista de reforços
+          reinforcementsAdded.push({
+            battleId: existingBattle.id,
+            armyId: army.id,
+            armyOwner: army.owner,
+            side: 'defender',
+            troops: reinforcementTroops,
+            provinceName: province.name,
+          });
+          
+          // Marca exército como em combate
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = { ...updatedArmies[idx], inCombat: true };
+          }
+        }
+      }
+      
+      continue; // Batalha existente processada, pula para próxima província
+    }
+
+    // Se não há batalha existente, verifica se pode iniciar uma nova
     if (armiesInProvince.length < 2) continue; // Precisa de pelo menos 2 exércitos
 
     // Agrupa exércitos por país
@@ -536,7 +635,7 @@ export function checkAllProvinceCombats(
     const newBattle = startContinuousBattle(mainAttacker, mainDefender, province, currentDate, battleId);
     newBattles.push(newBattle);
 
-    // Marca exércitos como em combate
+    // Marca TODOS os exércitos envolvidos como em combate
     for (const army of attackerArmies) {
       const idx = updatedArmies.findIndex(a => a.id === army.id);
       if (idx !== -1) {
@@ -552,8 +651,11 @@ export function checkAllProvinceCombats(
   }
 
   console.log('⚔️ checkAllProvinceCombats:', newBattles.length, 'novas batalhas iniciadas');
+  if (reinforcementsAdded.length > 0) {
+    console.log('⚔️ checkAllProvinceCombats:', reinforcementsAdded.length, 'reforços adicionados');
+  }
 
-  return { armies: updatedArmies, newBattles };
+  return { armies: updatedArmies, newBattles, updatedBattles, reinforcementsAdded };
 }
 
 /**
@@ -592,6 +694,47 @@ export function startContinuousBattle(
     defenderCasualties: 0,
     startDate: currentDate,
   };
+}
+
+/**
+ * Adiciona reforços a uma batalha existente
+ * Recalcula a duração da batalha com base nas novas tropas
+ */
+export function addReinforcementsToBattle(
+  battle: ActiveBattle,
+  reinforcementArmy: Army,
+  side: 'attacker' | 'defender',
+  province: Province
+): ActiveBattle {
+  const reinforcementTroops = calculateArmySize(reinforcementArmy);
+  
+  console.log(`⚔️ REFORÇOS: Exército ${reinforcementArmy.id} (${reinforcementArmy.owner}) entrou na batalha em ${province.name}!`);
+  console.log(`   Lado: ${side === 'attacker' ? 'Atacante' : 'Defensor'}`);
+  console.log(`   Tropas adicionadas: ${reinforcementTroops}`);
+  
+  // Atualiza tropas do lado correspondente
+  const updatedBattle = { ...battle };
+  
+  if (side === 'attacker') {
+    updatedBattle.attackerCurrentTroops += reinforcementTroops;
+    updatedBattle.attackerInitialTroops += reinforcementTroops;
+  } else {
+    updatedBattle.defenderCurrentTroops += reinforcementTroops;
+    updatedBattle.defenderInitialTroops += reinforcementTroops;
+  }
+  
+  // Recalcula duração da batalha com base nas novas tropas totais
+  const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
+  const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
+  
+  updatedBattle.daysTotal += additionalDays;
+  updatedBattle.daysRemaining += additionalDays;
+  
+  console.log(`   Dias adicionais: ${additionalDays}`);
+  console.log(`   Nova duração total: ${updatedBattle.daysTotal} dias`);
+  console.log(`   Dias restantes: ${updatedBattle.daysRemaining}`);
+  
+  return updatedBattle;
 }
 
 /**
