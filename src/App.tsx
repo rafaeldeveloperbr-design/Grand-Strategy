@@ -810,16 +810,26 @@ const App: React.FC = () => {
       console.log(`🏁 Finalizando batalha ${finishedBattle.id} em ${province.name}`);
       console.log(`   Atacante: ${attacker.owner} (${finishedBattle.attackerCurrentTroops} tropas restantes)`);
       console.log(`   Defensor: ${defender.owner} (${finishedBattle.defenderCurrentTroops} tropas restantes)`);
+      console.log(`   Participantes: ${finishedBattle.participantArmyIds.length} exércitos`);
       
       // Finaliza a batalha e obtém o resultado
-      const finalResult = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date);
+      const { result: finalResult, updatedArmies: armiesWithReleasedParticipants } = finalizeBattle(
+        finishedBattle, attacker, defender, province, snapshot.date, armies
+      );
+      
+      // Atualiza o array de exércitos com todos os participantes liberados
+      armies = armiesWithReleasedParticipants;
       
       console.log(`🏆 Vencedor: ${finalResult.winner === 'attacker' ? attacker.owner : defender.owner}`);
       
-      // Remove exércitos do mapa (serão re-adicionados com inCombat = false)
-      armies = armies.filter(a => a.id !== attacker.id && a.id !== defender.id);
+      // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES (incluindo reforços)
+      const participantIds = finishedBattle.participantArmyIds;
+      console.log(`🔓 LIBERADOS: Exércitos ${participantIds.join(', ')} agora estão fora de combate.`);
       
-      // Garante que os exércitos não estão mais em combate
+      // Remove TODOS os exércitos participantes do mapa (serão re-adicionados com inCombat = false)
+      armies = armies.filter(a => !participantIds.includes(a.id));
+      
+      // Garante que os exércitos principais não estão mais em combate
       finalResult.attacker = { ...finalResult.attacker, inCombat: false };
       finalResult.defender = { ...finalResult.defender, inCombat: false };
       
@@ -885,6 +895,13 @@ const App: React.FC = () => {
           setIsPaused(true);
         }
       }
+      
+      // ✅ Verificação final: confirma que todos os participantes foram liberados
+      const releasedCount = participantIds.filter(id => {
+        const army = armies.find(a => a.id === id);
+        return army && army.inCombat === false;
+      }).length;
+      console.log(`✅ VERIFICAÇÃO: ${releasedCount}/${participantIds.length} exércitos participantes liberados com inCombat = false`);
     }
     
     // Atualiza estado de batalhas ativas

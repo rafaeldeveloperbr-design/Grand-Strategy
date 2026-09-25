@@ -296,6 +296,8 @@ export interface ActiveBattle {
   attackerArmyId: string;
   /** ID do exército defensor */
   defenderArmyId: string;
+  /** Lista completa de IDs de todos os exércitos participantes (incluindo reforços) */
+  participantArmyIds: string[];
   /** Duração total da batalha em dias */
   daysTotal: number;
   /** Dias restantes para o fim da batalha */

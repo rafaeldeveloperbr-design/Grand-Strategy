@@ -699,6 +699,7 @@ export function startContinuousBattle(
     provinceId: province.id,
     attackerArmyId: attacker.id,
     defenderArmyId: defender.id,
+    participantArmyIds: [attacker.id, defender.id],
     daysTotal: battleDays,
     daysRemaining: battleDays,
     attackerInitialTroops: attackerTroops,
@@ -738,6 +739,12 @@ export function addReinforcementsToBattle(
     updatedBattle.defenderInitialTroops += reinforcementTroops;
   }
   
+  // Adiciona o ID do reforço à lista de participantes
+  if (!updatedBattle.participantArmyIds.includes(reinforcementArmy.id)) {
+    updatedBattle.participantArmyIds = [...updatedBattle.participantArmyIds, reinforcementArmy.id];
+    console.log(`   ✅ Exército ${reinforcementArmy.id} adicionado à lista de participantes`);
+  }
+  
   // Recalcula duração da batalha com base nas novas tropas totais
   const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
   const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
@@ -748,6 +755,7 @@ export function addReinforcementsToBattle(
   console.log(`   Dias adicionais: ${additionalDays}`);
   console.log(`   Nova duração total: ${updatedBattle.daysTotal} dias`);
   console.log(`   Dias restantes: ${updatedBattle.daysRemaining}`);
+  console.log(`   Total de participantes: ${updatedBattle.participantArmyIds.length} exércitos`);
   
   return updatedBattle;
 }
@@ -846,8 +854,9 @@ export function finalizeBattle(
   attacker: Army,
   defender: Army,
   province: Province,
-  currentDate: GameDate
-): CombatResult {
+  currentDate: GameDate,
+  allArmies: Army[]
+): { result: CombatResult; updatedArmies: Army[] } {
   // Determina vencedor baseado em tropas restantes
   const winner: 'attacker' | 'defender' = 
     battle.attackerCurrentTroops > battle.defenderCurrentTroops ? 'attacker' : 'defender';
@@ -875,6 +884,18 @@ export function finalizeBattle(
     finalAttacker = applyTroopLoss(attacker, loserLoss);
   }
   
+  // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES (incluindo reforços)
+  const participantIds = battle.participantArmyIds;
+  console.log(`🔓 LIBERADOS: Exércitos ${participantIds.join(', ')} agora estão fora de combate.`);
+  
+  // Marca todos os participantes como inCombat = false
+  const updatedAllArmies = allArmies.map(army => {
+    if (participantIds.includes(army.id)) {
+      return { ...army, inCombat: false };
+    }
+    return army;
+  });
+  
   const result: CombatResult = {
     attacker: finalAttacker,
     defender: finalDefender,
@@ -894,5 +915,5 @@ export function finalizeBattle(
   
   console.log(`🏆 Vencedor: ${winner === 'attacker' ? 'Atacante' : 'Defensor'} em ${province.name}`);
   
-  return result;
+  return { result, updatedArmies: updatedAllArmies };
 }
