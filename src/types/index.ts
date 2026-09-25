@@ -76,6 +76,7 @@ export interface Province {
   unrest?: number;
   /** Data da última conquista (para calcular decaimento de unrest) */
   lastConquestDate?: number;
+  originalOwner?: string; // Rastreia o país que perdeu a província originalmente
 }
 
 /**
@@ -290,6 +291,9 @@ export interface Army {
   targetProvinceId?: string | null;
   /** Indica se o exército está em combate (bloqueia movimento) */
   inCombat?: boolean;
+  originalOwner?: string; // País de origem dos rebeldes (para IA separatista)
+  separatistMode?: boolean; // Flag para ativar a marcha de reconquista
+
 }
 
 /**

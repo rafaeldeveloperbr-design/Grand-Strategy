@@ -42,6 +42,7 @@ import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import { applyStabilityPrestigeChanges } from './engine/stability';
 import { processDailyUnrestDecay, createRebelArmy, applyConquestUnrest } from './engine/unrest';
+import { processRebelAccumulation, processSeparatistAI, checkRebelTerritoryReturn } from './engine/rebellions';
 import {
   processDailyTechProgress,
   startNationalFocus,
@@ -223,10 +224,10 @@ function createInitialArmies(): Army[] {
 const App: React.FC = () => {
   // === Hook de Toasts ===
   const { addToast, notificationHistory, unreadCount, markAllAsRead } = useToast();
-  
+
   // === Hook de Log da IA ===
   const { addAILog } = useAILog();
-  
+
   // === Estado do Jogo ===
   const [playerCountryTag] = useState<string>('IMP');
   const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
@@ -234,14 +235,14 @@ const App: React.FC = () => {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
-  
+
   /** Dificuldade da IA */
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
 
   /** Dados dinâmicos das províncias */
   const [provinces, setProvinces] = useState<Province[]>(() =>
-    provincesData.map((p) => ({ 
-      ...p, 
+    provincesData.map((p) => ({
+      ...p,
       buildings: [...p.buildings],
       unrest: 0, // Inicialmente todas as províncias estão pacíficas
     }))
@@ -261,10 +262,10 @@ const App: React.FC = () => {
 
   /** Recrutamentos em andamento */
   const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
-  
+
   /** Fila de construções */
   const [buildingConstructions, setBuildingConstructions] = useState<BuildingConstruction[]>([]);
-  
+
   /** Exército selecionado */  const [selectedArmy, setSelectedArmy] = useState<string | null>(null);
 
   /** Log de eventos (combate, conquistas) */
@@ -284,7 +285,7 @@ const App: React.FC = () => {
 
   /** Modal de relatório de batalha */
   const [battleReport, setBattleReport] = useState<CombatResult | null>(null);
-  
+
   /** Jogo pausado (para relatório de batalha) */
   const [isPaused, setIsPaused] = useState(false);
 
@@ -409,10 +410,13 @@ const App: React.FC = () => {
     const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
     const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
 
-    // 🧹 LIMPA EDIFÍCIOS CONCLUÍDOS DA PROVÍNCIA
+    // 📌 PRESERVA O originalOwner DA PROVÍNCIA (para revoltas separatistas futuras)
     const updatedProvinces = currentProvinces.map(p => {
-      if (p.id === provinceId && p.buildings.length > 0) {
-        return { ...p, buildings: [] };
+      if (p.id === provinceId) {
+        return {
+          ...p,
+          originalOwner: p.originalOwner || oldOwner,
+        };
       }
       return p;
     });
@@ -421,11 +425,11 @@ const App: React.FC = () => {
     if (cancelledRecruitments.length > 0) {
       const province = provincesRef.current.find(p => p.id === provinceId);
       const provinceName = province?.name || provinceId;
-      
+
       cancelledRecruitments.forEach(rec => {
         const unitName = getUnitName(rec.unitType);
         const country = countriesRef.current.find(c => c.tag === oldOwner);
-        
+
         if (country) {
           addAILog(
             country.name,
@@ -435,7 +439,7 @@ const App: React.FC = () => {
             country.color
           );
         }
-        
+
         addLog(`❌ Recrutamento de ${unitName} cancelado em ${provinceName}`);
       });
     }
@@ -443,11 +447,11 @@ const App: React.FC = () => {
     if (cancelledConstructions.length > 0) {
       const province = provincesRef.current.find(p => p.id === provinceId);
       const provinceName = province?.name || provinceId;
-      
+
       cancelledConstructions.forEach(construction => {
         const buildingName = getBuildingName(construction.buildingType);
         const country = countriesRef.current.find(c => c.tag === oldOwner);
-        
+
         if (country) {
           addAILog(
             country.name,
@@ -457,7 +461,7 @@ const App: React.FC = () => {
             country.color
           );
         }
-        
+
         addLog(`❌ Construção de ${buildingName} cancelada em ${provinceName}`);
       });
     }
@@ -509,14 +513,14 @@ const App: React.FC = () => {
     const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
     armies = recruitResult.armies;
     recruitments = recruitResult.recruitments;
-    
+
     // Processa recrutamentos concluídos
     for (const completed of recruitResult.completedRecruitments) {
       const unitName = getUnitName(completed.unitType);
       const province = provinces.find(p => p.id === completed.provinceId);
       const provinceName = province?.name || 'província';
       const dateString = formatGameDate(snapshot.date);
-      
+
       // Mostra toast de conclusão APENAS para o jogador
       if (completed.owner === playerCountryTag) {
         if (completed.count > 1) {
@@ -535,7 +539,7 @@ const App: React.FC = () => {
           );
         }
       }
-      
+
       // Registra no log da IA se o recrutamento foi de um bot
       if (completed.owner !== playerCountryTag) {
         const country = countries.find(c => c.tag === completed.owner);
@@ -554,7 +558,7 @@ const App: React.FC = () => {
     // ===== PASSO A.5: CONSTRUÇÕES =====
     const constructionResult = processConstructions(buildingConstructions, provinces);
     buildingConstructions = constructionResult.updatedConstructions;
-    
+
     // Processa construções concluídas
     for (const completed of constructionResult.completedConstructions) {
       const province = provinces.find(p => p.id === completed.provinceId);
@@ -567,8 +571,8 @@ const App: React.FC = () => {
               // Upgrade do edifício existente
               return {
                 ...p,
-                buildings: p.buildings.map(b => 
-                  b.type === completed.buildingType 
+                buildings: p.buildings.map(b =>
+                  b.type === completed.buildingType
                     ? { ...b, level: b.level + 1, daysRemaining: 0 }
                     : b
                 )
@@ -587,33 +591,34 @@ const App: React.FC = () => {
           }
           return p;
         });
-        
-      // Mostra toast de conclusão APENAS para o jogador
-      const buildingName = getBuildingName(completed.buildingType);
-      const dateString = formatGameDate(snapshot.date);
-      
-      if (province.owner === playerCountryTag) {
-        addToast(
-          `Construção de ${buildingName} finalizada em ${province.name}!`,
-          'success',
-          'Obra Concluída',
-          dateString
-        );
-      }
-      
-      // Registra no log da IA se a construção foi de um bot
-      if (province.owner !== playerCountryTag) {
-        const country = countries.find(c => c.tag === province.owner);
-        if (country) {
-          addAILog(
-            country.name,
-            'building',
-            `Construção de ${buildingName} concluída em ${province.name}`,
-            dateString,
-            country.color
+
+        // Mostra toast de conclusão APENAS para o jogador
+        const buildingName = getBuildingName(completed.buildingType);
+        const dateString = formatGameDate(snapshot.date);
+
+        if (province.owner === playerCountryTag) {
+          addToast(
+            `Construção de ${buildingName} finalizada em ${province.name}!`,
+            'success',
+            'Obra Concluída',
+            dateString
           );
         }
-      }      }
+
+        // Registra no log da IA se a construção foi de um bot
+        if (province.owner !== playerCountryTag) {
+          const country = countries.find(c => c.tag === province.owner);
+          if (country) {
+            addAILog(
+              country.name,
+              'building',
+              `Construção de ${buildingName} concluída em ${province.name}`,
+              dateString,
+              country.color
+            );
+          }
+        }
+      }
     }
 
     // ===== PASSO B: MOVIMENTAÇÃO =====
@@ -633,7 +638,7 @@ const App: React.FC = () => {
 
       const isInWar = wars.some(
         w => (w.attacker === arrived.owner && w.defender === province.owner) ||
-             (w.defender === arrived.owner && w.attacker === province.owner)
+          (w.defender === arrived.owner && w.attacker === province.owner)
       );
 
       if (province.owner !== arrived.owner && !isInWar) {
@@ -645,29 +650,29 @@ const App: React.FC = () => {
 
       if (enemies.length > 0) {
         console.log('⚔️ [COMBAT TRIGGERED AT]:', province.id);
-        
+
         // Verifica se já existe uma batalha ativa nesta província
         const existingBattle = activeBattles.find(b => b.provinceId === province.id);
-        
+
         if (!existingBattle) {
           // Coleta TODOS os exércitos atacantes (mesmo país do exército que chegou)
-          const attackerArmies = armies.filter(a => 
-            a.location === province.id && 
-            a.owner === arrived.owner && 
+          const attackerArmies = armies.filter(a =>
+            a.location === province.id &&
+            a.owner === arrived.owner &&
             !a.inCombat
           );
-          
+
           // Coleta TODOS os exércitos defensores (mesmo país do dono da província)
-          const defenderArmies = armies.filter(a => 
-            a.location === province.id && 
-            a.owner === province.owner && 
+          const defenderArmies = armies.filter(a =>
+            a.location === province.id &&
+            a.owner === province.owner &&
             !a.inCombat
           );
-          
+
           // Inicia nova batalha contínua com TODOS os exércitos
           const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, snapshot.date, battleId);
-          
+
           // Marca TODOS os exércitos participantes como em combate
           const participantIds = newBattle.participantArmyIds;
           armies = armies.map(a => {
@@ -676,14 +681,14 @@ const App: React.FC = () => {
             }
             return a;
           });
-          
+
           // Adiciona batalha à lista de batalhas ativas
           setActiveBattles(prev => [...prev, newBattle]);
-          
+
           addLog(`⚔️ Batalha iniciada em ${province.name}! Duração: ${newBattle.daysTotal} dias`);
           addLog(`   Atacantes: ${attackerArmies.length} exércitos (${attackerArmies.reduce((sum, a) => sum + calculateArmySize(a), 0)} tropas)`);
           addLog(`   Defensores: ${defenderArmies.length} exércitos (${defenderArmies.reduce((sum, a) => sum + calculateArmySize(a), 0)} tropas)`);
-          
+
           // Se o jogador está envolvido, mostra notificação
           if (arrived.owner === playerCountryTag || province.owner === playerCountryTag) {
             addToast(
@@ -699,10 +704,10 @@ const App: React.FC = () => {
         }
         continue;
       }
-      
+
       // Se não há inimigos, adiciona o exército normalmente
       armies = [...armies, arrived];
-      
+
       if (province.owner !== arrived.owner && isInWar) {
         const oldOwner = province.owner;
         provinces = provinces.map(p => {
@@ -717,7 +722,7 @@ const App: React.FC = () => {
           if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
           return c;
         });
-        
+
         // Cancela recrutamentos e construções na província ocupada
         const cancelResult = cancelProvinceActivities(
           province.id,
@@ -727,11 +732,11 @@ const App: React.FC = () => {
           buildingConstructions,
           provinces
         );
-        
+
         recruitments = cancelResult.recruitments;
         buildingConstructions = cancelResult.constructions;
         provinces = cancelResult.provinces;
-        
+
         addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
       }
     }
@@ -739,23 +744,23 @@ const App: React.FC = () => {
     // C.2: Verificação automática de combate em todas as províncias
     const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
     armies = autoCombatResult.armies;
-    
+
     // Usa as batalhas atualizadas (incluindo reforços adicionados)
     let currentActiveBattles = [...autoCombatResult.updatedBattles];
-    
+
     // Adiciona novas batalhas à lista de batalhas ativas
     if (autoCombatResult.newBattles.length > 0) {
       currentActiveBattles = [...currentActiveBattles, ...autoCombatResult.newBattles];
-      
+
       // Notifica o jogador sobre novas batalhas
       for (const newBattle of autoCombatResult.newBattles) {
         const province = provinces.find(p => p.id === newBattle.provinceId);
         const attacker = armies.find(a => a.id === newBattle.attackerArmyId);
         const defender = armies.find(a => a.id === newBattle.defenderArmyId);
-        
+
         if (province && attacker && defender) {
           addLog(`⚔️ Batalha iniciada em ${province.name}! Duração: ${newBattle.daysTotal} dias`);
-          
+
           if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
             addToast(
               `Batalha iniciada em ${province.name}! ${newBattle.daysTotal} dias de combate.`,
@@ -766,13 +771,13 @@ const App: React.FC = () => {
         }
       }
     }
-    
+
     // Notifica sobre reforços adicionados
     if (autoCombatResult.reinforcementsAdded.length > 0) {
       for (const reinforcement of autoCombatResult.reinforcementsAdded) {
         const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
         addLog(`⚔️ Reforço: ${reinforcement.armyOwner} enviou ${reinforcement.troops} tropas para ${reinforcement.provinceName} (lado ${sideLabel})`);
-        
+
         // Notifica o jogador se for seu exército
         if (reinforcement.armyOwner === playerCountryTag) {
           addToast(
@@ -787,32 +792,32 @@ const App: React.FC = () => {
     // C.3: Processa batalhas contínuas ativas
     const finishedBattles: ActiveBattle[] = [];
     const stillActiveBattles: ActiveBattle[] = [];
-    
+
     console.log(`📊 Processando ${currentActiveBattles.length} batalhas ativas`);
-    
+
     for (const battle of currentActiveBattles) {
       const province = provinces.find(p => p.id === battle.provinceId);
       const attacker = armies.find(a => a.id === battle.attackerArmyId);
       const defender = armies.find(a => a.id === battle.defenderArmyId);
-      
+
       if (!province || !attacker || !defender) {
         // Batalha inválida - não adiciona de volta
         console.warn(`⚠️ Batalha inválida removida: ${battle.id}`);
         continue;
       }
-      
+
       console.log(`⚙️ Processando batalha ${battle.id} em ${province.name}`);
-      
+
       // Processa um dia de batalha
       const result = processDailyBattle(battle, attacker, defender, province);
-      
+
       // Atualiza exércitos com tropas reduzidas
       armies = armies.map(a => {
         if (a.id === attacker.id) return result.attacker;
         if (a.id === defender.id) return result.defender;
         return a;
       });
-      
+
       // Verifica se a batalha terminou
       if (result.finished) {
         // Adiciona à lista de batalhas finalizadas
@@ -824,67 +829,67 @@ const App: React.FC = () => {
         console.log(`⏳ Batalha ${battle.id} continua - ${result.battle.daysRemaining} dias restantes`);
       }
     }
-    
+
     // Atualiza lista de batalhas ativas (apenas as que não terminaram)
     currentActiveBattles = stillActiveBattles;
     console.log(`📊 ${finishedBattles.length} batalhas finalizadas, ${stillActiveBattles.length} ainda ativas`);
-    
+
     // Finaliza batalhas concluídas
     if (finishedBattles.length > 0) {
       console.log(`🏁 Processando ${finishedBattles.length} batalhas finalizadas`);
     }
-    
+
     for (const finishedBattle of finishedBattles) {
       const province = provinces.find(p => p.id === finishedBattle.provinceId);
       const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
       const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
-      
+
       if (!province || !attacker || !defender) {
         console.warn(`⚠️ Batalha finalizada sem exércitos/província: ${finishedBattle.id}`);
         continue;
       }
-      
+
       console.log(`🏁 Finalizando batalha ${finishedBattle.id} em ${province.name}`);
       console.log(`   Atacante: ${attacker.owner} (${finishedBattle.attackerCurrentTroops} tropas restantes)`);
       console.log(`   Defensor: ${defender.owner} (${finishedBattle.defenderCurrentTroops} tropas restantes)`);
       console.log(`   Participantes: ${finishedBattle.participantArmyIds.length} exércitos`);
-      
+
       // Finaliza a batalha e obtém o resultado
       const { result: finalResult } = finalizeBattle(
         finishedBattle, attacker, defender, province, snapshot.date, armies
       );
-      
+
       console.log(`🏆 Vencedor: ${finalResult.winner === 'attacker' ? attacker.owner : defender.owner}`);
-      
+
       // 🔓 PROCESSA TODOS OS EXÉRCITOS PARTICIPANTES
       const participantIds = finishedBattle.participantArmyIds;
       console.log(`🔓 Processando ${participantIds.length} exércitos participantes: ${participantIds.join(', ')}`);
-      
+
       // Determina quais países são vencedores e perdedores
       const winnerSide = finalResult.winner;
       const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
       const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
-      
+
       // Calcula o novo estado dos exércitos ANTES de atualizar
       const updatedArmiesList = armies.map(army => {
         // Se não é participante, mantém como está
         if (!participantIds.includes(army.id)) {
           return army;
         }
-        
+
         // Se é participante, verifica se sobreviveu
         const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
-        
+
         if (!hasTroops) {
           // Exército foi eliminado - marca para remoção
           console.log(`💀 Exército ${army.id} (${army.owner}) foi eliminado`);
           return null;
         }
-        
+
         // Exército sobreviveu - libera do combate
         const isWinner = army.owner === winnerCountry;
         const isLoser = army.owner === loserCountry;
-        
+
         if (isWinner) {
           // Vencedor: permanece na província
           console.log(`✅ Exército ${army.id} (${army.owner}) venceu e permanece em ${province.name}`);
@@ -902,20 +907,20 @@ const App: React.FC = () => {
             return null;
           }
         }
-        
+
         return army;
       }).filter(Boolean) as Army[]; // Remove exércitos eliminados
-      
+
       console.log(`✅ EXÉRCITOS SALVOS: ${updatedArmiesList.filter(a => participantIds.includes(a.id)).length} exércitos mantidos com inCombat = false`);
-      
+
       // Atualiza o estado dos exércitos
       armies = updatedArmiesList;
       setArmies(updatedArmiesList);
-      
+
       // Atualiza guerras com baixas
       wars = wars.map(w => {
         if ((w.attacker === attacker.owner && w.defender === defender.owner) ||
-            (w.defender === attacker.owner && w.attacker === defender.owner)) {
+          (w.defender === attacker.owner && w.attacker === defender.owner)) {
           const isAttacker = w.attacker === attacker.owner;
           return {
             ...w,
@@ -925,50 +930,65 @@ const App: React.FC = () => {
         }
         return w;
       });
-      
+
       // Processa resultado (vencedor/perdedor)
       if (finalResult.winner === 'attacker') {
         // REGRA: A província só muda de dono se NÃO houver mais exércitos defensores
-        const remainingDefenders = armies.filter(a => 
-          a.location === province.id && 
-          a.owner === defender.owner && 
+        const remainingDefenders = armies.filter(a =>
+          a.location === province.id &&
+          a.owner === defender.owner &&
           !a.inCombat
         );
-        
+
         if (remainingDefenders.length === 0) {
           // Não há defensores restantes - província muda de dono
           const oldOwner = province.owner;
+
+          // 🏴 Verifica se o vencedor é REBELDE → devolve ao originalOwner
+          const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
+          const newProvinceOwner = rebelReturnOwner || attacker.owner;
+
           provinces = provinces.map(p => {
             if (p.id === province.id) {
               // Aplica unrest inicial na província conquistada
-              return applyConquestUnrest({ ...p, owner: attacker.owner }, snapshot.date);
+              const conqueredProvince = applyConquestUnrest({ ...p, owner: newProvinceOwner }, snapshot.date);
+              return {
+                ...conqueredProvince,
+                originalOwner: conqueredProvince.originalOwner || oldOwner,
+              };
             }
             return p;
           });
+
+          // Atualiza listas de províncias dos países
           countries = countries.map(c => {
-            if (c.tag === attacker.owner) return { ...c, provinces: [...c.provinces, province.id] };
+            if (c.tag === newProvinceOwner) return { ...c, provinces: [...c.provinces, province.id] };
             if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
             return c;
           });
-          
-        // 🧹 LIMPEZA AUTOMÁTICA: Usa a função cancelProvinceActivities
-        const cancelResult = cancelProvinceActivities(
-          province.id,
-          oldOwner,
-          attacker.owner,
-          recruitments,
-          buildingConstructions,
-          provinces
-        );
-        
-        recruitments = cancelResult.recruitments;
-        buildingConstructions = cancelResult.constructions;
-        provinces = cancelResult.provinces;          
-          const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: attacker.owner };
-          
-          addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+
+          // 🧹 LIMPEZA AUTOMÁTICA: Usa a função cancelProvinceActivities
+          const cancelResult = cancelProvinceActivities(
+            province.id,
+            oldOwner,
+            attacker.owner,
+            recruitments,
+            buildingConstructions,
+            provinces
+          );
+
+          recruitments = cancelResult.recruitments;
+          buildingConstructions = cancelResult.constructions;
+          provinces = cancelResult.provinces;
+          const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner };
+          if (rebelReturnOwner) {
+            const countryName = allCountries.find(c => c.tag === rebelReturnOwner)?.name || rebelReturnOwner;
+            addLog(`🏴 Rebeldes libertaram ${province.name}! Devolvida a ${countryName}!`);
+          } else {
+            addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+          }
           setBattleHistory(prev => [updatedFinalResult, ...prev]);
-          
+
           if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
             setBattleReport(updatedFinalResult);
             setIsPaused(true);
@@ -976,11 +996,11 @@ const App: React.FC = () => {
         } else {
           // Ainda há defensores - província NÃO muda de dono
           const updatedFinalResult = { ...finalResult, territoryChanged: false };
-          
+
           addLog(`🛡️ ${attacker.owner} venceu a batalha, mas ${defender.owner} ainda defende ${province.name}!`);
           addLog(`   Defensores restantes: ${remainingDefenders.length} exércitos`);
           setBattleHistory(prev => [updatedFinalResult, ...prev]);
-          
+
           if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
             setBattleReport(updatedFinalResult);
             setIsPaused(true);
@@ -989,7 +1009,7 @@ const App: React.FC = () => {
       } else {
         // Defensor venceu
         addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
-        
+
         // Log de recuo do atacante perdedor
         const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
         if (retreatProvince && finalResult.attacker.regiments.length > 0) {
@@ -997,15 +1017,15 @@ const App: React.FC = () => {
         } else {
           addLog(`💀 ${attacker.owner} aniquilado em ${province.name}`);
         }
-        
+
         setBattleHistory(prev => [finalResult, ...prev]);
-        
+
         if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
           setBattleReport(finalResult);
           setIsPaused(true);
         }
       }
-      
+
       // 🏆 APLICA MUDANÇAS DE ESTABILIDADE E PRESTÍGIO
       // Vencedor ganha prestígio
       countries = countries.map(c => {
@@ -1017,7 +1037,7 @@ const App: React.FC = () => {
         }
         return c;
       });
-      
+
       // Se houve conquista de província, aplica bônus/penalidade adicional
       if (finalResult.territoryChanged) {
         countries = countries.map(c => {
@@ -1030,7 +1050,7 @@ const App: React.FC = () => {
           return c;
         });
       }
-      
+
       // ✅ Verificação final: confirma que todos os sobreviventes foram liberados
       const survivingCount = participantIds.filter(id => {
         const army = updatedArmiesList.find(a => a.id === id);
@@ -1038,7 +1058,7 @@ const App: React.FC = () => {
       }).length;
       console.log(`✅ VERIFICAÇÃO: ${survivingCount}/${participantIds.length} exércitos sobreviventes liberados com inCombat = false`);
     }
-    
+
     // Atualiza estado de batalhas ativas
     setActiveBattles(currentActiveBattles);
     activeBattlesRef.current = currentActiveBattles;
@@ -1062,25 +1082,39 @@ const App: React.FC = () => {
     });
 
     // ===== PASSO D.5: AGITAÇÃO PROVINCIAL E REVOLTAS =====
-    const { updatedProvinces: provincesWithDecay, revoltedProvinces } = 
+    const { updatedProvinces: provincesWithDecay, revoltedProvinces } =
       processDailyUnrestDecay(provinces, snapshot.date, armies);
     provinces = provincesWithDecay;
-    
-    // Processa revoltas
+
+    // Processa revoltas com ACÚMULO de tropas (1.000 por ciclo)
     if (revoltedProvinces.length > 0) {
+      const revoltedProvIds = revoltedProvinces.map(p => p.id);
+      const rebelResult = processRebelAccumulation(provinces, armies, revoltedProvIds);
+
+      armies = rebelResult.updatedArmies;
+      provinces = rebelResult.updatedProvinces;
+
+      // Notificações de revolta
       for (const revoltedProv of revoltedProvinces) {
-        console.log(`🔥 Revolta estourou em ${revoltedProv.name}! Tropas rebeldes surgiram.`);
-        addLog(`🔥 Revolta estourou em ${revoltedProv.name}!`);
+        console.log(`🔥 Revolta em ${revoltedProv.name}! Rebeldes acumulando forças.`);
+        addLog(`🔥 Revolta em ${revoltedProv.name}! Rebeldes acumulando forças.`);
         addToast(
-          `Revolta em ${revoltedProv.name}! Exército rebelde surgido.`,
+          `Revolta em ${revoltedProv.name}! Rebeldes acumulando forças.`,
           'error',
           'Revolta!'
         );
-        
-        // Cria exército rebelde
-        const rebelArmy = createRebelArmy(revoltedProv);
-        armies = [...armies, rebelArmy];
       }
+
+      // Notificações de ativação separatista (5.000 tropas)
+      rebelResult.notifications.forEach(notif => {
+        addToast(notif, 'warning', 'Separatismo Ativado');
+        addLog(notif);
+      });
+
+      // Logs no console
+      rebelResult.logs.forEach(log => {
+        console.log(log);
+      });
     }
 
     // ===== PASSO D.6: PAZ AUTOMÁTICA POR ANEXAÇÃO TOTAL =====
@@ -1088,18 +1122,18 @@ const App: React.FC = () => {
     const countriesWithoutProvinces = countries.filter(c => {
       // Ignora países já marcados como anexados
       if (c.isAnnexed) return false;
-      
+
       const ownedProvinces = provinces.filter(p => p.owner === c.tag);
       return ownedProvinces.length === 0 && c.tag !== playerCountryTag;
     });
-    
+
     if (countriesWithoutProvinces.length > 0) {
       for (const defeatedCountry of countriesWithoutProvinces) {
         // Marca o país como anexado para NÃO processar novamente
-        countries = countries.map(c => 
+        countries = countries.map(c =>
           c.tag === defeatedCountry.tag ? { ...c, isAnnexed: true } : c
         );
-        
+
         console.log(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
         addLog(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
         addToast(
@@ -1107,14 +1141,14 @@ const App: React.FC = () => {
           'warning',
           'Anexação Total'
         );
-        
+
         // Encerra todas as guerras envolvendo este país
-        wars = wars.filter(w => 
+        wars = wars.filter(w =>
           w.attacker !== defeatedCountry.tag && w.defender !== defeatedCountry.tag
         );
-        
+
         // Remove relações diplomáticas
-        relations = relations.filter(r => 
+        relations = relations.filter(r =>
           r.countryA !== defeatedCountry.tag && r.countryB !== defeatedCountry.tag
         );
       }
@@ -1126,21 +1160,21 @@ const App: React.FC = () => {
     // ===== PASSO E.5: TECNOLOGIAS E FOCOS =====
     // Usa a ref para garantir que está usando o estado mais recente (não o estado do React que pode estar desatualizado)
     let currentPlayerTechState = playerTechStateRef.current;
-    
+
     // Processa progresso de tecnologias do jogador
     const playerCountry = countries.find(c => c?.tag === playerCountryTag);
     if (currentPlayerTechState && playerCountry) {
       const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry, aiDifficultyRef.current, true);
       currentPlayerTechState = playerTechResult.techState;
-      
+
       // Atualiza a ref imediatamente com o novo estado
       playerTechStateRef.current = currentPlayerTechState;
-      
+
       if (playerTechResult.notifications?.length > 0) {
         const dateString = formatGameDate(snapshot.date);
         playerTechResult.notifications.forEach(notif => {
           addLog(notif);
-          
+
           // Dispara toast para conclusões
           if (notif.includes('Foco concluído')) {
             addToast(notif.replace('✅ ', ''), 'success', 'Foco Concluído', dateString);
@@ -1159,13 +1193,13 @@ const App: React.FC = () => {
         if (botTechState) {
           const botTechResult = processDailyTechProgress(botTechState, country, aiDifficultyRef.current, false);
           currentBotTechStates.set(country.tag, botTechResult.techState);
-          
+
           // Registra notificações de conclusão no log da IA (apenas quando conclui, não diariamente)
           if (botTechResult.notifications?.length > 0) {
             const dateString = formatGameDate(snapshot.date);
             botTechResult.notifications.forEach(notif => {
               addLog(`🤖 ${country.name}: ${notif}`);
-              
+
               // Registra no log da IA
               if (notif.includes('Foco concluído')) {
                 const focusTitle = notif.replace('✅ Foco concluído: ', '');
@@ -1191,7 +1225,7 @@ const App: React.FC = () => {
         }
       }
     });
-    
+
     // Atualiza a ref dos bots imediatamente
     botTechStatesRef.current = currentBotTechStates;
 
@@ -1206,7 +1240,7 @@ const App: React.FC = () => {
     // Para cada bot ativo, processa decisões econômicas e movimentação militar
     const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
     const dateString = formatGameDate(snapshot.date);
-    
+
     activeBots.forEach((country: Country) => {
       // G.1: Decisões Econômicas (construir, recrutar, pesquisar, focos)
       const botTechState = currentBotTechStates.get(country.tag);
@@ -1219,13 +1253,13 @@ const App: React.FC = () => {
           recruitments,
           dateString
         );
-        
+
         // Atualiza estados
         countries = countries.map(c => c.tag === country.tag ? economicResult.country : c);
         currentBotTechStates.set(country.tag, economicResult.techState);
         buildingConstructions = economicResult.buildingConstructions;
         recruitments = economicResult.recruitments;
-        
+
         // Registra logs da IA
         economicResult.logs.forEach((log: { actionType: 'building' | 'military' | 'tech' | 'focus'; message: string }) => {
           addAILog(
@@ -1237,12 +1271,12 @@ const App: React.FC = () => {
           );
         });
       }
-      
+
       // G.2: Movimentação Militar
       const armiesBefore = armies.filter(a => a.owner === country.tag);
       armies = processAI(country.tag, armies, provinces, relations, wars);
       const armiesAfter = armies.filter(a => a.owner === country.tag);
-      
+
       // Registra no log da IA se algum exército se moveu
       armiesAfter.forEach(armyAfter => {
         const armyBefore = armiesBefore.find(a => a.id === armyAfter.id);
@@ -1261,32 +1295,32 @@ const App: React.FC = () => {
         }
       });
     });
-    
+
     // Atualiza a ref dos bots com as novas decisões econômicas
     botTechStatesRef.current = currentBotTechStates;
 
     // ===== PASSO H: FUSÃO AUTOMÁTICA DE EXÉRCITOS DA IA =====
     // Fusão física de exércitos da mesma nação na mesma província
     const armiesToMerge = new Map<string, Army[]>(); // provinceId -> armies
-    
+
     // Agrupa exércitos da IA por província
     for (const army of armies) {
       if (army.owner === playerCountryTag) continue; // Ignora exércitos do jogador
       if (!army.location) continue;
-      
+
       const key = `${army.owner}_${army.location}`;
       if (!armiesToMerge.has(key)) {
         armiesToMerge.set(key, []);
       }
       armiesToMerge.get(key)!.push(army);
     }
-    
+
     // Funde exércitos quando há 2+ na mesma província
     for (const [key, armiesInProvince] of armiesToMerge) {
       if (armiesInProvince.length < 2) continue;
-      
+
       const [primaryArmy, ...secondaryArmies] = armiesInProvince;
-      
+
       // Soma todos os regimentos dos exércitos secundários ao primário
       const mergedRegiments = [...primaryArmy.regiments];
       for (const secondaryArmy of secondaryArmies) {
@@ -1301,31 +1335,36 @@ const App: React.FC = () => {
           }
         }
       }
-      
+
       // Atualiza o exército primário com os regimentos fundidos
       const updatedPrimaryArmy = {
         ...primaryArmy,
         regiments: mergedRegiments,
         targetArmyId: null // Limpa target lock após fusão
       };
-      
+
       // Remove exércitos secundários e atualiza o primário
       const secondaryIds = secondaryArmies.map(a => a.id);
       armies = armies.filter(a => !secondaryIds.includes(a.id));
       armies = armies.map(a => a.id === primaryArmy.id ? updatedPrimaryArmy : a);
-      
+
       console.log(`🔀 [MERGE] ${primaryArmy.owner} fundiu ${secondaryArmies.length + 1} exércitos em ${primaryArmy.location}`);
     }
+
+
+    // ===== PASSO H.5: IA SEPARATISTA (REBELDES EM MARCHA DE RECONQUISTA) =====
+    armies = processSeparatistAI(armies, provinces, relations);
+
 
     // ===== PASSO I: VERIFICA CONDIÇÕES DE FIM DE JOGO =====
     if (!hasTriggeredEndGame) {
       const playerCountryData = countries.find(c => c.tag === playerCountryTag);
       if (playerCountryData) {
         const endGameResult = checkEndGameConditions(playerCountryData, provinces);
-        
+
         if (endGameResult !== null) {
           console.log(`🏁 FIM DE JOGO DETECTADO: ${endGameResult.toUpperCase()}`);
-          
+
           // Calcula estatísticas da partida
           const stats = calculateGameStats(
             { year: 1444, month: 11, day: 11 }, // Data inicial
@@ -1334,12 +1373,12 @@ const App: React.FC = () => {
             playerCountryTag,
             provinces
           );
-          
+
           setEndGameType(endGameResult);
           setGameStats(stats);
           setHasTriggeredEndGame(true);
           setIsPaused(true);
-          
+
           addLog(`🏁 ${endGameResult === 'victory' ? 'VITÓRIA!' : 'DERROTA!'} Jogo encerrado.`);
         }
       }
@@ -1481,7 +1520,7 @@ const App: React.FC = () => {
   const handleCancelBuilding = useCallback(
     (constructionId: string) => {
       const result = cancelBuilding(constructionId, buildingConstructions, playerCountry.resources.gold);
-      
+
       setBuildingConstructions(result.updatedConstructions);
       setAllCountries((prev) =>
         prev.map((c) =>
@@ -1490,7 +1529,7 @@ const App: React.FC = () => {
             : c
         )
       );
-      
+
       if (result.refundedGold > 0) {
         addToast(
           `Construção cancelada. +${result.refundedGold} Ouro reembolsado!`,
@@ -1509,7 +1548,7 @@ const App: React.FC = () => {
   const handleRecruit = useCallback(
     (provinceId: string, unitType: UnitType) => {
       console.log('🎯 handleRecruit chamado:', { provinceId, unitType });
-      
+
       const province = provinces.find((p) => p.id === provinceId);
       if (!province || province.owner !== playerCountryTag) {
         console.log('❌ Província inválida ou não pertence ao jogador');
@@ -1517,12 +1556,12 @@ const App: React.FC = () => {
       }
 
       const costs = getRecruitmentCost(unitType);
-      
+
       // Aplica multiplicador de custo do exército baseado na lei de recrutamento
       const conscriptionLaw = LAWS[playerCountry.activeLaws?.conscription || 'conscription_peacetime'];
       const armyCostMultiplier = conscriptionLaw?.bonuses.armyCostMultiplier ?? 1.0;
       const adjustedGoldCost = Math.floor(costs.gold * armyCostMultiplier);
-      
+
       console.log('💰 Custos:', costs);
       console.log('💰 Custo ajustado (lei):', adjustedGoldCost);
       console.log('💰 Recursos atuais:', { gold: playerCountry.resources.gold, manpower: playerCountry.resources.manpower });
@@ -1544,13 +1583,13 @@ const App: React.FC = () => {
         prev.map((c) =>
           c.tag === playerCountryTag
             ? {
-                ...c,
-                resources: {
-                  ...c.resources,
-                  gold: c.resources.gold - adjustedGoldCost,
-                  manpower: c.resources.manpower - costs.manpower,
-                },
-              }
+              ...c,
+              resources: {
+                ...c.resources,
+                gold: c.resources.gold - adjustedGoldCost,
+                manpower: c.resources.manpower - costs.manpower,
+              },
+            }
             : c
         )
       );
@@ -1560,9 +1599,9 @@ const App: React.FC = () => {
         // Verifica se já existe um recrutamento idêntico
         const existingRecruitment = prev.find(
           r => r.owner === playerCountryTag &&
-               r.provinceId === provinceId &&
-               r.unitType === unitType &&
-               r.daysRemaining === costs.days
+            r.provinceId === provinceId &&
+            r.unitType === unitType &&
+            r.daysRemaining === costs.days
         );
 
         if (existingRecruitment) {
@@ -1609,12 +1648,12 @@ const App: React.FC = () => {
         prev.map((c) =>
           c.tag === playerCountryTag
             ? {
-                ...c,
-                resources: {
-                  ...c.resources,
-                  gold: result.newGold,
-                },
-              }
+              ...c,
+              resources: {
+                ...c.resources,
+                gold: result.newGold,
+              },
+            }
             : c
         )
       );
@@ -1798,13 +1837,13 @@ const App: React.FC = () => {
     if (!diplomacyTarget) return;
     if (playerCountry.resources.gold < DIPLOMATIC_COSTS.improve_relations.gold) return;
 
-    setAllCountries(prev => prev.map(c => 
-      c.tag === playerCountryTag 
+    setAllCountries(prev => prev.map(c =>
+      c.tag === playerCountryTag
         ? { ...c, resources: { ...c.resources, gold: c.resources.gold - DIPLOMATIC_COSTS.improve_relations.gold } }
         : c
     ));
 
-    setDiplomaticRelations(prev => 
+    setDiplomaticRelations(prev =>
       improveRelations(prev, playerCountryTag, diplomacyTarget, DIPLOMATIC_COSTS.improve_relations.opinionChange)
     );
 
@@ -1818,13 +1857,13 @@ const App: React.FC = () => {
     if (!diplomacyTarget) return;
     if (playerCountry.resources.gold < DIPLOMATIC_COSTS.offer_non_aggression.gold) return;
 
-    setAllCountries(prev => prev.map(c => 
-      c.tag === playerCountryTag 
+    setAllCountries(prev => prev.map(c =>
+      c.tag === playerCountryTag
         ? { ...c, resources: { ...c.resources, gold: c.resources.gold - DIPLOMATIC_COSTS.offer_non_aggression.gold } }
         : c
     ));
 
-    setDiplomaticRelations(prev => 
+    setDiplomaticRelations(prev =>
       offerNonAggressionPact(prev, playerCountryTag, diplomacyTarget, 365)
     );
 
@@ -1872,7 +1911,7 @@ const App: React.FC = () => {
       // Atualiza AMBOS: estado React E a ref imediatamente
       setPlayerTechState(updatedTechState);
       playerTechStateRef.current = updatedTechState;
-      
+
       const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
       if (focus) {
         addLog(`🎯 Foco iniciado: ${focus.title}`);
@@ -1904,19 +1943,19 @@ const App: React.FC = () => {
       techId,
       playerCountry
     );
-    
+
     if (updatedTechState) {
       // Deduz o custo da pesquisa
-      setAllCountries(prev => prev.map(c => 
+      setAllCountries(prev => prev.map(c =>
         c?.tag === playerCountryTag
           ? { ...c, resources: { ...c.resources, gold: c.resources.gold - cost } }
           : c
       ));
-      
+
       // Atualiza AMBOS: estado React E a ref imediatamente
       setPlayerTechState(updatedTechState);
       playerTechStateRef.current = updatedTechState;
-      
+
       addLog(`🔬 Pesquisa iniciada: ${tech.title} (💰 ${cost})`);
     }
   }, [playerTechState, playerCountry, playerCountryTag, addLog]);
@@ -1943,16 +1982,16 @@ const App: React.FC = () => {
    */
   const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
     const result = retreatArmyManually(armyId, battleId, armies, activeBattles, provinces);
-    
+
     if (result.retreatSuccess) {
       setArmies(result.armies);
       setActiveBattles(result.activeBattles);
       activeBattlesRef.current = result.activeBattles;
-      
+
       const army = armies.find(a => a.id === armyId);
       const battle = activeBattles.find(b => b.id === battleId);
       const province = provinces.find(p => p.id === battle?.provinceId);
-      
+
       if (army && province) {
         addLog(`🏃 ${army.owner} recuou exército de ${province.name}`);
         addToast(
@@ -1961,7 +2000,7 @@ const App: React.FC = () => {
           'Recuo Manual'
         );
       }
-      
+
       if (result.battleEnded) {
         const winnerSide = result.winner === 'attacker' ? 'Atacante' : 'Defensor';
         addLog(`🏁 Batalha finalizada - ${winnerSide} venceu por recuo total do oponente`);
@@ -1989,7 +2028,7 @@ const App: React.FC = () => {
 
     // Usa a função do motor militar
     const updatedArmy = stopArmyMovement(army);
-    
+
     // Se o exército não mudou, não faz nada
     if (updatedArmy === army) {
       addToast(
@@ -2002,10 +2041,10 @@ const App: React.FC = () => {
 
     // Atualiza o exército no estado
     setArmies(prev => prev.map(a => a.id === armyId ? updatedArmy : a));
-    
+
     const province = provinces.find(p => p.id === army.location);
     const provinceName = province?.name || 'província desconhecida';
-    
+
     addLog(`🛑 Exército parou em ${provinceName}`);
     addToast(
       `Exército parou em ${provinceName}`,
@@ -2044,16 +2083,16 @@ const App: React.FC = () => {
       prev.map((c) =>
         c.tag === playerCountryTag
           ? {
-              ...c,
-              resources: {
-                ...c.resources,
-                gold: c.resources.gold - law.costGold,
-              },
-              activeLaws: {
-                ...c.activeLaws,
-                [category]: lawId,
-              },
-            }
+            ...c,
+            resources: {
+              ...c.resources,
+              gold: c.resources.gold - law.costGold,
+            },
+            activeLaws: {
+              ...c.activeLaws,
+              [category]: lawId,
+            },
+          }
           : c
       )
     );
@@ -2220,13 +2259,13 @@ const App: React.FC = () => {
 
               {/* === Ação: Recuo Manual (apenas em combate) === */}
               {selectedArmyData.inCombat && selectedArmyData.owner === playerCountryTag && (() => {
-                const battle = activeBattles.find(b => 
-                  b.provinceId === selectedArmyData.location && 
+                const battle = activeBattles.find(b =>
+                  b.provinceId === selectedArmyData.location &&
                   b.participantArmyIds.includes(selectedArmyData.id)
                 );
-                
+
                 if (!battle) return null;
-                
+
                 return (
                   <div className="army-info-panel__actions-section">
                     <strong>🏃 Recuo Manual:</strong>
@@ -2296,9 +2335,8 @@ const App: React.FC = () => {
                   {selectedArmyData.regiments.map((reg, i) => (
                     <button
                       key={i}
-                      className={`split-modal__regiment-btn ${
-                        splitSelection.has(i) ? 'split-modal__regiment-btn--selected' : ''
-                      }`}
+                      className={`split-modal__regiment-btn ${splitSelection.has(i) ? 'split-modal__regiment-btn--selected' : ''
+                        }`}
                       onClick={() => toggleSplitRegiment(i)}
                     >
                       <span className="split-modal__regiment-icon">
@@ -2356,7 +2394,7 @@ const App: React.FC = () => {
             playerCountry={playerCountry}
             relation={diplomaticRelations.find(
               r => (r.countryA === playerCountryTag && r.countryB === diplomacyTarget) ||
-                   (r.countryB === playerCountryTag && r.countryA === diplomacyTarget)
+                (r.countryB === playerCountryTag && r.countryA === diplomacyTarget)
             ) || null}
             onClose={handleCloseDiplomacy}
             onImproveRelations={handleImproveRelations}
