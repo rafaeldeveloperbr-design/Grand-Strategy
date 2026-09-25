@@ -32,8 +32,13 @@ export const WarPanel: React.FC<WarPanelProps> = ({
     w => w.attacker === playerCountry.tag || w.defender === playerCountry.tag
   );
 
-  const getCountryByTag = (tag: string): Country | undefined => {
-    return allCountries.find(c => c.tag === tag);
+    const getCountryByTag = (tag: string): Country | undefined => {
+    const found = allCountries.find(c => c.tag === tag);
+    if (found) return found;
+    if (tag.startsWith('rebel_')) {
+      return { tag, name: 'Exército Rebelde', flag: '🏴‍️', color: '#808080' } as Country;
+    }
+    return undefined;
   };
 
   const formatDate = (date: { year: number; month: number; day: number }): string => {

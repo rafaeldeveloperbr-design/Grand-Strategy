@@ -42,7 +42,7 @@ import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import { applyStabilityPrestigeChanges } from './engine/stability';
 import { processDailyUnrestDecay, createRebelArmy, applyConquestUnrest } from './engine/unrest';
-import { processRebelAccumulation, processSeparatistAI, checkRebelTerritoryReturn } from './engine/rebellions';
+import { processRebelAccumulation, processSeparatistAI, checkRebelTerritoryReturn, ensureSeparatistWars } from './engine/rebellions';
 import {
   processDailyTechProgress,
   startNationalFocus,
@@ -1431,6 +1431,23 @@ const App: React.FC = () => {
     }
     setActiveBattles(currentActiveBattles);
     activeBattlesRef.current = currentActiveBattles;
+
+
+     // ===== PASSO H.7: GUERRA AUTOMÁTICA DOS SEPARATISTAS =====
+    const warResult = ensureSeparatistWars(armies, provinces, wars, relations, snapshot.date);
+    if (warResult.newConflicts.length > 0) {
+      wars = warResult.wars;
+      relations = warResult.relations;
+      for (const conflict of warResult.newConflicts) {
+        console.log(`📯 GUERRA DE RECONQUISTA DECLARADA: ${conflict}`);
+        addLog(`📯 Guerra de Reconquista: ${conflict}!`);
+      }
+      addToast(
+        '⚠️ Rebeldes separatistas declararam guerra de reconquista!',
+        'warning',
+        'Guerra Declarada'
+      );
+    }
 
 
     // ===== PASSO I: VERIFICA CONDIÇÕES DE FIM DE JOGO =====

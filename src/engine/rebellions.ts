@@ -10,9 +10,11 @@
  * - Ao completar a reconquista: integrado ao exército nacional
  */
 
-import { Army, Province } from '../types';
+import { Army, Province, GameDate } from '../types';
+import { DiplomaticRelation, War } from '../types/diplomacy';
 import { createRegiment } from './military';
 import { getCountryByTag } from '../data/countries';
+import { declareWar } from './diplomacy';
 
 export const REBEL_ACCUMULATION_RATE = 1000;
 export const SEPARATIST_THRESHOLD = 5000;
@@ -489,4 +491,58 @@ export function checkRebelTerritoryReturn(winnerArmy: Army): string | null {
     return winnerArmy.originalOwner;
   }
   return null;
+}
+
+
+/**
+ * ============================================================
+ * GUERRA AUTOMÁTICA DOS SEPARATISTAS
+ * ============================================================
+ * Quando um rebelde ativa o modo separatista, declara guerra
+ * contra TODOS os países que ocupam províncias históricas dele.
+ * Usa declareWar() para garantir que o objeto War seja criado
+ * com todos os campos obrigatórios da interface.
+ */
+export function ensureSeparatistWars(
+  armies: Army[],
+  provinces: Province[],
+  wars: War[],
+  relations: DiplomaticRelation[],
+  currentDate: GameDate
+): { wars: War[]; relations: DiplomaticRelation[]; newConflicts: string[] } {
+  let currentWars = [...wars];
+  let currentRelations = [...relations];
+  const newConflicts: string[] = [];
+
+  const separatists = armies.filter(
+    a => isRebelArmy(a) && a.separatistMode === true && a.originalOwner
+  );
+
+  for (const rebel of separatists) {
+    // Países que ocupam território histórico deste rebelde
+    const occupiers = Array.from(new Set(
+      provinces
+        .filter(p => p.originalOwner === rebel.originalOwner && p.owner !== rebel.originalOwner)
+        .map(p => p.owner)
+    ));
+
+    for (const occupier of occupiers) {
+      // Evita duplicar guerra
+      const exists = currentWars.some(w =>
+        (w.attacker === rebel.owner && w.defender === occupier) ||
+        (w.defender === rebel.owner && w.attacker === occupier)
+      );
+      if (exists) continue;
+
+      // ✅ Usa a função oficial do jogo para declarar guerra
+      //    (cria o War completo + relação diplomática 'war')
+      const result = declareWar(currentRelations, currentWars, rebel.owner, occupier, currentDate);
+      currentWars = result.wars;
+      currentRelations = result.relations;
+
+      newConflicts.push(`${rebel.name} ⚔️ ${occupier}`);
+    }
+  }
+
+  return { wars: currentWars, relations: currentRelations, newConflicts };
 }
