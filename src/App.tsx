@@ -1084,14 +1084,22 @@ const App: React.FC = () => {
     }
 
     // ===== PASSO D.6: PAZ AUTOMÁTICA POR ANEXAÇÃO TOTAL =====
-    // Verifica se algum país perdeu todas as províncias
+    // Verifica se algum país perdeu todas as províncias (e ainda não foi marcado como anexado)
     const countriesWithoutProvinces = countries.filter(c => {
+      // Ignora países já marcados como anexados
+      if (c.isAnnexed) return false;
+      
       const ownedProvinces = provinces.filter(p => p.owner === c.tag);
       return ownedProvinces.length === 0 && c.tag !== playerCountryTag;
     });
     
     if (countriesWithoutProvinces.length > 0) {
       for (const defeatedCountry of countriesWithoutProvinces) {
+        // Marca o país como anexado para NÃO processar novamente
+        countries = countries.map(c => 
+          c.tag === defeatedCountry.tag ? { ...c, isAnnexed: true } : c
+        );
+        
         console.log(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
         addLog(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
         addToast(

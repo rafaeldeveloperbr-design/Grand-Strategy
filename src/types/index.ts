@@ -106,6 +106,8 @@ export interface Country {
     taxation: string;
     governance: string;
   };
+  /** Indica se o país já foi totalmente anexado (para evitar processamento repetido) */
+  isAnnexed?: boolean;
 }
 
 /**
