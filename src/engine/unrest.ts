@@ -15,11 +15,14 @@ export const UNREST_BALANCE = {
   /** Unrest inicial ao conquistar província (0-100) */
   INITIAL_UNREST_ON_CONQUEST: 50,
   
-  /** Decaimento diário natural de unrest (reduz por dia) */
-  DAILY_DECAY_RATE: 0.2,
+  /** Crescimento diário natural de unrest (aumenta por dia) */
+  DAILY_GROWTH_RATE: 0.3,
   
   /** Bônus de pacificação por Templo (reduz unrest por dia) */
   TEMPLE_PACIFICATION_BONUS: 0.5,
+  
+  /** Bônus de pacificação por guarnição/exército estacionado (reduz unrest por dia) */
+  GARRISON_PACIFICATION_BONUS: 0.3,
   
   /** Threshold para revolta (unrest >= 100) */
   REVOLT_THRESHOLD: 100,
@@ -82,11 +85,13 @@ export function createRebelArmy(province: Province): Army {
 }
 
 /**
- * Processa decaimento diário de unrest em todas as províncias
+ * Processa crescimento diário de unrest em todas as províncias
+ * Unrest AUMENTA naturalmente, só DIMINUI com moderadores (Templo, Guarnição)
  */
 export function processDailyUnrestDecay(
   provinces: Province[],
-  currentDate: GameDate
+  currentDate: GameDate,
+  armies: Army[]
 ): {
   updatedProvinces: Province[];
   revoltedProvinces: Province[];
@@ -103,18 +108,29 @@ export function processDailyUnrestDecay(
       continue;
     }
     
-    // Calcula bônus de pacificação baseado em edifícios
-    let pacificationBonus = 0;
+    // Unrest AUMENTA naturalmente por dia
+    let change = UNREST_BALANCE.DAILY_GROWTH_RATE;
     
+    // Calcula bônus de pacificação baseado em edifícios
     // Templo reduz unrest
     const temple = province.buildings.find(b => b.type === 'temple');
     if (temple) {
-      pacificationBonus += UNREST_BALANCE.TEMPLE_PACIFICATION_BONUS * temple.level;
+      change -= UNREST_BALANCE.TEMPLE_PACIFICATION_BONUS * temple.level;
     }
     
-    // Aplica decaimento diário
-    const totalDecay = UNREST_BALANCE.DAILY_DECAY_RATE + pacificationBonus;
-    unrest = Math.max(0, unrest - totalDecay);
+    // Verifica se há guarnição/exército estacionado na província
+    const hasGarrison = armies.some(army => 
+      army.location === province.id && 
+      army.owner === province.owner &&
+      !army.inCombat // Exército não está em combate
+    );
+    
+    if (hasGarrison) {
+      change -= UNREST_BALANCE.GARRISON_PACIFICATION_BONUS;
+    }
+    
+    // Aplica mudança de unrest (pode ser positivo ou negativo)
+    unrest = Math.min(100, Math.max(0, unrest + change));
     
     // Verifica se houve revolta
     if (unrest >= UNREST_BALANCE.REVOLT_THRESHOLD) {

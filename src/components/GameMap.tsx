@@ -502,7 +502,7 @@ export const GameMap: React.FC<MapProps> = ({
                 };
                 
                 // Determina se precisa de animação pulsante
-                const needsPulse = unrest >= 60;
+                const needsPulse = unrest >= 50;
                 const isCritical = unrest >= 80;
                 
                 return (

@@ -1063,7 +1063,7 @@ const App: React.FC = () => {
 
     // ===== PASSO D.5: AGITAÇÃO PROVINCIAL E REVOLTAS =====
     const { updatedProvinces: provincesWithDecay, revoltedProvinces } = 
-      processDailyUnrestDecay(provinces, snapshot.date);
+      processDailyUnrestDecay(provinces, snapshot.date, armies);
     provinces = provincesWithDecay;
     
     // Processa revoltas
