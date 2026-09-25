@@ -35,7 +35,7 @@ import {
   generateRecruitmentId,
   cancelRecruitment,
 } from './engine/military';
-import { resolveBattle, calculateArmySize, checkAllProvinceCombats } from './engine/combat';
+import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import {
@@ -675,6 +675,29 @@ const App: React.FC = () => {
             setIsPaused(true);
           }
         } else {
+          // Defensor venceu - aplica recuo tático ou aniquilação por cerco
+          const loserArmy = result.attacker; // Atacante perdeu
+          const loserOwner = arrived.owner;
+          
+          // Verifica se há rota de fuga para províncias próprias
+          const retreatProvince = findRetreatProvince(loserOwner, province, provinces);
+          
+          if (retreatProvince) {
+            // Recuo tático - move exército para província própria vizinha
+            if (loserArmy.regiments.length > 0) {
+              armies = [...armies, { ...loserArmy, location: retreatProvince.id }];
+              console.log(`🏃 Recuo tático: ${loserOwner} recuou para ${retreatProvince.name}`);
+              addLog(`🏃 ${loserOwner} recuou para ${retreatProvince.name} após derrota`);
+            }
+          } else {
+            // Cerco - aniquilação total
+            const annihilatedArmy = applySiegeAnnihilation(loserArmy);
+            // Não adiciona o exército aniquilado de volta ao mapa
+            console.log(`💀 ${loserOwner} foi aniquilado por cerco em ${province.name}`);
+            addLog(`💀 ${loserOwner} aniquilado por cerco em ${province.name}`);
+          }
+          
+          // Defensor vencedor permanece na província
           if (result.defender.regiments.length > 0) {
             armies = [...armies, { ...result.defender, location: arrived.location }];
           }

@@ -33,14 +33,18 @@ const COMBAT_BALANCE = {
   TERRITORIAL_DEFENSE_BONUS: 1.25,
   /** Bônus por nível de fortificação (+10% por nível) */
   FORTIFICATION_BONUS_PER_LEVEL: 0.10,
-  /** Perda mínima do vencedor (3%) */
-  MIN_WINNER_LOSS_PERCENT: 0.03,
-  /** Constante para cálculo de perdas do vencedor */
-  WINNER_LOSS_CONSTANT: 0.35,
-  /** Perda do perdedor - mínimo (50%) */
-  LOSER_LOSS_MIN: 0.50,
-  /** Perda do perdedor - máximo (70%) */
-  LOSER_LOSS_MAX: 0.70,
+  /** Tropas por dia de batalha (2000 tropas = 1 dia) */
+  TROOPS_PER_BATTLE_DAY: 2000,
+  /** Perda do vencedor - mínimo (10%) */
+  WINNER_LOSS_MIN: 0.10,
+  /** Perda do vencedor - máximo (30%) */
+  WINNER_LOSS_MAX: 0.30,
+  /** Perda do perdedor - mínimo (30%) */
+  LOSER_LOSS_MIN: 0.30,
+  /** Perda do perdedor - máximo (60%) */
+  LOSER_LOSS_MAX: 0.60,
+  /** Perda total em caso de cerco (100%) */
+  SIEGE_LOSS_PERCENT: 1.0,
 };
 
 /**
@@ -130,12 +134,37 @@ export function calculateDefenderTotalPower(
 }
 
 /**
- * Calcula as perdas do vencedor baseado no ratio de poder
- * Fórmula: percentualPerdas = max(3%, 35% / ratio)
+ * Calcula a duração da batalha em dias baseado no total de tropas
+ * Fórmula: (Tropas do Atacante + Tropas do Defensor) / 2000
+ * Mínimo: 1 dia
  */
-function calculateWinnerLossPercent(powerRatio: number): number {
-  const lossPercent = COMBAT_BALANCE.WINNER_LOSS_CONSTANT / powerRatio;
-  return Math.max(COMBAT_BALANCE.MIN_WINNER_LOSS_PERCENT, lossPercent);
+function calculateBattleDuration(attackerSize: number, defenderSize: number): number {
+  const totalTroops = attackerSize + defenderSize;
+  return Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
+}
+
+/**
+ * Calcula as perdas do vencedor baseado na duração da batalha
+ * Vencedor perde entre 10% e 30% das tropas
+ */
+function calculateWinnerLosses(winnerSize: number, battleDays: number): number {
+  // Perdas aumentam com a duração da batalha
+  const lossPercent = COMBAT_BALANCE.WINNER_LOSS_MIN + 
+    ((COMBAT_BALANCE.WINNER_LOSS_MAX - COMBAT_BALANCE.WINNER_LOSS_MIN) * (battleDays / 10));
+  const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.WINNER_LOSS_MAX);
+  return Math.floor(winnerSize * cappedLossPercent);
+}
+
+/**
+ * Calcula as perdas do perdedor baseado na duração da batalha
+ * Perdedor perde entre 30% e 60% das tropas
+ */
+function calculateLoserLosses(loserSize: number, battleDays: number): number {
+  // Perdas aumentam com a duração da batalha
+  const lossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
+    ((COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN) * (battleDays / 10));
+  const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.LOSER_LOSS_MAX);
+  return Math.floor(loserSize * cappedLossPercent);
 }
 
 /**
@@ -171,7 +200,8 @@ function distributeLosses(army: Army, totalLoss: number): Army {
 }
 
 /**
- * Resolve uma batalha completa usando o Método de Atrito Absoluto
+ * Resolve uma batalha completa usando o Sistema de Combate Prolongado
+ * Duração baseada no total de tropas, com recuo tático e regra de cerco
  */
 export function resolveBattle(
   attacker: Army,
@@ -189,6 +219,9 @@ export function resolveBattle(
   const attackerOriginalSize = calculateArmySize(attackerOriginal);
   const defenderOriginalSize = calculateArmySize(defenderOriginal);
 
+  // Calcula duração da batalha baseada no total de tropas
+  const battleDays = calculateBattleDuration(attackerOriginalSize, defenderOriginalSize);
+
   // Calcula poderes (com bônus de tecnologia se fornecidos)
   const attackerPower = calculateArmyBasePower(attacker, attackerTechBonuses);
   const { totalPower: defenderPower, hasTerritorialBonus } = calculateDefenderTotalPower(defender, province, defenderTechBonuses);
@@ -199,7 +232,7 @@ export function resolveBattle(
   const loserPower = Math.min(attackerPower, defenderPower);
   const powerRatio = loserPower > 0 ? winnerPower / loserPower : 999;
 
-  // Calcula perdas
+  // Calcula perdas baseadas na duração da batalha
   let finalAttacker: Army;
   let finalDefender: Army;
   let attackerLoss: number;
@@ -207,25 +240,15 @@ export function resolveBattle(
 
   if (winner === 'attacker') {
     // Atacante venceu
-    const winnerLossPercent = calculateWinnerLossPercent(powerRatio);
-    attackerLoss = Math.floor(attackerOriginalSize * winnerLossPercent);
-    
-    // Perdedor (defensor) perde 50-70% das tropas
-    const loserLossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
-      (Math.random() * (COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN));
-    defenderLoss = Math.floor(defenderOriginalSize * loserLossPercent);
+    attackerLoss = calculateWinnerLosses(attackerOriginalSize, battleDays);
+    defenderLoss = calculateLoserLosses(defenderOriginalSize, battleDays);
 
     finalAttacker = distributeLosses(attacker, attackerLoss);
     finalDefender = distributeLosses(defender, defenderLoss);
   } else {
     // Defensor venceu
-    const winnerLossPercent = calculateWinnerLossPercent(powerRatio);
-    defenderLoss = Math.floor(defenderOriginalSize * winnerLossPercent);
-    
-    // Perdedor (atacante) perde 50-70% das tropas
-    const loserLossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
-      (Math.random() * (COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN));
-    attackerLoss = Math.floor(attackerOriginalSize * loserLossPercent);
+    defenderLoss = calculateWinnerLosses(defenderOriginalSize, battleDays);
+    attackerLoss = calculateLoserLosses(attackerOriginalSize, battleDays);
 
     finalAttacker = distributeLosses(attacker, attackerLoss);
     finalDefender = distributeLosses(defender, defenderLoss);
@@ -257,6 +280,26 @@ export function resolveBattle(
   const exactAttackerCasualties = Math.floor(attackerOriginalSize - finalAttackerSize);
   const exactDefenderCasualties = Math.floor(defenderOriginalSize - finalDefenderSize);
 
+  console.log(`⚔️ Batalha em ${province.name}: ${battleDays} dias de combate`);
+  console.log(`   Atacante: ${attackerOriginalSize} → ${finalAttackerSize} tropas (${exactAttackerCasualties} baixas)`);
+  console.log(`   Defensor: ${defenderOriginalSize} → ${finalDefenderSize} tropas (${exactDefenderCasualties} baixas)`);
+  console.log(`   Vencedor: ${winner === 'attacker' ? 'Atacante' : 'Defensor'} (ratio: ${powerRatio.toFixed(2)})`);
+
+  // Aplica regra de cerco/aniquilação para o perdedor
+  const loser = winner === 'attacker' ? finalDefender : finalAttacker;
+  const loserOwner = winner === 'attacker' ? defender.owner : attacker.owner;
+  
+  // Verifica se o perdedor está cercado (sem províncias próprias vizinhas)
+  const hasEscapeRoute = province.neighbors.some(neighborId => {
+    const neighborProvince = province.neighbors.includes(neighborId);
+    // Precisamos acessar o array de províncias, mas não temos aqui
+    // Esta lógica será movida para uma função separada
+    return false; // Placeholder - será implementado na função de recuo
+  });
+
+  // Se não houver rota de fuga, aplica aniquilação total (100% de baixas)
+  // Esta lógica será aplicada no App.tsx onde temos acesso ao array de províncias
+
   return {
     attacker: finalAttacker,
     defender: finalDefender,
@@ -267,11 +310,46 @@ export function resolveBattle(
     winner,
     provinceId: province.id,
     provinceName: province.name,
-    duration: 1, // Combate instantâneo neste método
+    duration: battleDays, // Duração calculada baseada nas tropas
     territoryChanged: false, // Será atualizado pelo App.tsx
     territorialDefenseBonus: hasTerritorialBonus,
     powerRatio: Math.round(powerRatio * 100) / 100, // 2 casas decimais
     date: currentDate,
+  };
+}
+
+/**
+ * Verifica se um exército perdedor tem rota de fuga para províncias próprias
+ * Retorna a província de recuo ou null se estiver cercado
+ */
+export function findRetreatProvince(
+  loserOwner: string,
+  battleProvince: Province,
+  allProvinces: Province[]
+): Province | null {
+  // Busca províncias vizinhas que pertencem ao país do perdedor
+  const retreatProvinces = battleProvince.neighbors
+    .map(neighborId => allProvinces.find(p => p.id === neighborId))
+    .filter(p => p && p.owner === loserOwner);
+
+  if (retreatProvinces.length === 0) {
+    // Perdedor está cercado - não há rota de fuga
+    return null;
+  }
+
+  // Retorna a primeira província própria encontrada (poderia ser otimizado para escolher a mais segura)
+  return retreatProvinces[0]!;
+}
+
+/**
+ * Aplica aniquilação total por cerco (100% de baixas)
+ * Retorna um exército com 0 tropas
+ */
+export function applySiegeAnnihilation(army: Army): Army {
+  console.log(`💀 Exército ${army.owner} aniquilado por cerco!`);
+  return {
+    ...army,
+    regiments: [], // Remove todos os regimentos
   };
 }
 
@@ -484,6 +562,32 @@ export function checkAllProvinceCombats(
           targetProvinceId: null
         });
         console.log(`🏆 Vencedor: ${attackerCountry} em ${province.name}`);
+      } else if (result.winner === 'defender') {
+        // Atacante perdeu - aplica recuo tático ou aniquilação por cerco
+        const loserArmy = result.attacker;
+        const loserOwner = attackerCountry;
+        
+        // Verifica se há rota de fuga para províncias próprias
+        const retreatProvince = findRetreatProvince(loserOwner!, province, provinces);
+        
+        if (retreatProvince) {
+          // Recuo tático - move exército para província própria vizinha
+          if (loserArmy.regiments.length > 0) {
+            updatedArmies.push({
+              ...loserArmy,
+              location: retreatProvince.id,
+              destination: null,
+              path: [],
+              targetArmyId: null,
+              targetProvinceId: null
+            });
+            console.log(`🏃 Recuo tático: ${loserOwner} recuou para ${retreatProvince.name}`);
+          }
+        } else {
+          // Cerco - aniquilação total
+          console.log(`💀 ${loserOwner} foi aniquilado por cerco em ${province.name}`);
+          // Não adiciona o exército aniquilado de volta ao mapa
+        }
       }
 
       // Adiciona os defensores atualizados (se sobreviveram)
