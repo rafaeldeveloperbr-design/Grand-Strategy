@@ -700,13 +700,15 @@ const App: React.FC = () => {
     }
 
     // C.2: Verificação automática de combate em todas as províncias
-    const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattles);
+    const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
     armies = autoCombatResult.armies;
     
+    // Usa a ref para garantir valor atualizado (evita stale closure)
+    let currentActiveBattles = [...activeBattlesRef.current];
+    
     // Adiciona novas batalhas à lista de batalhas ativas
-    let updatedActiveBattles = [...activeBattles];
     if (autoCombatResult.newBattles.length > 0) {
-      updatedActiveBattles = [...updatedActiveBattles, ...autoCombatResult.newBattles];
+      currentActiveBattles = [...currentActiveBattles, ...autoCombatResult.newBattles];
       
       // Notifica o jogador sobre novas batalhas
       for (const newBattle of autoCombatResult.newBattles) {
@@ -732,9 +734,9 @@ const App: React.FC = () => {
     const finishedBattles: ActiveBattle[] = [];
     const stillActiveBattles: ActiveBattle[] = [];
     
-    console.log(`📊 Processando ${updatedActiveBattles.length} batalhas ativas`);
+    console.log(`📊 Processando ${currentActiveBattles.length} batalhas ativas`);
     
-    for (const battle of updatedActiveBattles) {
+    for (const battle of currentActiveBattles) {
       const province = provinces.find(p => p.id === battle.provinceId);
       const attacker = armies.find(a => a.id === battle.attackerArmyId);
       const defender = armies.find(a => a.id === battle.defenderArmyId);
@@ -770,7 +772,7 @@ const App: React.FC = () => {
     }
     
     // Atualiza lista de batalhas ativas (apenas as que não terminaram)
-    updatedActiveBattles = stillActiveBattles;
+    currentActiveBattles = stillActiveBattles;
     console.log(`📊 ${finishedBattles.length} batalhas finalizadas, ${stillActiveBattles.length} ainda ativas`);
     
     // Finaliza batalhas concluídas
@@ -869,8 +871,9 @@ const App: React.FC = () => {
     }
     
     // Atualiza estado de batalhas ativas
-    setActiveBattles(updatedActiveBattles);
-    console.log(`✅ Estado atualizado: ${updatedActiveBattles.length} batalhas ativas restantes`);
+    setActiveBattles(currentActiveBattles);
+    activeBattlesRef.current = currentActiveBattles;
+    console.log(`✅ Estado atualizado: ${currentActiveBattles.length} batalhas ativas restantes`);
 
     // ===== PASSO D: ECONOMIA/POPULAÇÃO =====
     countries = countries.map(country => {
