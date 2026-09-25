@@ -4371,3 +4371,26 @@ html, body, #root {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);
 }
+
+/* ============================================================
+ * ANIMAÇÃO DE PULSO PARA AGITAÇÃO PROVINCIAL (UNREST)
+ * ============================================================ */
+
+@keyframes unrestPulse {
+  0% {
+    opacity: 0.3;
+    r: 12px;
+  }
+  50% {
+    opacity: 0.9;
+    r: 16px;
+  }
+  100% {
+    opacity: 0.3;
+    r: 12px;
+  }
+}
+
+.unrest-critical-pulse {
+  animation: unrestPulse 1.2s infinite ease-in-out;
+}

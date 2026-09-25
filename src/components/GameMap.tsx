@@ -501,8 +501,25 @@ export const GameMap: React.FC<MapProps> = ({
                   return 'Pacífico';
                 };
                 
+                // Determina se precisa de animação pulsante
+                const needsPulse = unrest >= 60;
+                const isCritical = unrest >= 80;
+                
                 return (
                   <g key={`unrest-${province.id}`} pointerEvents="none">
+                    {/* Aura pulsante para agitação alta/crítica */}
+                    {needsPulse && (
+                      <circle
+                        cx={iconX}
+                        cy={iconY}
+                        r={isCritical ? "14" : "12"}
+                        fill={isCritical ? "#ef4444" : "#f97316"}
+                        className="unrest-critical-pulse"
+                        opacity="0.3"
+                      />
+                    )}
+                    
+                    {/* Círculo base com valor de Unrest */}
                     <circle
                       cx={iconX}
                       cy={iconY}
