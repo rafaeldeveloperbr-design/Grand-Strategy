@@ -94,6 +94,12 @@ export interface Country {
   economy: CountryEconomy;
   /** Bandeira (emoji ou ícone) */
   flag: string;
+  /** Leis ativas do país */
+  activeLaws: {
+    conscription: string;
+    taxation: string;
+    governance: string;
+  };
 }
 
 /**

@@ -35,6 +35,7 @@ import {
   generateRecruitmentId,
   cancelRecruitment,
 } from './engine/military';
+import { LAWS } from './constants/laws';
 import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
@@ -79,7 +80,9 @@ import { AILogProvider, useAILog } from './context/AILogContext';
 import { ToastContainer } from './components/ToastContainer';
 import { NotificationLogModal } from './components/NotificationLogModal';
 import { AILogModal } from './components/AILogModal';
+import { GovernmentModal } from './components/GovernmentModal';
 import { getBuildingName, getUnitName } from './utils/translations';
+import { LawCategory } from './types/government';
 
 /**
  * Velocidades do jogo em ms por tick (dia)
@@ -291,9 +294,11 @@ const App: React.FC = () => {
 
   /** Modal de log da IA aberto */
   const [showAILogModal, setShowAILogModal] = useState(false);
-  
-  /** Modal de configurações aberto */
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  /** Modal de governo aberto */
+  const [showGovernmentModal, setShowGovernmentModal] = useState(false);
+
+  /** Modal de configurações aberto */  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   /** Estado de tecnologias do jogador */
   const [playerTechState, setPlayerTechState] = useState<CountryTechState>(() =>
@@ -1223,11 +1228,18 @@ const App: React.FC = () => {
       }
 
       const costs = getRecruitmentCost(unitType);
+      
+      // Aplica multiplicador de custo do exército baseado na lei de recrutamento
+      const conscriptionLaw = LAWS[playerCountry.activeLaws?.conscription || 'conscription_peacetime'];
+      const armyCostMultiplier = conscriptionLaw?.bonuses.armyCostMultiplier ?? 1.0;
+      const adjustedGoldCost = Math.floor(costs.gold * armyCostMultiplier);
+      
       console.log('💰 Custos:', costs);
+      console.log('💰 Custo ajustado (lei):', adjustedGoldCost);
       console.log('💰 Recursos atuais:', { gold: playerCountry.resources.gold, manpower: playerCountry.resources.manpower });
 
-      // Verifica recursos
-      if (playerCountry.resources.gold < costs.gold) {
+      // Verifica recursos (usando custo ajustado)
+      if (playerCountry.resources.gold < adjustedGoldCost) {
         console.log('❌ Ouro insuficiente');
         addLog(`❌ Ouro insuficiente para recrutar ${unitType}`);
         return;
@@ -1238,7 +1250,7 @@ const App: React.FC = () => {
         return;
       }
 
-      // Deduz recursos
+      // Deduz recursos (usando custo ajustado pela lei)
       setAllCountries((prev) =>
         prev.map((c) =>
           c.tag === playerCountryTag
@@ -1246,7 +1258,7 @@ const App: React.FC = () => {
                 ...c,
                 resources: {
                   ...c.resources,
-                  gold: c.resources.gold - costs.gold,
+                  gold: c.resources.gold - adjustedGoldCost,
                   manpower: c.resources.manpower - costs.manpower,
                 },
               }
@@ -1630,6 +1642,45 @@ const App: React.FC = () => {
     );
   }, [addToast]);
 
+  /**
+   * Handler para promulgar uma nova lei
+   */
+  const handleEnactLaw = useCallback((category: LawCategory, lawId: string) => {
+    const law = LAWS[lawId];
+    if (!law) return;
+
+    // Verifica se o jogador tem ouro suficiente
+    if (playerCountry.resources.gold < law.costGold) {
+      addToast('Ouro insuficiente para promulgar esta lei', 'error', 'Erro');
+      return;
+    }
+
+    // Deduz o custo
+    setAllCountries((prev) =>
+      prev.map((c) =>
+        c.tag === playerCountryTag
+          ? {
+              ...c,
+              resources: {
+                ...c.resources,
+                gold: c.resources.gold - law.costGold,
+              },
+              activeLaws: {
+                ...c.activeLaws,
+                [category]: lawId,
+              },
+            }
+          : c
+      )
+    );
+
+    addToast(
+      `Lei "${law.name}" promulgada com sucesso!`,
+      'success',
+      'Nova Lei'
+    );
+  }, [playerCountry, playerCountryTag, addToast]);
+
   // === Renderização ===
   return (
     <div className="game">
@@ -1641,6 +1692,7 @@ const App: React.FC = () => {
         onSpeedChange={handleSpeedChange}
         onTechClick={() => setShowTechModal(true)}
         onSettingsClick={() => setShowSettingsModal(true)}
+        onGovernmentClick={() => setShowGovernmentModal(true)}
       />
 
       {/* === Área Principal === */}
@@ -1968,6 +2020,13 @@ const App: React.FC = () => {
         <AILogModal
           isOpen={showAILogModal}
           onClose={() => setShowAILogModal(false)}
+        />
+
+        {/* === Modal de Governo === */}
+        <GovernmentModal
+          playerCountry={playerCountry}
+          onEnactLaw={handleEnactLaw}
+          onClose={() => setShowGovernmentModal(false)}
         />
       </div>
 

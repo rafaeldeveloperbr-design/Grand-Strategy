@@ -20,6 +20,7 @@ interface TopBarProps {
   onSpeedChange: (speed: number) => void;
   onTechClick?: () => void;
   onSettingsClick?: () => void;
+  onGovernmentClick?: () => void;
 }
 
 /**
@@ -51,6 +52,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSpeedChange,
   onTechClick,
   onSettingsClick,
+  onGovernmentClick,
 }) => {
   const { resources, economy } = playerCountry;
   const goldBalance = economy.goldIncome - economy.goldExpense;
@@ -58,7 +60,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <div className="top-bar">
       {/* === Seção: País do Jogador === */}
-      <div className="top-bar__country">
+      <div 
+        className="top-bar__country top-bar__country--clickable"
+        onClick={onGovernmentClick}
+        title="Clique para gerenciar leis e governo"
+      >
         <span className="top-bar__flag">{playerCountry.flag}</span>
         <div className="top-bar__country-info">
           <span className="top-bar__country-name">{playerCountry.name}</span>

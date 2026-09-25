@@ -7,6 +7,7 @@
  */
 
 import { Country } from '../types';
+import { DEFAULT_LAWS } from '../constants/laws';
 
 export const countries: Country[] = [
   {
@@ -19,6 +20,7 @@ export const countries: Country[] = [
     resources: { gold: 5000, manpower: 12000, maxManpower: 36000, stability: 75, prestige: 80 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🦅',
+    activeLaws: { ...DEFAULT_LAWS },
   },
   {
     tag: 'REP',
@@ -30,6 +32,7 @@ export const countries: Country[] = [
     resources: { gold: 3500, manpower: 8500, maxManpower: 25500, stability: 82, prestige: 60 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '⚔️',
+    activeLaws: { ...DEFAULT_LAWS },
   },
   {
     tag: 'RNO',
@@ -41,6 +44,7 @@ export const countries: Country[] = [
     resources: { gold: 2800, manpower: 6500, maxManpower: 19500, stability: 90, prestige: 45 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🛡️',
+    activeLaws: { ...DEFAULT_LAWS },
   },
   {
     tag: 'KHA',
@@ -52,6 +56,7 @@ export const countries: Country[] = [
     resources: { gold: 2000, manpower: 9500, maxManpower: 28500, stability: 55, prestige: 50 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '🐎',
+    activeLaws: { ...DEFAULT_LAWS },
   },
   {
     tag: 'THC',
@@ -63,6 +68,7 @@ export const countries: Country[] = [
     resources: { gold: 4200, manpower: 5500, maxManpower: 16500, stability: 88, prestige: 70 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '☀️',
+    activeLaws: { ...DEFAULT_LAWS },
   },
   {
     tag: 'LIG',
@@ -74,6 +80,7 @@ export const countries: Country[] = [
     resources: { gold: 8000, manpower: 4000, maxManpower: 12000, stability: 70, prestige: 55 },
     economy: { goldIncome: 0, goldExpense: 0, manpowerGain: 0, manpowerExpense: 0 },
     flag: '⚓',
+    activeLaws: { ...DEFAULT_LAWS },
   },
 ];
 
