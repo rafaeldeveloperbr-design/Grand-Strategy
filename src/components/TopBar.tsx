@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { Country, GameDate } from '../types';
+import { getStabilityDescription, getStabilityColor } from '../engine/stability';
 
 interface TopBarProps {
   playerCountry: Country;
@@ -110,11 +111,22 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Estabilidade */}
-        <div className="top-bar__resource" title="Estabilidade">
+        <div className="top-bar__resource" title={`Estabilidade: ${getStabilityDescription(resources.stability)}`}>
           <span className="top-bar__resource-icon">⚖️</span>
           <div className="top-bar__resource-data">
-            <span className="top-bar__resource-value">{resources.stability}%</span>
-            <span className="top-bar__resource-label">Estabilidade</span>
+            <span className="top-bar__resource-value" style={{ color: getStabilityColor(resources.stability) }}>
+              {Math.round(resources.stability)}%
+            </span>
+            <span className="top-bar__resource-label">{getStabilityDescription(resources.stability)}</span>
+            <div className="top-bar__stability-bar">
+              <div 
+                className="top-bar__stability-fill"
+                style={{ 
+                  width: `${resources.stability}%`,
+                  backgroundColor: getStabilityColor(resources.stability)
+                }}
+              />
+            </div>
           </div>
         </div>
 

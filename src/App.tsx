@@ -40,6 +40,7 @@ import { LAWS } from './constants/laws';
 import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation, startContinuousBattle, processDailyBattle, finalizeBattle, retreatArmyManually } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
+import { applyStabilityPrestigeChanges } from './engine/stability';
 import {
   processDailyTechProgress,
   startNationalFocus,
@@ -990,6 +991,31 @@ const App: React.FC = () => {
           setBattleReport(finalResult);
           setIsPaused(true);
         }
+      }
+      
+      // 🏆 APLICA MUDANÇAS DE ESTABILIDADE E PRESTÍGIO
+      // Vencedor ganha prestígio
+      countries = countries.map(c => {
+        if (c.tag === winnerCountry) {
+          return applyStabilityPrestigeChanges(c, 0, 2); // +2 prestígio
+        }
+        if (c.tag === loserCountry) {
+          return applyStabilityPrestigeChanges(c, 0, -3); // -3 prestígio
+        }
+        return c;
+      });
+      
+      // Se houve conquista de província, aplica bônus/penalidade adicional
+      if (finalResult.territoryChanged) {
+        countries = countries.map(c => {
+          if (c.tag === winnerCountry) {
+            return applyStabilityPrestigeChanges(c, 2, 5); // +2 estabilidade, +5 prestígio
+          }
+          if (c.tag === loserCountry) {
+            return applyStabilityPrestigeChanges(c, -5, -5); // -5 estabilidade, -5 prestígio
+          }
+          return c;
+        });
       }
       
       // ✅ Verificação final: confirma que todos os sobreviventes foram liberados

@@ -14,6 +14,7 @@
 import { Province, Country, BuildingType } from '../types';
 import { BUILDING_DEFINITIONS } from '../data/buildings';
 import { LAWS } from '../constants/laws';
+import { getStabilityModifiers, processDailyStabilityRecovery } from './stability';
 
 /**
  * Constantes de balanceamento do jogo
@@ -190,10 +191,14 @@ export function processDailyTick(
   const lawPopGrowthMultiplier = taxationLaw?.bonuses.popGrowthMultiplier ?? 1.0;
   const lawBuildTimeMultiplier = governanceLaw?.bonuses.buildTimeMultiplier ?? 1.0;
 
-  // Combina multiplicadores de tecnologia e leis
-  const goldIncomeMultiplier = (techBonuses?.goldIncomeMultiplier ?? 1.0) * lawGoldMultiplier;
-  const manpowerMultiplier = (techBonuses?.manpowerMultiplier ?? 1.0) * lawManpowerMultiplier;
-  const buildTimeMultiplier = (techBonuses?.buildTimeMultiplier ?? 1.0) * lawBuildTimeMultiplier;
+  // Obtém modificadores de estabilidade
+  const stabilityModifiers = getStabilityModifiers(country.resources.stability);
+
+  // Combina multiplicadores de tecnologia, leis e estabilidade
+  const goldIncomeMultiplier = (techBonuses?.goldIncomeMultiplier ?? 1.0) * lawGoldMultiplier * stabilityModifiers.goldIncome;
+  const manpowerMultiplier = (techBonuses?.manpowerMultiplier ?? 1.0) * lawManpowerMultiplier * stabilityModifiers.manpowerGrowth;
+  const buildTimeMultiplier = (techBonuses?.buildTimeMultiplier ?? 1.0) * lawBuildTimeMultiplier * stabilityModifiers.constructionSpeed;
+  const recruitmentSpeedMultiplier = stabilityModifiers.recruitmentSpeed;
 
   const updatedProvinces = provinces.map((province) => {
     // Renda desta província (com multiplicadores de tecnologia e leis)
@@ -235,7 +240,7 @@ export function processDailyTick(
   const newMaxManpower = calculateMaxManpower(updatedProvinces);
 
   // Atualiza país
-  const updatedCountry: Country = {
+  let updatedCountry: Country = {
     ...country,
     resources: {
       ...country.resources,
@@ -250,6 +255,9 @@ export function processDailyTick(
       manpowerExpense: 0,
     },
   };
+
+  // Aplica recuperação diária de estabilidade
+  updatedCountry = processDailyStabilityRecovery(updatedCountry);
 
   return { country: updatedCountry, provinces: updatedProvinces };
 }
