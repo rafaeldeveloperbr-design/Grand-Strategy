@@ -58,9 +58,10 @@ export function processDailyTechProgress(
       const newProgressDays = updatedTechState.focusProgressDays + progressIncrement;
       updatedTechState.focusProgressDays = newProgressDays;
       
-      if (!isPlayer) {
-        console.log(`📊 [${country.tag}] Foco "${focus.title}": ${newProgressDays.toFixed(2)}/${focus.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
-      }
+      // Log de progresso diário silenciado para reduzir ruído no console
+      // if (!isPlayer) {
+      //   console.log(`📊 [${country.tag}] Foco "${focus.title}": ${newProgressDays.toFixed(2)}/${focus.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
+      // }
 
       // Verifica se o foco foi concluído
       if (newProgressDays >= focus.durationDays) {
@@ -89,9 +90,10 @@ export function processDailyTechProgress(
         const newProgressDays = updatedTechState.researchProgressDays + progressIncrement;
         updatedTechState.researchProgressDays = newProgressDays;
         
-        if (!isPlayer) {
-          console.log(`📊 [${country.tag}] Pesquisa "${tech.title}": ${newProgressDays.toFixed(2)}/${tech.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
-        }
+        // Log de progresso diário silenciado para reduzir ruído no console
+        // if (!isPlayer) {
+        //   console.log(`📊 [${country.tag}] Pesquisa "${tech.title}": ${newProgressDays.toFixed(2)}/${tech.durationDays} dias (velocidade: ${(speedMultiplier * 100).toFixed(0)}%)`);
+        // }
 
         // Verifica se a pesquisa foi concluída
         if (newProgressDays >= tech.durationDays) {
