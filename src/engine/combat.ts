@@ -516,62 +516,77 @@ export function checkAllProvinceCombats(
       const attackerCountry = attackerArmy.owner;
       const defenderCountry = defenderArmy.owner;
       
-      // Verifica cada exército livre para ver se é reforço
+      console.log(`   Lado Atacante: ${attackerCountry}`);
+      console.log(`   Lado Defensor: ${defenderCountry}`);
+      console.log(`   Exércitos livres na província: ${armiesInProvince.length}`);
+      
+      if (armiesInProvince.length > 0) {
+        armiesInProvince.forEach(army => {
+          console.log(`     - ${army.id} (${army.owner})`);
+        });
+      }
+      
+      // Verifica cada exército livre para determinar o lado correto
       for (const army of armiesInProvince) {
-        // Verifica se está em guerra com o defensor (para ser reforço do atacante)
-        const isAtWarWithDefender = wars.some(
-          w => (w.attacker === army.owner && w.defender === defenderCountry) ||
-               (w.defender === army.owner && w.attacker === defenderCountry)
-        );
+        let side: 'attacker' | 'defender' | null = null;
         
-        // Verifica se é o defensor (para ser reforço do defensor)
-        const isDefender = army.owner === defenderCountry;
-        
-        if (isAtWarWithDefender) {
-          // Reforço do atacante
-          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou na batalha em ${province.name}!`);
-          const reinforcementTroops = calculateArmySize(army);
-          const updatedBattle = addReinforcementsToBattle(existingBattle, army, 'attacker', province);
-          updatedBattles[existingBattleIndex] = updatedBattle;
+        // PRIORIDADE 1: Mesma tag do país do atacante original
+        if (army.owner === attackerCountry) {
+          side = 'attacker';
+          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou no lado ATACANTE da batalha em ${province.name}!`);
+        }
+        // PRIORIDADE 2: Mesma tag do país do defensor original
+        else if (army.owner === defenderCountry) {
+          side = 'defender';
+          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou no lado DEFENSOR da batalha em ${province.name}!`);
+        }
+        // PRIORIDADE 3: Aliado do atacante (em guerra com o defensor)
+        else {
+          const isAtWarWithDefender = wars.some(
+            w => (w.attacker === army.owner && w.defender === defenderCountry) ||
+                 (w.defender === army.owner && w.attacker === defenderCountry)
+          );
           
-          // Adiciona à lista de reforços
-          reinforcementsAdded.push({
-            battleId: existingBattle.id,
-            armyId: army.id,
-            armyOwner: army.owner,
-            side: 'attacker',
-            troops: reinforcementTroops,
-            provinceName: province.name,
-          });
-          
-          // Marca exército como em combate
-          const idx = updatedArmies.findIndex(a => a.id === army.id);
-          if (idx !== -1) {
-            updatedArmies[idx] = { ...updatedArmies[idx], inCombat: true };
-          }
-        } else if (isDefender) {
-          // Reforço do defensor
-          console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou na batalha em ${province.name}!`);
-          const reinforcementTroops = calculateArmySize(army);
-          const updatedBattle = addReinforcementsToBattle(existingBattle, army, 'defender', province);
-          updatedBattles[existingBattleIndex] = updatedBattle;
-          
-          // Adiciona à lista de reforços
-          reinforcementsAdded.push({
-            battleId: existingBattle.id,
-            armyId: army.id,
-            armyOwner: army.owner,
-            side: 'defender',
-            troops: reinforcementTroops,
-            provinceName: province.name,
-          });
-          
-          // Marca exército como em combate
-          const idx = updatedArmies.findIndex(a => a.id === army.id);
-          if (idx !== -1) {
-            updatedArmies[idx] = { ...updatedArmies[idx], inCombat: true };
+          if (isAtWarWithDefender) {
+            side = 'attacker';
+            console.log(`⚔️ REFORÇOS: Exército ${army.id} (${army.owner}) entrou no lado ATACANTE (aliado) da batalha em ${province.name}!`);
           }
         }
+        
+        // Se determinou o lado, adiciona como reforço
+        if (side !== null) {
+          const reinforcementTroops = calculateArmySize(army);
+          const updatedBattle = addReinforcementsToBattle(existingBattle, army, side, province);
+          updatedBattles[existingBattleIndex] = updatedBattle;
+          
+          // Adiciona à lista de reforços
+          reinforcementsAdded.push({
+            battleId: existingBattle.id,
+            armyId: army.id,
+            armyOwner: army.owner,
+            side: side,
+            troops: reinforcementTroops,
+            provinceName: province.name,
+          });
+          
+          // Marca exército como em combate
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = { ...updatedArmies[idx], inCombat: true };
+          }
+        } else {
+          // Exército não se qualifica para nenhum lado
+          console.log(`   ⚠️ Exército ${army.id} (${army.owner}) não entrou na batalha - sem relação com os lados`);
+        }
+      }
+      
+      // Log de resumo após processar todos os reforços
+      const battleReinforcements = reinforcementsAdded.filter(r => r.battleId === existingBattle.id);
+      if (battleReinforcements.length > 0) {
+        console.log(`   ✅ Total de reforços adicionados à batalha: ${battleReinforcements.length}`);
+        battleReinforcements.forEach(r => {
+          console.log(`      - ${r.armyOwner}: ${r.troops} tropas (lado ${r.side})`);
+        });
       }
       
       continue; // Batalha existente processada, pula para próxima província
