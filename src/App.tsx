@@ -41,6 +41,7 @@ import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatP
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import { applyStabilityPrestigeChanges } from './engine/stability';
+import { processDailyUnrestDecay, createRebelArmy, applyConquestUnrest } from './engine/unrest';
 import {
   processDailyTechProgress,
   startNationalFocus,
@@ -239,7 +240,11 @@ const App: React.FC = () => {
 
   /** Dados dinâmicos das províncias */
   const [provinces, setProvinces] = useState<Province[]>(() =>
-    provincesData.map((p) => ({ ...p, buildings: [...p.buildings] }))
+    provincesData.map((p) => ({ 
+      ...p, 
+      buildings: [...p.buildings],
+      unrest: 0, // Inicialmente todas as províncias estão pacíficas
+    }))
   );
 
   /** Dados dinâmicos dos países */
@@ -700,9 +705,13 @@ const App: React.FC = () => {
       
       if (province.owner !== arrived.owner && isInWar) {
         const oldOwner = province.owner;
-        provinces = provinces.map(p =>
-          p.id === province.id ? { ...p, owner: arrived.owner } : p
-        );
+        provinces = provinces.map(p => {
+          if (p.id === province.id) {
+            // Aplica unrest inicial na província ocupada
+            return applyConquestUnrest({ ...p, owner: arrived.owner }, snapshot.date);
+          }
+          return p;
+        });
         countries = countries.map(c => {
           if (c.tag === arrived.owner) return { ...c, provinces: [...c.provinces, province.id] };
           if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
@@ -929,9 +938,13 @@ const App: React.FC = () => {
         if (remainingDefenders.length === 0) {
           // Não há defensores restantes - província muda de dono
           const oldOwner = province.owner;
-          provinces = provinces.map(p =>
-            p.id === province.id ? { ...p, owner: attacker.owner } : p
-          );
+          provinces = provinces.map(p => {
+            if (p.id === province.id) {
+              // Aplica unrest inicial na província conquistada
+              return applyConquestUnrest({ ...p, owner: attacker.owner }, snapshot.date);
+            }
+            return p;
+          });
           countries = countries.map(c => {
             if (c.tag === attacker.owner) return { ...c, provinces: [...c.provinces, province.id] };
             if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
@@ -1047,6 +1060,57 @@ const App: React.FC = () => {
 
       return updatedCountry;
     });
+
+    // ===== PASSO D.5: AGITAÇÃO PROVINCIAL E REVOLTAS =====
+    const { updatedProvinces: provincesWithDecay, revoltedProvinces } = 
+      processDailyUnrestDecay(provinces, snapshot.date);
+    provinces = provincesWithDecay;
+    
+    // Processa revoltas
+    if (revoltedProvinces.length > 0) {
+      for (const revoltedProv of revoltedProvinces) {
+        console.log(`🔥 Revolta estourou em ${revoltedProv.name}! Tropas rebeldes surgiram.`);
+        addLog(`🔥 Revolta estourou em ${revoltedProv.name}!`);
+        addToast(
+          `Revolta em ${revoltedProv.name}! Exército rebelde surgido.`,
+          'error',
+          'Revolta!'
+        );
+        
+        // Cria exército rebelde
+        const rebelArmy = createRebelArmy(revoltedProv);
+        armies = [...armies, rebelArmy];
+      }
+    }
+
+    // ===== PASSO D.6: PAZ AUTOMÁTICA POR ANEXAÇÃO TOTAL =====
+    // Verifica se algum país perdeu todas as províncias
+    const countriesWithoutProvinces = countries.filter(c => {
+      const ownedProvinces = provinces.filter(p => p.owner === c.tag);
+      return ownedProvinces.length === 0 && c.tag !== playerCountryTag;
+    });
+    
+    if (countriesWithoutProvinces.length > 0) {
+      for (const defeatedCountry of countriesWithoutProvinces) {
+        console.log(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
+        addLog(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
+        addToast(
+          `${defeatedCountry.name} foi totalmente anexado!`,
+          'warning',
+          'Anexação Total'
+        );
+        
+        // Encerra todas as guerras envolvendo este país
+        wars = wars.filter(w => 
+          w.attacker !== defeatedCountry.tag && w.defender !== defeatedCountry.tag
+        );
+        
+        // Remove relações diplomáticas
+        relations = relations.filter(r => 
+          r.countryA !== defeatedCountry.tag && r.countryB !== defeatedCountry.tag
+        );
+      }
+    }
 
     // ===== PASSO E: DIPLOMACIA =====
     relations = processDiplomacyTick(relations);

@@ -22,6 +22,7 @@ import { UNIT_DEFINITIONS } from '../data/units';
 import { calculateArmySize } from '../engine/combat';
 import { isActiveConstruction } from '../engine/buildings';
 import { getBuildingName, getUnitName } from '../utils/translations';
+import { getUnrestDescription, getUnrestColor, isProvincePacified } from '../engine/unrest';
 
 interface ProvincePanelProps {
   province: Province;
@@ -164,6 +165,54 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* Agitação Provincial */}
+                {(() => {
+                  const unrest = province.unrest ?? 0;
+                  const isPacified = isProvincePacified(province);
+                  
+                  return (
+                    <div className="province-panel__section">
+                      <h3 className="province-panel__subtitle">
+                        {isPacified ? '🕊️ Província Pacífica' : '🔥 Agitação Provincial'}
+                      </h3>
+                      <div className="province-panel__info-row">
+                        <span className="province-panel__label">Nível:</span>
+                        <span 
+                          className="province-panel__value"
+                          style={{ color: getUnrestColor(unrest) }}
+                        >
+                          {getUnrestDescription(unrest)} ({Math.round(unrest)}%)
+                        </span>
+                      </div>
+                      <div className="province-panel__pop-bar">
+                        <div
+                          className="province-panel__pop-fill"
+                          style={{
+                            width: `${unrest}%`,
+                            backgroundColor: getUnrestColor(unrest),
+                          }}
+                        />
+                      </div>
+                      {!isPacified && (
+                        <div className="province-panel__info-row" style={{ marginTop: '8px' }}>
+                          <span className="province-panel__label" style={{ fontSize: '10px' }}>
+                            {unrest >= 80 ? '⚠️ Revolta iminente!' : 
+                             unrest >= 60 ? '⚠️ Alta instabilidade' :
+                             '📉 Decaindo naturalmente...'}
+                          </span>
+                        </div>
+                      )}
+                      {province.buildings.some(b => b.type === 'temple') && (
+                        <div className="province-panel__info-row" style={{ marginTop: '4px' }}>
+                          <span className="province-panel__label" style={{ fontSize: '10px', color: '#2ecc71' }}>
+                            ⛪ Templo ativo: pacificação acelerada
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Exércitos presentes (resumo) */}
                 {armiesHere.length > 0 && (

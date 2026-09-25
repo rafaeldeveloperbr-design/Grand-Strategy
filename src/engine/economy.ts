@@ -15,6 +15,7 @@ import { Province, Country, BuildingType } from '../types';
 import { BUILDING_DEFINITIONS } from '../data/buildings';
 import { LAWS } from '../constants/laws';
 import { getStabilityModifiers, processDailyStabilityRecovery } from './stability';
+import { calculateUnrestEconomicImpact } from './unrest';
 
 /**
  * Constantes de balanceamento do jogo
@@ -201,17 +202,26 @@ export function processDailyTick(
   const recruitmentSpeedMultiplier = stabilityModifiers.recruitmentSpeed;
 
   const updatedProvinces = provinces.map((province) => {
-    // Renda desta província (com multiplicadores de tecnologia e leis)
-    const goldIncome = calculateProvinceGoldIncome(province, goldIncomeMultiplier);
+    // Calcula impacto econômico do unrest local
+    const unrest = province.unrest ?? 0;
+    const unrestImpact = calculateUnrestEconomicImpact(unrest);
+    
+    // Aplica multiplicadores de unrest na economia da província
+    const provinceGoldMultiplier = goldIncomeMultiplier * unrestImpact.goldMultiplier;
+    const provinceManpowerMultiplier = manpowerMultiplier * unrestImpact.manpowerMultiplier;
+    const provinceGrowthMultiplier = lawPopGrowthMultiplier * unrestImpact.growthMultiplier;
+    
+    // Renda desta província (com multiplicadores de tecnologia, leis e unrest)
+    const goldIncome = calculateProvinceGoldIncome(province, provinceGoldMultiplier);
     totalGoldIncome += goldIncome;
 
-    // Manpower desta província (com multiplicadores de tecnologia e leis)
-    const manpowerGain = calculateProvinceManpowerGain(province) * manpowerMultiplier;
+    // Manpower desta província (com multiplicadores de tecnologia, leis e unrest)
+    const manpowerGain = calculateProvinceManpowerGain(province) * provinceManpowerMultiplier;
     totalManpowerGain += manpowerGain;
 
-    // Crescimento populacional (com multiplicador de leis)
+    // Crescimento populacional (com multiplicador de leis e unrest)
     const basePopGrowth = calculatePopulationGrowth(province, country.resources.stability);
-    const popGrowth = basePopGrowth * lawPopGrowthMultiplier;
+    const popGrowth = basePopGrowth * provinceGrowthMultiplier;
 
     // Avança construções (com multiplicadores de tecnologia e leis)
     const updatedBuildings = province.buildings.map((b) => ({

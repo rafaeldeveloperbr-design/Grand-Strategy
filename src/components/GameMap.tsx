@@ -475,6 +475,62 @@ export const GameMap: React.FC<MapProps> = ({
                   </g>
                 );
               })()}
+              
+              {/* Indicador de agitação provincial (unrest) */}
+              {(() => {
+                const unrest = province.unrest ?? 0;
+                if (unrest <= 0) return null; // Não mostra se está pacífico
+                
+                const iconY = province.center.y + 15;
+                const iconX = province.center.x;
+                
+                // Cor baseada no nível de unrest
+                const getColor = (unrest: number) => {
+                  if (unrest >= 80) return '#e74c3c'; // Vermelho - Crítico
+                  if (unrest >= 60) return '#e67e22'; // Laranja - Alto
+                  if (unrest >= 40) return '#f39c12'; // Amarelo - Moderado
+                  if (unrest >= 20) return '#95a5a6'; // Cinza - Baixo
+                  return '#2ecc71'; // Verde - Pacífico
+                };
+                
+                const getDescription = (unrest: number) => {
+                  if (unrest >= 80) return 'Crítico';
+                  if (unrest >= 60) return 'Alto';
+                  if (unrest >= 40) return 'Moderado';
+                  if (unrest >= 20) return 'Baixo';
+                  return 'Pacífico';
+                };
+                
+                return (
+                  <g key={`unrest-${province.id}`} pointerEvents="none">
+                    <circle
+                      cx={iconX}
+                      cy={iconY}
+                      r="5"
+                      fill={getColor(unrest)}
+                      stroke="rgba(0, 0, 0, 0.5)"
+                      strokeWidth="0.5"
+                      opacity="0.8"
+                    />
+                    <text
+                      x={iconX}
+                      y={iconY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="6"
+                      fill="white"
+                      fontWeight="bold"
+                      pointerEvents="none"
+                    >
+                      {Math.round(unrest)}
+                    </text>
+                    <title>
+                      {`Agitação: ${getDescription(unrest)} (${Math.round(unrest)}%)\n`}
+                      {unrest >= 80 ? '⚠️ Revolta iminente!' : ''}
+                    </title>
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

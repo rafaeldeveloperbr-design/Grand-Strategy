@@ -72,6 +72,10 @@ export interface Province {
   center: { x: number; y: number };
   /** Path SVG da província */
   path: string;
+  /** Nível de agitação/instabilidade local (0-100, onde 100 = revolta iminente) */
+  unrest?: number;
+  /** Data da última conquista (para calcular decaimento de unrest) */
+  lastConquestDate?: number;
 }
 
 /**
