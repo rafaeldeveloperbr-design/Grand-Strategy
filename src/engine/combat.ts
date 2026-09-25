@@ -33,8 +33,8 @@ const COMBAT_BALANCE = {
   TERRITORIAL_DEFENSE_BONUS: 1.25,
   /** Bônus por nível de fortificação (+10% por nível) */
   FORTIFICATION_BONUS_PER_LEVEL: 0.10,
-  /** Tropas por dia de batalha (2000 tropas = 1 dia) */
-  TROOPS_PER_BATTLE_DAY: 2000,
+  /** Tropas por dia de batalha (1000 tropas = 1 dia) */
+  TROOPS_PER_BATTLE_DAY: 1000,
   /** Perda do vencedor - mínimo (10%) */
   WINNER_LOSS_MIN: 0.10,
   /** Perda do vencedor - máximo (30%) */
@@ -921,4 +921,120 @@ export function finalizeBattle(
   console.log(`🏆 Vencedor: ${winner === 'attacker' ? 'Atacante' : 'Defensor'} em ${province.name}`);
   
   return { result, updatedArmies: updatedAllArmies };
+}
+
+/**
+ * Recuo manual de um exército durante batalha
+ * Remove o exército da batalha e move para província vizinha amigável
+ */
+export function retreatArmyManually(
+  armyId: string,
+  battleId: string,
+  armies: Army[],
+  activeBattles: ActiveBattle[],
+  provinces: Province[]
+): {
+  armies: Army[];
+  activeBattles: ActiveBattle[];
+  retreatSuccess: boolean;
+  battleEnded: boolean;
+  winner?: 'attacker' | 'defender';
+} {
+  // Encontra o exército
+  const army = armies.find(a => a.id === armyId);
+  if (!army) {
+    console.warn(`❌ Exército ${armyId} não encontrado`);
+    return { armies, activeBattles, retreatSuccess: false, battleEnded: false };
+  }
+
+  // Encontra a batalha
+  const battle = activeBattles.find(b => b.id === battleId);
+  if (!battle) {
+    console.warn(`❌ Batalha ${battleId} não encontrada`);
+    return { armies, activeBattles, retreatSuccess: false, battleEnded: false };
+  }
+
+  // Verifica se o exército está na batalha
+  if (!battle.participantArmyIds.includes(armyId)) {
+    console.warn(`❌ Exército ${armyId} não está participando da batalha ${battleId}`);
+    return { armies, activeBattles, retreatSuccess: false, battleEnded: false };
+  }
+
+  // Encontra a província da batalha
+  const battleProvince = provinces.find(p => p.id === battle.provinceId);
+  if (!battleProvince) {
+    console.warn(`❌ Província da batalha não encontrada`);
+    return { armies, activeBattles, retreatSuccess: false, battleEnded: false };
+  }
+
+  // Determina o lado do exército (atacante ou defensor)
+  const isAttackerSide = battle.attackerArmyId === armyId || 
+    armies.some(a => battle.participantArmyIds.includes(a.id) && a.owner === army.owner && a.id !== armyId && a.id === battle.attackerArmyId);
+  
+  // Encontra província de recuo
+  const retreatProvince = findRetreatProvince(army.owner, battleProvince, provinces);
+  
+  if (!retreatProvince) {
+    console.warn(`❌ Nenhuma província de recuo disponível para ${army.owner}`);
+    return { armies, activeBattles, retreatSuccess: false, battleEnded: false };
+  }
+
+  console.log(`🏃 Exército ${armyId} (${army.owner}) recuando de ${battleProvince.name} para ${retreatProvince.name}`);
+
+  // Remove exército da lista de participantes
+  const updatedBattle = {
+    ...battle,
+    participantArmyIds: battle.participantArmyIds.filter(id => id !== armyId)
+  };
+
+  // Recalcula tropas do lado
+  const armyTroops = calculateArmySize(army);
+  if (isAttackerSide) {
+    updatedBattle.attackerCurrentTroops = Math.max(0, updatedBattle.attackerCurrentTroops - armyTroops);
+  } else {
+    updatedBattle.defenderCurrentTroops = Math.max(0, updatedBattle.defenderCurrentTroops - armyTroops);
+  }
+
+  // Move exército para província de recuo e libera do combate
+  const updatedArmies = armies.map(a => {
+    if (a.id === armyId) {
+      return { ...a, location: retreatProvince.id, inCombat: false };
+    }
+    return a;
+  });
+
+  // Verifica se todos os exércitos de um lado recuaram
+  const remainingAttackerArmies = updatedBattle.participantArmyIds.filter(id => {
+    const participantArmy = updatedArmies.find(a => a.id === id);
+    return participantArmy && participantArmy.owner === (isAttackerSide ? army.owner : undefined);
+  });
+
+  // Se não há mais exércitos de um lado, finaliza a batalha
+  if (updatedBattle.participantArmyIds.length === 0) {
+    console.log(`🏁 Batalha ${battleId} finalizada - todos os exércitos recuaram`);
+    
+    // Remove batalha da lista
+    const updatedBattles = activeBattles.filter(b => b.id !== battleId);
+    
+    // Determina vencedor (o lado que ainda tem exércitos, ou atacante se ambos recuaram)
+    const winner = updatedBattle.attackerCurrentTroops > 0 ? 'attacker' : 'defender';
+    
+    return {
+      armies: updatedArmies,
+      activeBattles: updatedBattles,
+      retreatSuccess: true,
+      battleEnded: true,
+      winner
+    };
+  }
+
+  // Atualiza lista de batalhas
+  const updatedBattles = activeBattles.map(b => b.id === battleId ? updatedBattle : b);
+
+  return {
+    armies: updatedArmies,
+    activeBattles: updatedBattles,
+    retreatSuccess: true,
+    battleEnded: false
+  };
 }

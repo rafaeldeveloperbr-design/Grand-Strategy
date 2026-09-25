@@ -4324,3 +4324,21 @@ html, body, #root {
   font-family: var(--font-mono);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
+
+/* ============================================================
+ * BOTÃO DE RECUO MANUAL
+ * ============================================================ */
+
+.army-info-panel__action-btn--retreat {
+  background: linear-gradient(135deg, var(--accent-red), #c0392b);
+  border-color: var(--accent-red);
+  color: white;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.army-info-panel__action-btn--retreat:hover {
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}

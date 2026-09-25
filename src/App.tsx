@@ -36,7 +36,7 @@ import {
   cancelRecruitment,
 } from './engine/military';
 import { LAWS } from './constants/laws';
-import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation, startContinuousBattle, processDailyBattle, finalizeBattle } from './engine/combat';
+import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation, startContinuousBattle, processDailyBattle, finalizeBattle, retreatArmyManually } from './engine/combat';
 import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import {
@@ -1794,6 +1794,48 @@ const App: React.FC = () => {
   }, []);
 
   /**
+   * Handler para recuo manual de exército durante batalha
+   */
+  const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
+    const result = retreatArmyManually(armyId, battleId, armies, activeBattles, provinces);
+    
+    if (result.retreatSuccess) {
+      setArmies(result.armies);
+      setActiveBattles(result.activeBattles);
+      activeBattlesRef.current = result.activeBattles;
+      
+      const army = armies.find(a => a.id === armyId);
+      const battle = activeBattles.find(b => b.id === battleId);
+      const province = provinces.find(p => p.id === battle?.provinceId);
+      
+      if (army && province) {
+        addLog(`🏃 ${army.owner} recuou exército de ${province.name}`);
+        addToast(
+          `Exército recuou com sucesso!`,
+          'success',
+          'Recuo Manual'
+        );
+      }
+      
+      if (result.battleEnded) {
+        const winnerSide = result.winner === 'attacker' ? 'Atacante' : 'Defensor';
+        addLog(`🏁 Batalha finalizada - ${winnerSide} venceu por recuo total do oponente`);
+        addToast(
+          `Batalha finalizada! ${winnerSide} venceu.`,
+          'info',
+          'Fim da Batalha'
+        );
+      }
+    } else {
+      addToast(
+        `Não foi possível recuar o exército`,
+        'error',
+        'Erro de Recuo'
+      );
+    }
+  }, [armies, activeBattles, provinces, addLog, addToast]);
+
+  /**
    * Handler para mudar a dificuldade da IA
    */
   const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
@@ -1982,6 +2024,29 @@ const App: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* === Ação: Recuo Manual (apenas em combate) === */}
+              {selectedArmyData.inCombat && selectedArmyData.owner === playerCountryTag && (() => {
+                const battle = activeBattles.find(b => 
+                  b.provinceId === selectedArmyData.location && 
+                  b.participantArmyIds.includes(selectedArmyData.id)
+                );
+                
+                if (!battle) return null;
+                
+                return (
+                  <div className="army-info-panel__actions-section">
+                    <strong>🏃 Recuo Manual:</strong>
+                    <button
+                      className="army-info-panel__action-btn army-info-panel__action-btn--retreat"
+                      onClick={() => handleRetreatArmy(selectedArmyData.id, battle.id)}
+                      title="Recuar exército para província vizinha amigável"
+                    >
+                      🏃 Recuar Exército
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* === Outros exércitos na mesma província (para fusão) === */}
               {selectedArmyData.location && !selectedArmyData.destination && (() => {
