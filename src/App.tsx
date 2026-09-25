@@ -42,7 +42,7 @@ import { getRecruitmentCost } from './data/units';
 import { getBuildingCost, getBuildingTime } from './data/buildings';
 import { applyStabilityPrestigeChanges } from './engine/stability';
 import { processDailyUnrestDecay, createRebelArmy, applyConquestUnrest } from './engine/unrest';
-import { processRebelAccumulation, processSeparatistAI, checkRebelTerritoryReturn, ensureSeparatistWars } from './engine/rebellions';
+import { processRebelAccumulation, processSeparatistAI, checkRebelTerritoryReturn, ensureSeparatistWars, cleanupSeparatistWars } from './engine/rebellions';
 import {
   processDailyTechProgress,
   startNationalFocus,
@@ -628,6 +628,36 @@ const App: React.FC = () => {
     const arrivedArmies = moveResult.arrivedArmies;
     provinces = moveResult.updatedProvinces; // Atualiza províncias capturadas
 
+     // ===== PASSO B.5: CORREÇÃO DE LIBERTAÇÃO REBELDE =====
+    // O processArmyMovement captura províncias para o tag rebelde (rebel_pXX).
+    // Convertemos IMEDIATAMENTE em libertação: dono = originalOwner, unrest 0.
+    if (provinces.some(p => p.owner.startsWith('rebel_'))) {
+      const changes: { id: string; name: string; newOwner: string }[] = [];
+
+      provinces = provinces.map(p => {
+        if (!p.owner.startsWith('rebel_')) return p;
+        const rebelArmy = armies.find(a => a.owner === p.owner);
+        const liberator = rebelArmy?.originalOwner || p.originalOwner;
+        if (!liberator) return p;
+        changes.push({ id: p.id, name: p.name, newOwner: liberator });
+        return { ...p, owner: liberator, unrest: 0 };
+      });
+
+      if (changes.length > 0) {
+        // Ressincroniza as listas de províncias dos países
+        countries = countries.map(c => ({
+          ...c,
+          provinces: provinces.filter(p => p.owner === c.tag).map(p => p.id),
+        }));
+
+        for (const ch of changes) {
+          const countryName = countries.find(c => c.tag === ch.newOwner)?.name || ch.newOwner;
+          console.log(`🏴 Libertação corrigida: ${ch.name} → ${countryName}`);
+          addLog(`🏴 ${ch.name} libertada! Devolvida a ${countryName}.`);
+        }
+      }
+    }
+
     // ===== PASSO C: DETECÇÃO E RESOLUÇÃO DE BATALHA =====
     // C.1: Processa exércitos que chegaram ao destino
     for (const arrived of arrivedArmies) {
@@ -747,11 +777,13 @@ const App: React.FC = () => {
         provinces = provinces.map(p => {
           if (p.id === province.id) {
             // Aplica unrest inicial na província ocupada
-            const conqueredProv = applyConquestUnrest({ ...p, owner: newOwner }, snapshot.date);
-            return {
-              ...conqueredProv,
-              originalOwner: conqueredProv.originalOwner || oldOwner,
-            };
+            const isLiberation = isRebelArrived && newOwner === arrived.originalOwner;
+            const conqueredProv = isLiberation
+              ? { ...p, owner: newOwner, unrest: 0 } // 🎉 Libertação sem unrest
+              : applyConquestUnrest({ ...p, owner: newOwner }, snapshot.date); return {
+                ...conqueredProv,
+                originalOwner: conqueredProv.originalOwner || oldOwner,
+              };
           }
           return p;
         });
@@ -995,7 +1027,10 @@ const App: React.FC = () => {
           provinces = provinces.map(p => {
             if (p.id === province.id) {
               // Aplica unrest inicial na província conquistada
-              const conqueredProvince = applyConquestUnrest({ ...p, owner: newProvinceOwner }, snapshot.date);
+              const isLiberation = !!rebelReturnOwner;
+              const conqueredProvince = isLiberation
+                ? { ...p, owner: newProvinceOwner, unrest: 0 } // 🎉 Libertação: o povo celebra, sem unrest!
+                : applyConquestUnrest({ ...p, owner: newProvinceOwner }, snapshot.date);
               return {
                 ...conqueredProvince,
                 originalOwner: conqueredProvince.originalOwner || oldOwner,
@@ -1402,7 +1437,7 @@ const App: React.FC = () => {
     armies = processSeparatistAI(armies, provinces);
 
 
-     // ===== PASSO H.6: BATALHAS PENDENTES COM REBELDES =====
+    // ===== PASSO H.6: BATALHAS PENDENTES COM REBELDES =====
     // Garante combate quando rebelde e inimigo estão parados na mesma província
     for (const prov of provinces) {
       const armiesHere = armies.filter(a => a.location === prov.id && !a.inCombat && !a.destination);
@@ -1433,7 +1468,7 @@ const App: React.FC = () => {
     activeBattlesRef.current = currentActiveBattles;
 
 
-     // ===== PASSO H.7: GUERRA AUTOMÁTICA DOS SEPARATISTAS =====
+    // ===== PASSO H.7: GUERRA AUTOMÁTICA DOS SEPARATISTAS =====
     const warResult = ensureSeparatistWars(armies, provinces, wars, relations, snapshot.date);
     if (warResult.newConflicts.length > 0) {
       wars = warResult.wars;
@@ -1447,6 +1482,27 @@ const App: React.FC = () => {
         'warning',
         'Guerra Declarada'
       );
+    }
+
+    // ===== PASSO H.8: FIM DA GUERRA SEPARATISTA (PAZ E CELEBRAÇÃO) =====
+    const cleanupResult = cleanupSeparatistWars(armies, provinces, wars, relations);
+    if (cleanupResult.endedWars.length > 0 || cleanupResult.pacifiedProvinces.length > 0) {
+      wars = cleanupResult.wars;
+      relations = cleanupResult.relations;
+      provinces = cleanupResult.provinces;
+
+      cleanupResult.endedWars.forEach(w => {
+        console.log(`🕊️ Guerra separatista encerrada: ${w} → PAZ`);
+        addLog(`🕊️ A guerra de reconquista terminou. A paz foi restaurada!`);
+      });
+
+      if (cleanupResult.pacifiedProvinces.length > 0) {
+        addToast(
+          `🎉 Reconquista concluída! ${cleanupResult.pacifiedProvinces.length} província(s) celebram em paz.`,
+          'success',
+          'Paz Restaurada'
+        );
+      }
     }
 
 

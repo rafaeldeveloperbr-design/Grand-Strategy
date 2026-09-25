@@ -217,7 +217,10 @@ function moveSeparatistArmy(
   const targetProvince = provinces.find(p => p.id === targetId);
   if (!targetProvince) return null;
 
-  if (!allowHome && targetProvince.owner === army.originalOwner) return null;
+    if (!allowHome && targetProvince.owner === army.originalOwner) {
+    console.log(`❌ moveSeparatistArmy: bloqueado (alvo ${targetProvince.name} pertence a ${targetProvince.owner}, que é o originalOwner ${army.originalOwner})`);
+    return null;
+  }
 
   return {
     ...army,
@@ -337,9 +340,12 @@ export function processSeparatistAI(
       );
     });
 
-    if (historicNeighborTargets.length > 0) {
+        if (historicNeighborTargets.length > 0) {
       const targetId = historicNeighborTargets[0];
+      const targetProv = provinces.find(p => p.id === targetId);
+      console.log(`🎯 ESTRATÉGIA 1: ${army.name} encontrou alvo ${targetProv?.name} (owner: ${targetProv?.owner}, original: ${targetProv?.originalOwner})`);
       const movedArmy = moveSeparatistArmy(army, targetId, provinces);
+      console.log(`🎯 ESTRATÉGIA 1: moveSeparatistArmy retornou:`, movedArmy ? '✅ sucesso' : '❌ null');
       if (movedArmy) {
         const idx = updatedArmies.findIndex(a => a.id === army.id);
         if (idx !== -1) {
@@ -545,4 +551,82 @@ export function ensureSeparatistWars(
   }
 
   return { wars: currentWars, relations: currentRelations, newConflicts };
+}
+
+/**
+ * ============================================================
+ * FIM DA GUERRA SEPARATISTA + PACIFICAÇÃO
+ * ============================================================
+ * Quando a reconquista termina (ou o rebelde é eliminado/integrado):
+ * - Encerra a guerra (volta para PAZ)
+ * - Zera o unrest das províncias do país libertado (para o pulse)
+ */
+export function cleanupSeparatistWars(
+  armies: Army[],
+  provinces: Province[],
+  wars: War[],
+  relations: DiplomaticRelation[]
+): {
+  wars: War[];
+  relations: DiplomaticRelation[];
+  provinces: Province[];
+  endedWars: string[];
+  pacifiedProvinces: string[];
+} {
+  let currentWars = [...wars];
+  let currentRelations = [...relations];
+  let currentProvinces = [...provinces];
+  const endedWars: string[] = [];
+  const pacifiedProvinces: string[] = [];
+
+  const rebelWars = currentWars.filter(
+    w => w.attacker.startsWith('rebel_') || w.defender.startsWith('rebel_')
+  );
+
+  for (const war of rebelWars) {
+    const rebelTag = war.attacker.startsWith('rebel_') ? war.attacker : war.defender;
+    const enemyTag = war.attacker === rebelTag ? war.defender : war.attacker;
+
+    const provId = rebelTag.replace('rebel_', '');
+    const rebelHome = provinces.find(p => p.id === provId)?.originalOwner;
+
+    // Ainda existe rebelde separatista ativo desta revolta?
+    const stillActive = armies.some(a => a.owner === rebelTag && a.separatistMode === true);
+    // Ainda existe território histórico ocupado?
+    const stillOccupied = rebelHome
+      ? currentProvinces.some(p => p.originalOwner === rebelHome && p.owner !== rebelHome)
+      : false;
+
+    // Se a reconquista ainda está em andamento, a guerra continua
+    if (stillActive && stillOccupied) continue;
+
+    // 🕊️ Encerra a guerra e volta para PAZ
+    currentWars = currentWars.filter(w => w.id !== war.id);
+    currentRelations = currentRelations.map(r =>
+      (r.countryA === rebelTag && r.countryB === enemyTag) ||
+      (r.countryB === rebelTag && r.countryA === enemyTag)
+        ? { ...r, status: 'peace' as const, pactDaysRemaining: 0 }
+        : r
+    );
+    endedWars.push(`${rebelTag} ⚔️ ${enemyTag}`);
+
+    // 🎉 Pacifica as províncias do país libertado (zera unrest → para o pulse)
+    if (rebelHome) {
+      currentProvinces = currentProvinces.map(p => {
+        if (p.owner === rebelHome && (p.unrest ?? 0) > 0) {
+          pacifiedProvinces.push(p.name);
+          return { ...p, unrest: 0 };
+        }
+        return p;
+      });
+    }
+  }
+
+  return {
+    wars: currentWars,
+    relations: currentRelations,
+    provinces: currentProvinces,
+    endedWars,
+    pacifiedProvinces,
+  };
 }

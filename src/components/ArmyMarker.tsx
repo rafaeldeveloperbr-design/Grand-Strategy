@@ -41,7 +41,9 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
   onClick,
   onHover,
 }) => {
-  const effectiveTag = army.owner.startsWith('rebel_') && army.originalOwner ? army.originalOwner : army.owner;
+  const effectiveTag = army.owner.startsWith('rebel_') && army.originalOwner 
+  ? army.originalOwner 
+  : army.owner;
 const country = countries.find(c => c.tag === effectiveTag);
   const size = calculateArmySize(army);
   
