@@ -41,7 +41,8 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
   onClick,
   onHover,
 }) => {
-  const country = countries.find(c => c.tag === army.owner);
+  const effectiveTag = army.owner.startsWith('rebel_') && army.originalOwner ? army.originalOwner : army.owner;
+const country = countries.find(c => c.tag === effectiveTag);
   const size = calculateArmySize(army);
   
   // Determina posição base (se está em movimento, usa position; senão, centro da província)

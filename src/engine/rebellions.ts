@@ -1,21 +1,20 @@
 /**
  * ============================================================
- * SISTEMA DE REVOLTAS E IA SEPARATISTA
+ * SISTEMA DE REVOLTAS E IA SEPARATISTA (VERSÃO FINAL)
  * ============================================================
+ * REGRAS:
  * - Acúmulo de 1.000 tropas por ciclo de revolta
- * - Ativação de modo separatista ao atingir 5.000 tropas
- * - IA de marcha restrita: ataca apenas províncias do originalOwner
+ * - Aos 5.000: ativa separatistMode
+ * - SÓ ataca províncias com originalOwner dele que estão ocupadas
+ * - NUNCA entra em território estrangeiro (exceto o histórico dele)
+ * - Ao completar a reconquista: integrado ao exército nacional
  */
 
 import { Army, Province } from '../types';
-import { DiplomaticRelation } from '../types/diplomacy';
-import { createRegiment, moveArmy, findPath } from './military';
+import { createRegiment } from './military';
 import { getCountryByTag } from '../data/countries';
 
-/** Tropas geradas por ciclo de revolta */
 export const REBEL_ACCUMULATION_RATE = 1000;
-
-/** Limiar para ativar modo separatista */
 export const SEPARATIST_THRESHOLD = 5000;
 
 export interface RebelProcessingResult {
@@ -25,23 +24,14 @@ export interface RebelProcessingResult {
   logs: string[];
 }
 
-/**
- * Verifica se um exército é rebelde (pelo owner)
- */
 export function isRebelArmy(army: Army): boolean {
   return army.owner.startsWith('rebel_');
 }
 
-/**
- * Calcula o total de tropas de um exército
- */
 function getArmyTotalTroops(army: Army): number {
   return army.regiments.reduce((sum, r) => sum + Math.floor(r.strength), 0);
 }
 
-/**
- * Gera um ID único para exércitos rebeldes
- */
 let rebelArmyIdCounter = 0;
 function generateRebelArmyId(): string {
   rebelArmyIdCounter++;
@@ -49,10 +39,7 @@ function generateRebelArmyId(): string {
 }
 
 /**
- * PROCESSA ACÚMULO DE TROPAS REBELDES
- * - Se já existe rebelde na província: soma +1.000
- * - Se não existe: cria novo exército com 1.000 tropas
- * - Ao atingir 5.000: ativa separatistMode
+ * ACÚMULO DE TROPAS REBELDES (+1.000 por ciclo)
  */
 export function processRebelAccumulation(
   provinces: Province[],
@@ -68,26 +55,19 @@ export function processRebelAccumulation(
     const province = updatedProvinces.find(p => p.id === provId);
     if (!province) continue;
 
-    // Encontra exército rebelde JÁ EXISTENTE nesta província
     const rebelArmyIndex = updatedArmies.findIndex(
       a => a.location === provId && isRebelArmy(a) && !a.destination
     );
 
     if (rebelArmyIndex !== -1) {
-      // ✅ JÁ EXISTE REBELDE: SOMA +1.000 TROPAS
       const rebelArmy = { ...updatedArmies[rebelArmyIndex] };
       const infantryIndex = rebelArmy.regiments.findIndex(r => r.type === 'infantry');
 
       if (infantryIndex !== -1) {
-        // Soma no regimento de infantaria existente
-        const updatedRegiments = [...rebelArmy.regiments];
-        updatedRegiments[infantryIndex] = {
-          ...updatedRegiments[infantryIndex],
-          strength: updatedRegiments[infantryIndex].strength + REBEL_ACCUMULATION_RATE,
-        };
+        const updatedRegiments = rebelArmy.regiments.map(r => ({ ...r }));
+        updatedRegiments[infantryIndex].strength += REBEL_ACCUMULATION_RATE;
         rebelArmy.regiments = updatedRegiments;
       } else {
-        // Cria novo regimento de infantaria
         const newReg = createRegiment('infantry');
         newReg.strength = REBEL_ACCUMULATION_RATE;
         rebelArmy.regiments = [...rebelArmy.regiments, newReg];
@@ -96,30 +76,22 @@ export function processRebelAccumulation(
       const totalTroops = getArmyTotalTroops(rebelArmy);
       console.log(`🔥 Rebeldes em ${province.name} acumularam +${REBEL_ACCUMULATION_RATE} (total: ${totalTroops})`);
 
-      // 🚨 VERIFICA SE ATINGIU 5.000 TROPAS
       if (totalTroops >= SEPARATIST_THRESHOLD && !rebelArmy.separatistMode) {
         rebelArmy.separatistMode = true;
         const countryName = getCountryByTag(rebelArmy.originalOwner || '')?.name || 'país desconhecido';
-        
-        notifications.push(
-          `⚠️ Exército Separatista atingiu 5.000 tropas e iniciou a marcha de reconquista!`
-        );
-        logs.push(
-          `⚔️ Rebeldes de ${countryName} atingiram 5k e estão atacando para reconquistar seus territórios originais!`
-        );
+        notifications.push(`⚠️ Exército Separatista atingiu 5.000 tropas e iniciou a marcha de reconquista!`);
+        logs.push(`⚔️ Rebeldes de ${countryName} atingiram 5k e estão atacando para reconquistar seus territórios originais!`);
         console.log(`⚔️ Rebeldes de ${countryName} atingiram 5k e estão atacando para reconquistar seus territórios originais!`);
       }
 
       updatedArmies[rebelArmyIndex] = rebelArmy;
     } else {
-      // ❌ NÃO EXISTE REBELDE: CRIA NOVO EXÉRCITO COM 1.000 TROPAS
       const originalOwner = province.originalOwner || province.owner;
       const countryName = getCountryByTag(originalOwner)?.name || province.name;
-      const rebelOwnerTag = `rebel_${provId}`;
 
       const newRebelArmy: Army = {
         id: generateRebelArmyId(),
-        owner: rebelOwnerTag,
+        owner: `rebel_${provId}`,
         name: `Rebeldes de ${countryName}`,
         regiments: [],
         location: provId,
@@ -131,7 +103,7 @@ export function processRebelAccumulation(
         path: [],
         targetArmyId: null,
         targetProvinceId: null,
-        originalOwner: originalOwner,
+        originalOwner,
         separatistMode: false,
       };
 
@@ -148,101 +120,369 @@ export function processRebelAccumulation(
 }
 
 /**
- * IA SEPARATISTA - MARCHA RESTRITA
- * Rebeldes em modo separatista atacam APENAS províncias que:
- * - originalOwner === army.originalOwner (eram deles)
- * - owner !== army.originalOwner (foram conquistadas)
- * 
- * NUNCA atacam províncias nativas do jogador (que sempre pertenceram a ele).
+ * BFS apenas por território histórico (originalOwner)
+ */
+function findSeparatistPath(
+  startId: string,
+  targetId: string,
+  provinces: Province[],
+  rebelOriginalOwner: string
+): string[] {
+  if (startId === targetId) return [];
+
+  const visited = new Set<string>([startId]);
+  const parent = new Map<string, string>();
+  const queue: string[] = [startId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === targetId) {
+      const path: string[] = [];
+      let node: string | undefined = targetId;
+      while (node !== startId) {
+        path.unshift(node!);
+        node = parent.get(node!);
+      }
+      return path;
+    }
+
+    const currentProv = provinces.find(p => p.id === current);
+    if (!currentProv) continue;
+
+    for (const neighbor of currentProv.neighbors || []) {
+      if (visited.has(neighbor)) continue;
+      const neighborProv = provinces.find(p => p.id === neighbor);
+      if (!neighborProv) continue;
+      if (neighborProv.originalOwner !== rebelOriginalOwner) continue;
+      visited.add(neighbor);
+      parent.set(neighbor, current);
+      queue.push(neighbor);
+    }
+  }
+  return [];
+}
+
+/**
+ * BFS livre (usado APENAS para rebeldes perdidos voltarem para casa)
+ */
+function findWayHomePath(
+  startId: string,
+  targetId: string,
+  provinces: Province[]
+): string[] {
+  if (startId === targetId) return [];
+  const visited = new Set<string>([startId]);
+  const parent = new Map<string, string>();
+  const queue: string[] = [startId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === targetId) {
+      const path: string[] = [];
+      let node: string | undefined = targetId;
+      while (node !== startId) {
+        path.unshift(node!);
+        node = parent.get(node!);
+      }
+      return path;
+    }
+    const currentProv = provinces.find(p => p.id === current);
+    if (!currentProv) continue;
+    for (const neighbor of currentProv.neighbors || []) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      parent.set(neighbor, current);
+      queue.push(neighbor);
+    }
+  }
+  return [];
+}
+
+/**
+ * Movimento separatista (ignora diplomacia)
+ * allowHome = true permite entrar em província do próprio país (trânsito/volta)
+ */
+function moveSeparatistArmy(
+  army: Army,
+  targetId: string,
+  provinces: Province[],
+  allowHome = false
+): Army | null {
+  const currentProvince = provinces.find(p => p.id === army.location);
+  if (!currentProvince) return null;
+  if (!currentProvince.neighbors.includes(targetId)) return null;
+
+  const targetProvince = provinces.find(p => p.id === targetId);
+  if (!targetProvince) return null;
+
+  if (!allowHome && targetProvince.owner === army.originalOwner) return null;
+
+  return {
+    ...army,
+    destination: targetId,
+    targetDestination: targetId,
+    path: [targetId],
+    movementProgress: 0,
+  };
+}
+
+/**
+ * Funde exércitos rebeldes do MESMO país original na MESMA província
+ * (evita dois marcadores rebeldes no mesmo lugar)
+ */
+function mergeRebelArmies(armies: Army[]): Army[] {
+  const result: Army[] = [];
+
+  for (const army of armies) {
+    if (!isRebelArmy(army) || !army.location) {
+      result.push(army);
+      continue;
+    }
+
+    const idx = result.findIndex(
+      a => isRebelArmy(a) &&
+           a.location === army.location &&
+           a.originalOwner === army.originalOwner
+    );
+
+    if (idx !== -1) {
+      const target = { ...result[idx] };
+      const regiments = target.regiments.map(r => ({ ...r }));
+      for (const reg of army.regiments) {
+        const existing = regiments.find(r => r.type === reg.type);
+        if (existing) {
+          existing.strength += reg.strength;
+        } else {
+          regiments.push({ ...reg });
+        }
+      }
+      target.regiments = regiments;
+      target.separatistMode = target.separatistMode || army.separatistMode;
+      result[idx] = target;
+      console.log(`🔀 Rebeldes de ${army.originalOwner} fundidos em ${army.location} (${getArmyTotalTroops(target)} tropas)`);
+    } else {
+      result.push({ ...army });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Quando a reconquista termina, o rebelde vira exército nacional
+ * (mesma bandeira, funde com o exército do país → 1 marcador só)
+ */
+function integrateLiberatedRebels(armies: Army[], provinces: Province[]): Army[] {
+  return armies.map(army => {
+    if (!isRebelArmy(army) || !army.separatistMode || !army.originalOwner) return army;
+
+    const occupiedHome = provinces.some(
+      p => p.originalOwner === army.originalOwner && p.owner !== army.originalOwner
+    );
+
+    if (!occupiedHome) {
+      console.log(`🏳️ ${army.name}: reconquista completa! Integrado ao exército de ${army.originalOwner}`);
+      return {
+        ...army,
+        owner: army.originalOwner,
+        separatistMode: false,
+        name: `Exército Libertador (${army.originalOwner})`,
+      };
+    }
+    return army;
+  });
+}
+
+/**
+ * ============================================================
+ * IA SEPARATISTA - MARCHA RESTRITA (VERSÃO FINAL)
+ * ============================================================
+ * SÓ ataca províncias com originalOwner dele que estão ocupadas.
+ * Nunca entra em território estrangeiro.
  */
 export function processSeparatistAI(
   armies: Army[],
-  provinces: Province[],
-  diplomaticRelations: DiplomaticRelation[]
+  provinces: Province[]
 ): Army[] {
-  let updatedArmies = [...armies];
+  let updatedArmies = mergeRebelArmies([...armies]);
+  updatedArmies = integrateLiberatedRebels(updatedArmies, provinces);
 
   const separatistArmies = updatedArmies.filter(
     a => isRebelArmy(a) && a.separatistMode === true
   );
 
+  if (separatistArmies.length > 0) {
+    console.log(`🎯 processSeparatistAI: processando ${separatistArmies.length} exército(s) separatista(s)`);
+  }
+
   for (const army of separatistArmies) {
-    // Se já está se movendo, não processa novamente
-    if (!army.location || army.destination) continue;
+    if (!army.location || army.destination || army.inCombat) continue;
 
     const currentProvince = provinces.find(p => p.id === army.location);
     if (!currentProvince) continue;
 
-    // 🎯 ESTRATÉGIA 1: Verifica vizinhos diretos que são alvos válidos
-    const validNeighborTargets = currentProvince.neighbors.filter(neighborId => {
+    const originalOwner = army.originalOwner || currentProvince.owner;
+
+    // ========================================
+    // 🎯 ESTRATÉGIA 1: Atacar vizinho = território histórico ocupado
+    // ========================================
+    const historicNeighborTargets = (currentProvince.neighbors || []).filter(neighborId => {
       const neighborProv = provinces.find(p => p.id === neighborId);
       if (!neighborProv) return false;
       return (
-        neighborProv.originalOwner === army.originalOwner &&
-        neighborProv.owner !== army.originalOwner
+        neighborProv.originalOwner === originalOwner &&
+        neighborProv.owner !== originalOwner
       );
     });
 
-    if (validNeighborTargets.length > 0) {
-      // Ataca o primeiro alvo vizinho válido
-      const targetId = validNeighborTargets[0];
-      const targetProv = provinces.find(p => p.id === targetId);
-      const movedArmy = moveArmy(army, targetId, provinces, diplomaticRelations);
-
-      const idx = updatedArmies.findIndex(a => a.id === army.id);
-      if (idx !== -1 && movedArmy) {
-        updatedArmies[idx] = movedArmy;
-        console.log(`⚔️ Separatistas de ${army.name} marcham para reconquistar ${targetProv?.name}`);
+    if (historicNeighborTargets.length > 0) {
+      const targetId = historicNeighborTargets[0];
+      const movedArmy = moveSeparatistArmy(army, targetId, provinces);
+      if (movedArmy) {
+        const idx = updatedArmies.findIndex(a => a.id === army.id);
+        if (idx !== -1) {
+          updatedArmies[idx] = movedArmy;
+          const targetProv = provinces.find(p => p.id === targetId);
+          console.log(`⚔️ ${army.name} ATACA ${targetProv?.name} (território histórico)!`);
+        }
+        continue;
       }
-      continue;
     }
 
-    // 🎯 ESTRATÉGIA 2: Não há vizinho válido - busca caminho até a província-alvo mais próxima
-    const allValidTargets = provinces.filter(p =>
-      p.originalOwner === army.originalOwner &&
-      p.owner !== army.originalOwner
+    // ========================================
+    // 🎯 ESTRATÉGIA 2: Trânsito por território próprio/libertado
+    // ========================================
+    const transitNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
+      const neighborProv = provinces.find(p => p.id === neighborId);
+      if (!neighborProv) return false;
+      return (
+        neighborProv.originalOwner === originalOwner &&
+        neighborProv.owner === originalOwner
+      );
+    });
+
+    let moved = false;
+    for (const transitId of transitNeighbors) {
+      const transitProv = provinces.find(p => p.id === transitId)!;
+      const furtherTargets = (transitProv.neighbors || []).filter(nid => {
+        const p = provinces.find(x => x.id === nid);
+        return (
+          p &&
+          p.originalOwner === originalOwner &&
+          p.owner !== originalOwner
+        );
+      });
+
+      if (furtherTargets.length > 0) {
+        const movedArmy = moveSeparatistArmy(army, transitId, provinces, true);
+        if (movedArmy) {
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = movedArmy;
+            console.log(`🚶 ${army.name} transitando por ${transitProv.name}`);
+          }
+          moved = true;
+          break;
+        }
+      }
+    }
+    if (moved) continue;
+
+    // ========================================
+    // 🎯 ESTRATÉGIA 3: Pathfinding até alvo histórico remoto
+    // ========================================
+    const remoteHistoricTargets = provinces.filter(p =>
+      p.originalOwner === originalOwner &&
+      p.owner !== originalOwner
     );
 
-    if (allValidTargets.length === 0) {
-      // Não há mais territórios para reconquistar - para o modo separatista
-      const idx = updatedArmies.findIndex(a => a.id === army.id);
-      if (idx !== -1) {
-        updatedArmies[idx] = { ...army, separatistMode: false };
-        console.log(`✅ ${army.name} não tem mais territórios para reconquistar`);
+    if (remoteHistoricTargets.length > 0) {
+      let bestTarget: Province | null = null;
+      let bestPath: string[] = [];
+
+      for (const target of remoteHistoricTargets) {
+        const path = findSeparatistPath(army.location, target.id, provinces, originalOwner);
+        if (path.length > 0 && (bestPath.length === 0 || path.length < bestPath.length)) {
+          bestTarget = target;
+          bestPath = path;
+        }
       }
-      continue;
-    }
 
-    // Encontra o alvo com caminho mais curto
-    let bestTarget: Province | null = null;
-    let bestPath: string[] = [];
-
-    for (const target of allValidTargets) {
-      const path = findPath(army.location, target.id, provinces, army.owner, diplomaticRelations);
-      if (path.length > 0 && (bestPath.length === 0 || path.length < bestPath.length)) {
-        bestTarget = target;
-        bestPath = path;
-      }
-    }
-
-    if (bestTarget && bestPath.length > 0) {
-      const nextStepId = bestPath[0];
-      const movedArmy = moveArmy(army, nextStepId, provinces, diplomaticRelations);
-
-      const idx = updatedArmies.findIndex(a => a.id === army.id);
-      if (idx !== -1 && movedArmy) {
-        updatedArmies[idx] = movedArmy;
-        console.log(`🚶 ${army.name} marcha em direção a ${bestTarget.name} (rota: ${bestPath.length} províncias)`);
+      if (bestTarget && bestPath.length > 0) {
+        const nextStepId = bestPath[0];
+        const isHomeStep = provinces.find(p => p.id === nextStepId)?.owner === originalOwner;
+        const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, isHomeStep);
+        if (movedArmy) {
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = {
+              ...movedArmy,
+              path: bestPath,
+              targetDestination: bestTarget.id,
+            };
+            console.log(`🚶 ${army.name} marchando para ${bestTarget.name} (rota histórica: ${bestPath.length})`);
+          }
+          continue;
+        }
       }
     }
+
+    // ========================================
+    // 🏠 ESTRATÉGIA 4: Rebelde perdido em terra estrangeira → voltar para casa
+    // ========================================
+    if (currentProvince.originalOwner !== originalOwner) {
+      const homeNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
+        const neighborProv = provinces.find(p => p.id === neighborId);
+        return neighborProv?.originalOwner === originalOwner;
+      });
+
+      if (homeNeighbors.length > 0) {
+        const movedArmy = moveSeparatistArmy(army, homeNeighbors[0], provinces, true);
+        if (movedArmy) {
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = movedArmy;
+            console.log(`🏠 ${army.name} voltando para casa`);
+          }
+          continue;
+        }
+      }
+
+      // Pathfinding livre até a província natal mais próxima
+      const homeProvinces = provinces.filter(p => p.originalOwner === originalOwner);
+      let bestHome: Province | null = null;
+      let bestHomePath: string[] = [];
+      for (const home of homeProvinces) {
+        const path = findWayHomePath(army.location, home.id, provinces);
+        if (path.length > 0 && (bestHomePath.length === 0 || path.length < bestHomePath.length)) {
+          bestHome = home;
+          bestHomePath = path;
+        }
+      }
+      if (bestHome && bestHomePath.length > 0) {
+        const nextStepId = bestHomePath[0];
+        const nextProv = provinces.find(p => p.id === nextStepId);
+        const allowHome = nextProv?.owner === originalOwner;
+        const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, allowHome);
+        if (movedArmy) {
+          const idx = updatedArmies.findIndex(a => a.id === army.id);
+          if (idx !== -1) {
+            updatedArmies[idx] = movedArmy;
+            console.log(`🏠 ${army.name} retornando para ${bestHome.name}`);
+          }
+          continue;
+        }
+      }
+    }
+
+    console.log(`🛡️ ${army.name}: aguardando em ${currentProvince.name} (nenhum território histórico ocupado)`);
   }
 
   return updatedArmies;
 }
 
 /**
- * Verifica se um exército rebelde venceu e deve devolver o território
- * Retorna o novo owner (originalOwner) ou null se não for caso de devolução
+ * Devolução de território quando rebelde vence
  */
 export function checkRebelTerritoryReturn(winnerArmy: Army): string | null {
   if (isRebelArmy(winnerArmy) && winnerArmy.originalOwner) {

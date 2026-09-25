@@ -245,6 +245,7 @@ const App: React.FC = () => {
       ...p,
       buildings: [...p.buildings],
       unrest: 0, // Inicialmente todas as províncias estão pacíficas
+      originalOwner: p.owner, // ✅ Define originalOwner para todas as províncias
     }))
   );
 
@@ -636,17 +637,43 @@ const App: React.FC = () => {
         continue;
       }
 
+      // Verifica se está em guerra FORMAL
       const isInWar = wars.some(
         w => (w.attacker === arrived.owner && w.defender === province.owner) ||
           (w.defender === arrived.owner && w.attacker === province.owner)
       );
 
-      if (province.owner !== arrived.owner && !isInWar) {
+      // 🏴 HOSTILIDADE: rebeldes brigam com TODOS, exceto seu país de origem
+      const isHostile = (ownerA: string, ownerB: string, origA?: string, origB?: string): boolean => {
+        const aRebel = ownerA.startsWith('rebel_');
+        const bRebel = ownerB.startsWith('rebel_');
+        if (aRebel && bRebel) return false;
+        if (aRebel) return ownerB !== (origA || '');
+        if (bRebel) return ownerA !== (origB || '');
+        return wars.some(
+          w => (w.attacker === ownerA && w.defender === ownerB) ||
+            (w.defender === ownerA && w.attacker === ownerB)
+        );
+      };
+
+      const isRebelArrived = arrived.owner.startsWith('rebel_');
+
+      const enemies = armies.filter(a =>
+        a.location === province.id &&
+        a.id !== arrived.id &&
+        isHostile(arrived.owner, a.owner, arrived.originalOwner, a.originalOwner)
+      );
+
+      const isRebelAttackingEnemy = isRebelArrived &&
+        province.owner !== arrived.owner &&
+        province.owner !== (arrived.originalOwner || arrived.owner);
+
+      const shouldBattle = enemies.length > 0 || isRebelAttackingEnemy || isInWar;
+
+      if (province.owner !== arrived.owner && !shouldBattle) {
         armies = [...armies, arrived];
         continue;
       }
-
-      const enemies = getEnemyArmiesInProvince(armies, arrived.location!, arrived.owner);
 
       if (enemies.length > 0) {
         console.log('⚔️ [COMBAT TRIGGERED AT]:', province.id);
@@ -662,11 +689,12 @@ const App: React.FC = () => {
             !a.inCombat
           );
 
-          // Coleta TODOS os exércitos defensores (mesmo país do dono da província)
+          // Defensores: exércitos HOSTIS ao arrived (cobre rebeldes em província própria)
           const defenderArmies = armies.filter(a =>
             a.location === province.id &&
-            a.owner === province.owner &&
-            !a.inCombat
+            a.owner !== arrived.owner &&
+            !a.inCombat &&
+            isHostile(arrived.owner, a.owner, arrived.originalOwner, a.originalOwner)
           );
 
           // Inicia nova batalha contínua com TODOS os exércitos
@@ -708,17 +736,28 @@ const App: React.FC = () => {
       // Se não há inimigos, adiciona o exército normalmente
       armies = [...armies, arrived];
 
-      if (province.owner !== arrived.owner && isInWar) {
+      if (province.owner !== arrived.owner && shouldBattle) {
         const oldOwner = province.owner;
+
+        // 🏴 Determina o novo dono: se é rebelde, devolve ao originalOwner
+        const newOwner = (isRebelArrived && arrived.originalOwner)
+          ? arrived.originalOwner
+          : arrived.owner;
+
         provinces = provinces.map(p => {
           if (p.id === province.id) {
             // Aplica unrest inicial na província ocupada
-            return applyConquestUnrest({ ...p, owner: arrived.owner }, snapshot.date);
+            const conqueredProv = applyConquestUnrest({ ...p, owner: newOwner }, snapshot.date);
+            return {
+              ...conqueredProv,
+              originalOwner: conqueredProv.originalOwner || oldOwner,
+            };
           }
           return p;
         });
+
         countries = countries.map(c => {
-          if (c.tag === arrived.owner) return { ...c, provinces: [...c.provinces, province.id] };
+          if (c.tag === newOwner) return { ...c, provinces: [...c.provinces, province.id] };
           if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
           return c;
         });
@@ -727,7 +766,7 @@ const App: React.FC = () => {
         const cancelResult = cancelProvinceActivities(
           province.id,
           oldOwner,
-          arrived.owner,
+          newOwner,
           recruitments,
           buildingConstructions,
           provinces
@@ -737,7 +776,12 @@ const App: React.FC = () => {
         buildingConstructions = cancelResult.constructions;
         provinces = cancelResult.provinces;
 
-        addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
+        if (isRebelArrived) {
+          const countryName = allCountries.find(c => c.tag === newOwner)?.name || newOwner;
+          addLog(`🏴 Rebeldes libertaram ${province.name}! Devolvida a ${countryName}`);
+        } else {
+          addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
+        }
       }
     }
 
@@ -1094,6 +1138,9 @@ const App: React.FC = () => {
       armies = rebelResult.updatedArmies;
       provinces = rebelResult.updatedProvinces;
 
+      // 🚀 PROCESSA IA SEPARATISTA IMEDIATAMENTE (mesmo tick)
+      armies = processSeparatistAI(armies, provinces);
+
       // Notificações de revolta
       for (const revoltedProv of revoltedProvinces) {
         console.log(`🔥 Revolta em ${revoltedProv.name}! Rebeldes acumulando forças.`);
@@ -1111,7 +1158,6 @@ const App: React.FC = () => {
         addLog(notif);
       });
 
-      // Logs no console
       rebelResult.logs.forEach(log => {
         console.log(log);
       });
@@ -1353,7 +1399,38 @@ const App: React.FC = () => {
 
 
     // ===== PASSO H.5: IA SEPARATISTA (REBELDES EM MARCHA DE RECONQUISTA) =====
-    armies = processSeparatistAI(armies, provinces, relations);
+    armies = processSeparatistAI(armies, provinces);
+
+
+     // ===== PASSO H.6: BATALHAS PENDENTES COM REBELDES =====
+    // Garante combate quando rebelde e inimigo estão parados na mesma província
+    for (const prov of provinces) {
+      const armiesHere = armies.filter(a => a.location === prov.id && !a.inCombat && !a.destination);
+      if (armiesHere.length < 2) continue;
+
+      const rebelSide = armiesHere.filter(a => a.owner.startsWith('rebel_'));
+      if (rebelSide.length === 0) continue;
+
+      const existingBattle = currentActiveBattles.find(b => b.provinceId === prov.id);
+      if (existingBattle) continue;
+
+      const origOwner = rebelSide[0].originalOwner;
+      const hostileSide = armiesHere.filter(a => !a.owner.startsWith('rebel_') && a.owner !== origOwner);
+      if (hostileSide.length === 0) continue;
+
+      const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newBattle = startContinuousBattle(rebelSide, hostileSide, prov, snapshot.date, battleId);
+      const participantIds = newBattle.participantArmyIds;
+      armies = armies.map(a => participantIds.includes(a.id) ? { ...a, inCombat: true } : a);
+      currentActiveBattles = [...currentActiveBattles, newBattle];
+
+      addLog(`⚔️ Batalha iniciada em ${prov.name}: rebeldes vs ${hostileSide[0].owner}!`);
+      if (prov.owner === playerCountryTag || hostileSide[0].owner === playerCountryTag) {
+        addToast(`Rebeldes atacam ${prov.name}!`, 'warning', 'Batalha Iniciada');
+      }
+    }
+    setActiveBattles(currentActiveBattles);
+    activeBattlesRef.current = currentActiveBattles;
 
 
     // ===== PASSO I: VERIFICA CONDIÇÕES DE FIM DE JOGO =====
