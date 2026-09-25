@@ -41,16 +41,23 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const defenderCountry = allCountries.find(c => c.tag === defenderOriginal.owner);
   const newOwnerCountry = newOwner ? allCountries.find(c => c.tag === newOwner) : null;
 
-  // Calcula tropas iniciais e sobreviventes
+  // Usa dados estáticos do snapshot (NÃO recalcula)
   const attackerInitialTroops = Math.floor(attackerOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
   const defenderInitialTroops = Math.floor(defenderOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
+  
+  // Sobreviventes já estão em attacker/defender (após baixas)
   const attackerSurvivors = Math.floor(attacker.regiments.reduce((sum, r) => sum + r.strength, 0));
   const defenderSurvivors = Math.floor(defender.regiments.reduce((sum, r) => sum + r.strength, 0));
+  
+  // Usa as baixas JÁ CALCULADAS no backend (NÃO recalcula)
+  const calculatedAttackerCasualties = attackerCasualties;
+  const calculatedDefenderCasualties = defenderCasualties;
 
-  // Agrupa baixas por tipo de unidade
-  const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker) => {
+  // Agrupa baixas por tipo de unidade (APENAS para exibição, não para cálculo)
+  const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker, totalCasualties: number) => {
     const breakdown: Record<string, { initial: number; final: number; lost: number }> = {};
     
+    // Conta tropas iniciais por tipo
     originalArmy.regiments.forEach(reg => {
       if (!breakdown[reg.type]) {
         breakdown[reg.type] = { initial: 0, final: 0, lost: 0 };
@@ -58,6 +65,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
       breakdown[reg.type].initial += Math.floor(reg.strength);
     });
 
+    // Conta tropas finais por tipo
     finalArmy.regiments.forEach(reg => {
       if (!breakdown[reg.type]) {
         breakdown[reg.type] = { initial: 0, final: 0, lost: 0 };
@@ -65,6 +73,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
       breakdown[reg.type].final += Math.floor(reg.strength);
     });
 
+    // Calcula perdas por tipo (diferença entre inicial e final)
     Object.keys(breakdown).forEach(type => {
       breakdown[type].lost = Math.floor(breakdown[type].initial - breakdown[type].final);
     });
@@ -72,12 +81,8 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
     return breakdown;
   };
 
-  const attackerBreakdown = getUnitBreakdown(attackerOriginal, attacker);
-  const defenderBreakdown = getUnitBreakdown(defenderOriginal, defender);
-
-  // Calcula total de baixas SOMANDO as perdas por unidade (garante consistência)
-  const calculatedAttackerCasualties = Object.values(attackerBreakdown).reduce((sum, data) => sum + data.lost, 0);
-  const calculatedDefenderCasualties = Object.values(defenderBreakdown).reduce((sum, data) => sum + data.lost, 0);
+  const attackerBreakdown = getUnitBreakdown(attackerOriginal, attacker, calculatedAttackerCasualties);
+  const defenderBreakdown = getUnitBreakdown(defenderOriginal, defender, calculatedDefenderCasualties);
 
   const getUnitIcon = (type: string) => {
     switch (type) {
