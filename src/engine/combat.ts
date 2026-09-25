@@ -637,17 +637,13 @@ export function checkAllProvinceCombats(
 
     if (attackerArmies.length === 0 || defenderArmies.length === 0) continue;
 
-    // Usa o primeiro exército de cada lado
-    const mainAttacker = attackerArmies[0];
-    const mainDefender = defenderArmies[0];
-
     console.log(`⚔️ Iniciando batalha contínua em ${province.name}: ${attackerCountry} vs ${defenderCountry}`);
-    console.log(`   Atacante: ${calculateArmySize(mainAttacker)} tropas`);
-    console.log(`   Defensor: ${calculateArmySize(mainDefender)} tropas`);
+    console.log(`   Atacantes: ${attackerArmies.length} exércitos (${attackerArmies.reduce((sum, a) => sum + calculateArmySize(a), 0)} tropas)`);
+    console.log(`   Defensores: ${defenderArmies.length} exércitos (${defenderArmies.reduce((sum, a) => sum + calculateArmySize(a), 0)} tropas)`);
 
-    // Inicia batalha contínua
+    // Inicia batalha contínua com TODOS os exércitos
     const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const newBattle = startContinuousBattle(mainAttacker, mainDefender, province, currentDate, battleId);
+    const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, currentDate, battleId);
     newBattles.push(newBattle);
 
     // Marca TODOS os exércitos envolvidos como em combate
@@ -675,31 +671,40 @@ export function checkAllProvinceCombats(
 
 /**
  * Inicia uma nova batalha contínua (não resolve instantaneamente)
+ * Aceita múltiplos exércitos de cada lado para incluir todos desde o Dia 1
  */
 export function startContinuousBattle(
-  attacker: Army,
-  defender: Army,
+  attackerArmies: Army[],
+  defenderArmies: Army[],
   province: Province,
   currentDate: GameDate,
   battleId: string
 ): ActiveBattle {
-  const attackerTroops = calculateArmySize(attacker);
-  const defenderTroops = calculateArmySize(defender);
+  // Calcula tropas totais de cada lado
+  const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+  const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
   const totalTroops = attackerTroops + defenderTroops;
   
   // Calcula duração da batalha (2000 tropas = 1 dia)
   const battleDays = Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
 
+  // Coleta todos os IDs de exércitos participantes
+  const participantArmyIds = [
+    ...attackerArmies.map(a => a.id),
+    ...defenderArmies.map(a => a.id)
+  ];
+
   console.log(`⚔️ Iniciando batalha contínua em ${province.name}: ${battleDays} dias`);
-  console.log(`   Atacante: ${attackerTroops} tropas`);
-  console.log(`   Defensor: ${defenderTroops} tropas`);
+  console.log(`   Atacantes: ${attackerArmies.length} exércitos, ${attackerTroops} tropas`);
+  console.log(`   Defensores: ${defenderArmies.length} exércitos, ${defenderTroops} tropas`);
+  console.log(`   Total de participantes: ${participantArmyIds.length} exércitos`);
 
   return {
     id: battleId,
     provinceId: province.id,
-    attackerArmyId: attacker.id,
-    defenderArmyId: defender.id,
-    participantArmyIds: [attacker.id, defender.id],
+    attackerArmyId: attackerArmies[0].id, // Mantém referência ao primeiro atacante
+    defenderArmyId: defenderArmies[0].id, // Mantém referência ao primeiro defensor
+    participantArmyIds: participantArmyIds,
     daysTotal: battleDays,
     daysRemaining: battleDays,
     attackerInitialTroops: attackerTroops,
