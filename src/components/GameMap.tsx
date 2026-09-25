@@ -12,14 +12,19 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Province, Country, Army } from '../types';
+import { Province, Country, Army, Recruitment, BuildingConstruction } from '../types';
 import { ArmyMarker } from './ArmyMarker';
 import { calculateArmyOffset } from '../engine/military';
+import { getBuildingName, getUnitName } from '../utils/translations';
+import { BUILDING_DEFINITIONS } from '../data/buildings';
+import { UNIT_DEFINITIONS } from '../data/units';
 
 interface MapProps {
   provinces: Province[];
   countries: Country[];
   armies: Army[];
+  recruitments: Recruitment[];
+  buildingConstructions: BuildingConstruction[];
   selectedProvince: string | null;
   hoveredProvince: string | null;
   selectedArmy: string | null;
@@ -36,6 +41,8 @@ export const GameMap: React.FC<MapProps> = ({
   provinces,
   countries,
   armies,
+  recruitments,
+  buildingConstructions,
   selectedProvince,
   hoveredProvince,
   selectedArmy,
@@ -254,6 +261,21 @@ export const GameMap: React.FC<MapProps> = ({
     return countries.find((c) => c.tag === province.owner);
   };
 
+  /**
+   * Verifica se há atividades em uma província
+   */
+  const getProvinceActivities = (provinceId: string) => {
+    const constructions = buildingConstructions.filter(c => c.provinceId === provinceId);
+    const recruitmentsHere = recruitments.filter(r => r.provinceId === provinceId);
+    
+    return {
+      hasConstructions: constructions.length > 0,
+      hasRecruitments: recruitmentsHere.length > 0,
+      constructions,
+      recruitments: recruitmentsHere
+    };
+  };
+
   return (
     <div className="map-container">
       {/* === Controles de Zoom === */}
@@ -371,6 +393,81 @@ export const GameMap: React.FC<MapProps> = ({
               >
                 {province.name}
               </text>
+              
+              {/* Indicadores de atividades */}
+              {(() => {
+                const activities = getProvinceActivities(province.id);
+                const hasActivities = activities.hasConstructions || activities.hasRecruitments;
+                
+                if (!hasActivities) return null;
+                
+                const iconY = province.center.y - 12;
+                let iconX = province.center.x - 8;
+                
+                return (
+                  <g key={`activities-${province.id}`} pointerEvents="none">
+                    {/* Ícone de construção */}
+                    {activities.hasConstructions && (
+                      <g>
+                        <circle
+                          cx={iconX}
+                          cy={iconY}
+                          r="6"
+                          fill="rgba(255, 215, 0, 0.9)"
+                          stroke="rgba(0, 0, 0, 0.5)"
+                          strokeWidth="0.5"
+                        />
+                        <text
+                          x={iconX}
+                          y={iconY}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="7"
+                          pointerEvents="none"
+                        >
+                          🔨
+                        </text>
+                        <title>
+                          {activities.constructions.map(c => {
+                            const def = BUILDING_DEFINITIONS[c.buildingType];
+                            return `${def.name}: ${c.daysRemaining}d`;
+                          }).join('\n')}
+                        </title>
+                      </g>
+                    )}
+                    
+                    {/* Ícone de recrutamento */}
+                    {activities.hasRecruitments && (
+                      <g>
+                        <circle
+                          cx={iconX + 16}
+                          cy={iconY}
+                          r="6"
+                          fill="rgba(231, 76, 60, 0.9)"
+                          stroke="rgba(0, 0, 0, 0.5)"
+                          strokeWidth="0.5"
+                        />
+                        <text
+                          x={iconX + 16}
+                          y={iconY}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="7"
+                          pointerEvents="none"
+                        >
+                          ⚔️
+                        </text>
+                        <title>
+                          {activities.recruitments.map(r => {
+                            const def = UNIT_DEFINITIONS[r.unitType];
+                            return `${r.count > 1 ? `${r.count}x ` : ''}${def.name}: ${r.daysRemaining}d`;
+                          }).join('\n')}
+                        </title>
+                      </g>
+                    )}
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

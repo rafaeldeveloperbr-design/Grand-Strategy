@@ -1650,6 +1650,8 @@ const App: React.FC = () => {
           provinces={provinces}
           countries={allCountries}
           armies={armies}
+          recruitments={recruitments}
+          buildingConstructions={buildingConstructions}
           selectedProvince={selectedProvince}
           hoveredProvince={hoveredProvince}
           selectedArmy={selectedArmy}
