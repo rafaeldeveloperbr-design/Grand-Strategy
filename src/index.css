@@ -4294,3 +4294,33 @@ html, body, #root {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+ * INDICADORES DE BATALHA ATIVA
+ * ============================================================ */
+
+.battle-indicator {
+  pointer-events: none;
+}
+
+.battle-indicator__circle {
+  animation: battle-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes battle-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.battle-indicator__progress {
+  transition: width 0.3s ease;
+}
+
+.battle-indicator__text {
+  font-family: var(--font-mono);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
