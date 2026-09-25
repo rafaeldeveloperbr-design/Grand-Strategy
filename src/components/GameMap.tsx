@@ -270,6 +270,14 @@ export const GameMap: React.FC<MapProps> = ({
     const constructions = buildingConstructions.filter(c => c.provinceId === provinceId);
     const recruitmentsHere = recruitments.filter(r => r.provinceId === provinceId);
     
+    if (constructions.length > 0 || recruitmentsHere.length > 0) {
+      console.log(`🗺️ [GameMap] Atividades em ${provinceId}:`, {
+        constructions: constructions.length,
+        recruitments: recruitmentsHere.length,
+        constructionDetails: constructions.map(c => ({ id: c.id, type: c.buildingType, days: c.daysRemaining }))
+      });
+    }
+    
     return {
       hasConstructions: constructions.length > 0,
       hasRecruitments: recruitmentsHere.length > 0,

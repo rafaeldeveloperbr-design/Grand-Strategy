@@ -83,6 +83,14 @@ export const ProvincePanel: React.FC<ProvincePanelProps> = ({
   // Filtra atividades em andamento para o painel lateral
   const provinceConstructions = buildingConstructions.filter(c => c.provinceId === province.id);
   const hasActivities = provinceConstructions.length > 0 || recruitmentsHere.length > 0;
+  
+  if (hasActivities) {
+    console.log(`📋 [ProvincePanel] Atividades em ${province.name}:`, {
+      constructions: provinceConstructions.length,
+      recruitments: recruitmentsHere.length,
+      constructionDetails: provinceConstructions.map(c => ({ id: c.id, type: c.buildingType, days: c.daysRemaining }))
+    });
+  }
 
   return (
     <div className="province-panel">
