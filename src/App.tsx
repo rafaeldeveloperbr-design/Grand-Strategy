@@ -813,25 +813,67 @@ const App: React.FC = () => {
       console.log(`   Participantes: ${finishedBattle.participantArmyIds.length} exércitos`);
       
       // Finaliza a batalha e obtém o resultado
-      const { result: finalResult, updatedArmies: armiesWithReleasedParticipants } = finalizeBattle(
+      const { result: finalResult } = finalizeBattle(
         finishedBattle, attacker, defender, province, snapshot.date, armies
       );
       
-      // Atualiza o array de exércitos com todos os participantes liberados
-      armies = armiesWithReleasedParticipants;
-      
       console.log(`🏆 Vencedor: ${finalResult.winner === 'attacker' ? attacker.owner : defender.owner}`);
       
-      // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES (incluindo reforços)
+      // 🔓 PROCESSA TODOS OS EXÉRCITOS PARTICIPANTES
       const participantIds = finishedBattle.participantArmyIds;
-      console.log(`🔓 LIBERADOS: Exércitos ${participantIds.join(', ')} agora estão fora de combate.`);
+      console.log(`🔓 Processando ${participantIds.length} exércitos participantes: ${participantIds.join(', ')}`);
       
-      // Remove TODOS os exércitos participantes do mapa (serão re-adicionados com inCombat = false)
-      armies = armies.filter(a => !participantIds.includes(a.id));
+      // Determina quais países são vencedores e perdedores
+      const winnerSide = finalResult.winner;
+      const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
+      const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
       
-      // Garante que os exércitos principais não estão mais em combate
-      finalResult.attacker = { ...finalResult.attacker, inCombat: false };
-      finalResult.defender = { ...finalResult.defender, inCombat: false };
+      // Calcula o novo estado dos exércitos ANTES de atualizar
+      const updatedArmiesList = armies.map(army => {
+        // Se não é participante, mantém como está
+        if (!participantIds.includes(army.id)) {
+          return army;
+        }
+        
+        // Se é participante, verifica se sobreviveu
+        const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
+        
+        if (!hasTroops) {
+          // Exército foi eliminado - marca para remoção
+          console.log(`💀 Exército ${army.id} (${army.owner}) foi eliminado`);
+          return null;
+        }
+        
+        // Exército sobreviveu - libera do combate
+        const isWinner = army.owner === winnerCountry;
+        const isLoser = army.owner === loserCountry;
+        
+        if (isWinner) {
+          // Vencedor: permanece na província
+          console.log(`✅ Exército ${army.id} (${army.owner}) venceu e permanece em ${province.name}`);
+          return { ...army, inCombat: false };
+        } else if (isLoser) {
+          // Perdedor: verifica se deve recuar
+          const retreatProvince = findRetreatProvince(army.owner, province, provinces);
+          if (retreatProvince) {
+            // Recua para província vizinha amigável
+            console.log(`🏃 Exército ${army.id} (${army.owner}) recua para ${retreatProvince.name}`);
+            return { ...army, inCombat: false, location: retreatProvince.id };
+          } else {
+            // Sem rota de fuga - aniquilado
+            console.log(`💀 Exército ${army.id} (${army.owner}) aniquilado - sem rota de fuga`);
+            return null;
+          }
+        }
+        
+        return army;
+      }).filter(Boolean) as Army[]; // Remove exércitos eliminados
+      
+      console.log(`✅ EXÉRCITOS SALVOS: ${updatedArmiesList.filter(a => participantIds.includes(a.id)).length} exércitos mantidos com inCombat = false`);
+      
+      // Atualiza o estado dos exércitos
+      armies = updatedArmiesList;
+      setArmies(updatedArmiesList);
       
       // Atualiza guerras com baixas
       wars = wars.map(w => {
@@ -849,9 +891,6 @@ const App: React.FC = () => {
       
       // Processa resultado (vencedor/perdedor)
       if (finalResult.winner === 'attacker') {
-        if (finalResult.attacker.regiments.length > 0) {
-          armies = [...armies, { ...finalResult.attacker, location: province.id, inCombat: false }];
-        }
         const oldOwner = province.owner;
         provinces = provinces.map(p =>
           p.id === province.id ? { ...p, owner: attacker.owner } : p
@@ -862,32 +901,27 @@ const App: React.FC = () => {
           return c;
         });
         
-        finalResult.territoryChanged = true;
-        finalResult.newOwner = attacker.owner;
+        const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: attacker.owner };
         
         addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
-        setBattleHistory(prev => [finalResult, ...prev]);
+        setBattleHistory(prev => [updatedFinalResult, ...prev]);
         
         if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
-          setBattleReport(finalResult);
+          setBattleReport(updatedFinalResult);
           setIsPaused(true);
         }
       } else {
         // Defensor venceu
-        if (finalResult.defender.regiments.length > 0) {
-          armies = [...armies, { ...finalResult.defender, location: province.id, inCombat: false }];
-        }
+        addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
         
-        // Recuo do atacante perdedor
+        // Log de recuo do atacante perdedor
         const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
         if (retreatProvince && finalResult.attacker.regiments.length > 0) {
-          armies = [...armies, { ...finalResult.attacker, location: retreatProvince.id, inCombat: false }];
           addLog(`🏃 ${attacker.owner} recuou para ${retreatProvince.name}`);
         } else {
           addLog(`💀 ${attacker.owner} aniquilado em ${province.name}`);
         }
         
-        addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
         setBattleHistory(prev => [finalResult, ...prev]);
         
         if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
@@ -896,12 +930,12 @@ const App: React.FC = () => {
         }
       }
       
-      // ✅ Verificação final: confirma que todos os participantes foram liberados
-      const releasedCount = participantIds.filter(id => {
-        const army = armies.find(a => a.id === id);
-        return army && army.inCombat === false;
+      // ✅ Verificação final: confirma que todos os sobreviventes foram liberados
+      const survivingCount = participantIds.filter(id => {
+        const army = updatedArmiesList.find(a => a.id === id);
+        return army && army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
       }).length;
-      console.log(`✅ VERIFICAÇÃO: ${releasedCount}/${participantIds.length} exércitos participantes liberados com inCombat = false`);
+      console.log(`✅ VERIFICAÇÃO: ${survivingCount}/${participantIds.length} exércitos sobreviventes liberados com inCombat = false`);
     }
     
     // Atualiza estado de batalhas ativas
