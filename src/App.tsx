@@ -2023,11 +2023,13 @@ const App: React.FC = () => {
         />
 
         {/* === Modal de Governo === */}
-        <GovernmentModal
-          playerCountry={playerCountry}
-          onEnactLaw={handleEnactLaw}
-          onClose={() => setShowGovernmentModal(false)}
-        />
+        {showGovernmentModal && (
+          <GovernmentModal
+            playerCountry={playerCountry}
+            onEnactLaw={handleEnactLaw}
+            onClose={() => setShowGovernmentModal(false)}
+          />
+        )}
       </div>
 
       {/* === Barra Inferior === */}
