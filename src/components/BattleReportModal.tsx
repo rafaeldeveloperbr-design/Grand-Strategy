@@ -53,6 +53,12 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const calculatedAttackerCasualties = attackerCasualties;
   const calculatedDefenderCasualties = defenderCasualties;
 
+  // Log de verificação (apenas em desenvolvimento)
+  console.log('📊 BattleReportModal - Dados do snapshot:');
+  console.log(`   Atacante - Inicial: ${attackerInitialTroops}, Final: ${attackerSurvivors}, Baixas: ${calculatedAttackerCasualties}`);
+  console.log(`   Defensor - Inicial: ${defenderInitialTroops}, Final: ${defenderSurvivors}, Baixas: ${calculatedDefenderCasualties}`);
+  console.log(`   Verificação: ${attackerInitialTroops} - ${attackerSurvivors} = ${attackerInitialTroops - attackerSurvivors} (deve ser ${calculatedAttackerCasualties})`);
+
   // Agrupa baixas por tipo de unidade (APENAS para exibição, não para cálculo)
   const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker, totalCasualties: number) => {
     const breakdown: Record<string, { initial: number; final: number; lost: number }> = {};

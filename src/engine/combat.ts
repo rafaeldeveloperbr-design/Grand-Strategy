@@ -699,6 +699,17 @@ export function startContinuousBattle(
   console.log(`   Defensores: ${defenderArmies.length} exércitos, ${defenderTroops} tropas`);
   console.log(`   Total de participantes: ${participantArmyIds.length} exércitos`);
 
+  // Cria snapshots iniciais dos exércitos principais (ANTES do combate)
+  const attackerInitialSnapshot: Army = {
+    ...attackerArmies[0],
+    regiments: attackerArmies[0].regiments.map(r => ({ ...r }))
+  };
+  
+  const defenderInitialSnapshot: Army = {
+    ...defenderArmies[0],
+    regiments: defenderArmies[0].regiments.map(r => ({ ...r }))
+  };
+
   return {
     id: battleId,
     provinceId: province.id,
@@ -714,6 +725,8 @@ export function startContinuousBattle(
     attackerCasualties: 0,
     defenderCasualties: 0,
     startDate: currentDate,
+    attackerInitialSnapshot,
+    defenderInitialSnapshot,
   };
 }
 
@@ -901,11 +914,28 @@ export function finalizeBattle(
     return army;
   });
   
+  // Usa snapshots iniciais do ActiveBattle (se disponíveis) ou cria novos
+  const attackerOriginal = battle.attackerInitialSnapshot 
+    ? { ...battle.attackerInitialSnapshot, regiments: battle.attackerInitialSnapshot.regiments.map(r => ({ ...r })) }
+    : { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
+  
+  const defenderOriginal = battle.defenderInitialSnapshot
+    ? { ...battle.defenderInitialSnapshot, regiments: battle.defenderInitialSnapshot.regiments.map(r => ({ ...r })) }
+    : { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
+
+  // Log de verificação dos snapshots
+  if (battle.attackerInitialSnapshot) {
+    console.log(`📊 Snapshot inicial do atacante: ${calculateArmySize(battle.attackerInitialSnapshot)} tropas`);
+  }
+  if (battle.defenderInitialSnapshot) {
+    console.log(`📊 Snapshot inicial do defensor: ${calculateArmySize(battle.defenderInitialSnapshot)} tropas`);
+  }
+
   const result: CombatResult = {
     attacker: finalAttacker,
     defender: finalDefender,
-    attackerOriginal: { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) },
-    defenderOriginal: { ...defender, regiments: defender.regiments.map(r => ({ ...r })) },
+    attackerOriginal,
+    defenderOriginal,
     attackerCasualties: battle.attackerCasualties + (calculateArmySize(attacker) - calculateArmySize(finalAttacker)),
     defenderCasualties: battle.defenderCasualties + (calculateArmySize(defender) - calculateArmySize(finalDefender)),
     winner,

@@ -316,6 +316,10 @@ export interface ActiveBattle {
   defenderCasualties: number;
   /** Data de início da batalha */
   startDate: GameDate;
+  /** Snapshot inicial completo do atacante (ANTES do combate) */
+  attackerInitialSnapshot?: Army;
+  /** Snapshot inicial completo do defensor (ANTES do combate) */
+  defenderInitialSnapshot?: Army;
 }
 
 /**
