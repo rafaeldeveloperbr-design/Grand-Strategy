@@ -34,6 +34,7 @@ import {
   splitArmyHalf,
   generateRecruitmentId,
   cancelRecruitment,
+  stopArmyMovement,
 } from './engine/military';
 import { LAWS } from './constants/laws';
 import { resolveBattle, calculateArmySize, checkAllProvinceCombats, findRetreatProvince, applySiegeAnnihilation, startContinuousBattle, processDailyBattle, finalizeBattle, retreatArmyManually } from './engine/combat';
@@ -1546,6 +1547,7 @@ const App: React.FC = () => {
 
   /**
    * Move o exército selecionado para uma província (right-click)
+   * Se clicar na província atual do exército que está se movendo, para o movimento
    */
   const handleProvinceRightClick = useCallback(
     (provinceId: string) => {
@@ -1553,7 +1555,25 @@ const App: React.FC = () => {
 
       const army = armiesRef.current.find((a) => a.id === selectedArmy);
       if (!army || army.owner !== playerCountryTag) return;
-      if (army.destination) return; // Já está se movendo
+
+      // Se o exército está se movendo e o jogador clica na província atual, para o movimento
+      if (army.destination && army.location === provinceId) {
+        const updatedArmy = stopArmyMovement(army);
+        if (updatedArmy !== army) {
+          setArmies((prev) => prev.map((a) => (a.id === army.id ? updatedArmy : a)));
+          const currentProvince = provincesRef.current.find(p => p.id === provinceId);
+          addLog(`🛑 ${army.name} parou em ${currentProvince?.name ?? provinceId}`);
+          addToast(
+            `Exército parou em ${currentProvince?.name ?? provinceId}`,
+            'info',
+            'Movimento Cancelado'
+          );
+        }
+        return;
+      }
+
+      // Se já está se movendo para outro lugar, não permite novo movimento
+      if (army.destination) return;
 
       const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
       if (moved) {
@@ -1564,7 +1584,7 @@ const App: React.FC = () => {
         addLog(`❌ Movimento não permitido: sem relação de guerra com o destino`);
       }
     },
-    [selectedArmy, playerCountryTag, addLog]
+    [selectedArmy, playerCountryTag, addLog, addToast]
   );
 
   /**
@@ -1863,6 +1883,40 @@ const App: React.FC = () => {
   }, [armies, activeBattles, provinces, addLog, addToast]);
 
   /**
+   * Handler para parar o movimento de um exército
+   */
+  const handleStopMovement = useCallback((armyId: string) => {
+    const army = armies.find(a => a.id === armyId);
+    if (!army) return;
+
+    // Usa a função do motor militar
+    const updatedArmy = stopArmyMovement(army);
+    
+    // Se o exército não mudou, não faz nada
+    if (updatedArmy === army) {
+      addToast(
+        `Não é possível parar o movimento agora`,
+        'warning',
+        'Movimento Não Interrompido'
+      );
+      return;
+    }
+
+    // Atualiza o exército no estado
+    setArmies(prev => prev.map(a => a.id === armyId ? updatedArmy : a));
+    
+    const province = provinces.find(p => p.id === army.location);
+    const provinceName = province?.name || 'província desconhecida';
+    
+    addLog(`🛑 Exército parou em ${provinceName}`);
+    addToast(
+      `Exército parou em ${provinceName}`,
+      'info',
+      'Movimento Cancelado'
+    );
+  }, [armies, provinces, addLog, addToast]);
+
+  /**
    * Handler para mudar a dificuldade da IA
    */
   const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
@@ -2025,6 +2079,20 @@ const App: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* === Ação: Parar Movimento (apenas se estiver se movendo) === */}
+              {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && (
+                <div className="army-info-panel__actions-section">
+                  <strong>🛑 Cancelar Movimento:</strong>
+                  <button
+                    className="army-info-panel__action-btn army-info-panel__action-btn--stop"
+                    onClick={() => handleStopMovement(selectedArmyData.id)}
+                    title="Parar marcha e fixar posição na província atual"
+                  >
+                    🛑 Parar Marcha
+                  </button>
+                </div>
+              )}
 
               {/* === Ações: Dividir Exército === */}
               {selectedArmyData.location && !selectedArmyData.destination && selectedArmyData.regiments.length >= 2 && (

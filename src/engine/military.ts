@@ -44,6 +44,34 @@ export function canMoveToProvince(
 }
 
 /**
+ * Cancela o movimento de um exército, fixando-o na província atual
+ * Não funciona se o exército estiver em combate
+ */
+export function stopArmyMovement(army: Army): Army {
+  // Não permite cancelar movimento durante combate
+  if (army.inCombat) {
+    console.log(`⚠️ Exército ${army.id} está em combate - não pode cancelar movimento`);
+    return army;
+  }
+
+  // Se não está se movendo, não faz nada
+  if (!army.destination || army.path.length === 0) {
+    return army;
+  }
+
+  console.log(`🛑 Cancelando movimento do exército ${army.id} em ${army.location}`);
+
+  return {
+    ...army,
+    destination: null,
+    targetDestination: null,
+    path: [],
+    movementProgress: 0,
+    position: null,
+  };
+}
+
+/**
  * Gera um ID único para exércitos
  */
 let armyIdCounter = 0;

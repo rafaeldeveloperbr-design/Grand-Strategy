@@ -4342,3 +4342,17 @@ html, body, #root {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
 }
+
+.army-info-panel__action-btn--stop {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  border-color: #e67e22;
+  color: white;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.army-info-panel__action-btn--stop:hover {
+  background: linear-gradient(135deg, #d35400, #ba4a00);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);
+}
