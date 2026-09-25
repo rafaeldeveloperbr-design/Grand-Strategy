@@ -406,7 +406,8 @@ export function processAIEconomicDecisions(
   techState: CountryTechState,
   buildingConstructions: BuildingConstruction[],
   recruitments: Recruitment[],
-  dateString: string
+  dateString: string,
+  canRecruitMilitary: boolean = true
 ): {
   techState: CountryTechState;
   buildingConstructions: BuildingConstruction[];
@@ -564,6 +565,8 @@ export function processAIEconomicDecisions(
   // -------------------------------------------------------------
   // Se ainda tiver ouro (ex: mais de 250) e reserva de manpower
   if (updatedCountry.resources.gold >= 250 && updatedCountry.resources.manpower >= 1000) {
+     // 🎯 TETO MILITAR: se o bot está muito à frente do player, pula o recrutamento
+    if (canRecruitMilitary) {
     const aiProvinces = provinces.filter(p => p.owner === country.tag);
     
     if (aiProvinces.length > 0) {
@@ -618,7 +621,8 @@ export function processAIEconomicDecisions(
       }
     }
   }
-
+ } // fim do if (canRecruitMilitary)
+ 
   return {
     techState: updatedTechState,
     buildingConstructions: updatedConstructions,

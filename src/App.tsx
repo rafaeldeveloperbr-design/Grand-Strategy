@@ -348,6 +348,7 @@ const App: React.FC = () => {
   const botTechStatesRef = useRef(botTechStates);
   const aiDifficultyRef = useRef(aiDifficulty);
   const activeBattlesRef = useRef(activeBattles);
+  const ceilingLogRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { provincesRef.current = provinces; }, [provinces]);
   useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
@@ -1326,15 +1327,37 @@ const App: React.FC = () => {
       // G.1: Decisões Econômicas (construir, recrutar, pesquisar, focos)
       const botTechState = currentBotTechStates.get(country.tag);
       if (botTechState) {
+        // 🎯 TETO MILITAR (rubber-band): bot muito à frente do player para de recrutar
+        const playerTroops = armies
+          .filter(a => a.owner === playerCountryTag)
+          .reduce((sum, a) => sum + calculateArmySize(a), 0);
+        const botTroops = armies
+          .filter(a => a.owner === country.tag)
+          .reduce((sum, a) => sum + calculateArmySize(a), 0);
+        const botAtWar = wars.some(w => w.attacker === country.tag || w.defender === country.tag);
+        const multiplier = botAtWar ? 3 : 2;            // em guerra, teto mais alto
+        const ceiling = Math.max(12000, playerTroops * multiplier); // piso p/ early game
+        const canRecruitMilitary = botTroops < ceiling;
+
+          if (!canRecruitMilitary) {
+          if (!ceilingLogRef.current.has(country.tag)) {
+            ceilingLogRef.current.add(country.tag);
+            console.log(`🎯 Teto militar: ${country.name} (${Math.floor(botTroops)} tropas) atingiu o teto (${Math.floor(ceiling)}) → recrutamento PAUSADO`);
+          }
+        } else if (ceilingLogRef.current.has(country.tag)) {
+          ceilingLogRef.current.delete(country.tag);
+          console.log(`✅ Teto militar liberado: ${country.name} voltou a recrutar`);
+        }
+
         const economicResult = processAIEconomicDecisions(
           country,
           provinces,
           botTechState,
           buildingConstructions,
           recruitments,
-          dateString
+          dateString,
+          canRecruitMilitary
         );
-
         // Atualiza estados
         countries = countries.map(c => c.tag === country.tag ? economicResult.country : c);
         currentBotTechStates.set(country.tag, economicResult.techState);
