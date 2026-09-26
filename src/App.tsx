@@ -2,7 +2,7 @@
  * App.tsx - COMPLETO - 285 linhas - COM TODAS FEATURES
  * 6 exércitos iniciais + painel completo + bottom bar completa
  */
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useGameRefs } from './hooks/useGameRefs';
 import { useGameLoop } from './hooks/useGameLoop';
 import { TopBar } from './components/TopBar';
@@ -37,6 +37,8 @@ import { useEconomyActions } from './hooks/app/useEconomyActions';
 import { useArmyActions } from './hooks/app/useArmyActions';
 import { useDiplomacyActions } from './hooks/app/useDiplomacyActions';
 import { useTechActions } from './hooks/app/useTechActions';
+import { useCheats } from './hooks/app/useCheats';
+import { CheatPanel } from './components/cheatPanel';
 
 function createInitialArmies(): Army[] {
   return [
@@ -70,6 +72,7 @@ const App: React.FC = () => {
   const [activeBattles, setActiveBattles] = useState<ActiveBattle[]>([]);
   const [battleHistory, setBattleHistory] = useState<CombatResult[]>([]);
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
+  const [showCheatPanel, setShowCheatPanel] = useState(false);
 
   const addLog = useCallback((msg: string) => console.log(msg), []);
   const formatGameDate = useCallback((d: GameDate) => `${d.day} de ${d.month}, ${d.year}`, []);
@@ -91,6 +94,16 @@ const App: React.FC = () => {
   const armyActions = useArmyActions({ selectedArmy: selection.selectedArmy, setSelectedArmy: selection.setSelectedArmy, setSelectedProvince: selection.setSelectedProvince, setIsPanelOpen: selection.setIsPanelOpen, provincesRef, armiesRef, diplomaticRelationsRef, playerCountryTag, setArmies, addLog, addToast, splitSelection: selection.splitSelection, setSplitSelection: selection.setSplitSelection, setShowSplitModal: selection.setShowSplitModal });
   const diplomacy = useDiplomacyActions({ diplomacyTarget: modals.diplomacyTarget, setDiplomacyTarget: modals.setDiplomacyTarget, playerCountry, playerCountryTag, allCountries, setAllCountries, diplomaticRelations, setDiplomaticRelations, wars, setWars, date, addLog });
   const tech = useTechActions({ playerCountry, playerCountryTag, playerTechState, setPlayerTechState, allCountries, setAllCountries, addLog, addToast, playerTechStateRef, setAiDifficulty, setEndGameType, setGameStats, setGameSpeed, setIsPaused: modals.setIsPaused });
+  const cheats = useCheats({
+    playerCountryTag, setAllCountries, setRecruitments, setBuildingConstructions,
+    setArmies, provincesRef, armiesRef, addLog, addToast, setGameSpeed, setDate,
+    selectedProvince: selection.selectedProvince
+  });
+
+  useEffect(() => {
+    (window as any).cheatPanelOpen = showCheatPanel;
+    (window as any).cheats = { ...cheats, togglePanel: () => setShowCheatPanel(p => !p) };
+  }, [showCheatPanel, cheats]);
 
   return (
     <div className="game">
@@ -104,7 +117,7 @@ const App: React.FC = () => {
             <div className="army-info-panel__content">
               <div className="army-info-panel__stat"><span>Total:</span><span>{calculateArmySize(selectedArmyData).toLocaleString()} homens</span></div>
               <div className="army-info-panel__stat"><span>Local:</span><span>{provinces.find(p => p.id === selectedArmyData.location)?.name ?? 'Em movimento'}</span></div>
-              {selectedArmyData.destination && <div className="army-info-panel__stat"><span>Destino:</span><span>{provinces.find(p => p.id === selectedArmyData.destination)?.name} ({Math.round(selectedArmyData.movementProgress*100)}%)</span></div>}
+              {selectedArmyData.destination && <div className="army-info-panel__stat"><span>Destino:</span><span>{provinces.find(p => p.id === selectedArmyData.destination)?.name} ({Math.round(selectedArmyData.movementProgress * 100)}%)</span></div>}
               {selectedArmyData.path.length > 0 && <div className="army-info-panel__stat"><span>Rota:</span><span className="army-info-panel__path">{selectedArmyData.path.map(pid => provinces.find(p => p.id === pid)?.name).join(' → ')}</span></div>}
               <div className="army-info-panel__regiments"><strong>Regimentos:</strong>{selectedArmyData.regiments.map((reg: any, i: number) => <div key={i} className="army-info-panel__regiment"><span>{reg.type === 'infantry' ? '🗡️' : reg.type === 'cavalry' ? '🐎' : '💣'}</span><span>{Math.floor(reg.strength)}</span><span>❤️ {Math.round(reg.morale)}%</span></div>)}</div>
               {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && <div className="army-info-panel__actions-section"><button className="army-info-panel__action-btn army-info-panel__action-btn--stop" onClick={() => armyActions.handleStopMovement(selectedArmyData.id)}>🛑 Parar Marcha</button></div>}
@@ -135,6 +148,8 @@ const App: React.FC = () => {
         <div className="game__bottom-info"><span className="game__bottom-label">Guerras:</span><button className="game__bottom-war-btn" onClick={() => modals.setShowWarPanel(true)}>{wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length > 0 ? `⚔️ ${wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length}` : '🕊️ Paz'}</button></div>
         <div className="game__bottom-info"><span className="game__bottom-label">Velocidade:</span><span className="game__bottom-value game__bottom-value--highlight">{gameSpeed === 0 ? '⏸ Pausado' : `▶ x${gameSpeed}`}</span></div>
       </div>
+      <button onClick={() => setShowCheatPanel(!showCheatPanel)} style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 9998, background: '#f39c12', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🎮 CHEAT</button>
+      <CheatPanel cheats={cheats} isOpen={showCheatPanel} onClose={() => setShowCheatPanel(false)} />
       <ToastContainer />
     </div>
   );
