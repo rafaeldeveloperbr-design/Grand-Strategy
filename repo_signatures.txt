@@ -1,0 +1,1102 @@
+
+============================================================
+FILE: src\App.tsx
+============================================================
+function createInitialArmies(): Army[] {
+const map = new Map<string, CountryTechState>();
+const gameLoopRef = useRef<number | null>(null);
+const provincesRef = useRef(provinces);
+const countriesRef = useRef(allCountries);
+const armiesRef = useRef(armies);
+const recruitmentsRef = useRef(recruitments);
+const warsRef = useRef(wars);
+const diplomaticRelationsRef = useRef(diplomaticRelations);
+const dateRef = useRef(date);
+const buildingConstructionsRef = useRef(buildingConstructions);
+const playerTechStateRef = useRef(playerTechState);
+const botTechStatesRef = useRef(botTechStates);
+const aiDifficultyRef = useRef(aiDifficulty);
+const activeBattlesRef = useRef(activeBattles);
+const playerCountry = useMemo(
+const selectedProvinceData = useMemo(
+const selectedArmyData = useMemo(
+const addLog = useCallback((msg: string) => {
+const formatGameDate = useCallback((date: GameDate): string => {
+const months = [
+const cancelProvinceActivities = useCallback((
+const cancelledRecruitments = currentRecruitments.filter(r => r.provinceId === provinceId);
+const remainingRecruitments = currentRecruitments.filter(r => r.provinceId !== provinceId);
+const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
+const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
+const updatedProvinces = currentProvinces.map(p => {
+const province = provincesRef.current.find(p => p.id === provinceId);
+const provinceName = province?.name || provinceId;
+const unitName = getUnitName(rec.unitType);
+const country = countriesRef.current.find(c => c.tag === oldOwner);
+const province = provincesRef.current.find(p => p.id === provinceId);
+const provinceName = province?.name || provinceId;
+const buildingName = getBuildingName(construction.buildingType);
+const country = countriesRef.current.find(c => c.tag === oldOwner);
+const advanceDate = useCallback((currentDate: GameDate): GameDate => {
+const processTick = useCallback(() => {
+const snapshot = {
+let armies = [...snapshot.armies];
+let provinces = [...snapshot.provinces];
+let countries = [...snapshot.countries];
+let wars = [...snapshot.wars];
+let relations = [...snapshot.relations];
+let recruitments = [...snapshot.recruitments];
+let buildingConstructions = [...snapshot.buildingConstructions];
+const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
+const unitName = getUnitName(completed.unitType);
+const province = provinces.find(p => p.id === completed.provinceId);
+const provinceName = province?.name || 'província';
+const dateString = formatGameDate(snapshot.date);
+const country = countries.find(c => c.tag === completed.owner);
+const constructionResult = processConstructions(buildingConstructions, provinces);
+const province = provinces.find(p => p.id === completed.provinceId);
+const existingBuilding = p.buildings.find(b => b.type === completed.buildingType);
+const buildingName = getBuildingName(completed.buildingType);
+const dateString = formatGameDate(snapshot.date);
+const country = countries.find(c => c.tag === province.owner);
+const moveResult = processArmyMovement(armies, provinces, relations);
+const arrivedArmies = moveResult.arrivedArmies;
+const province = provinces.find(p => p.id === arrived.location);
+const isInWar = wars.some(
+const enemies = getEnemyArmiesInProvince(armies, arrived.location!, arrived.owner);
+const existingBattle = activeBattles.find(b => b.provinceId === province.id);
+const attackerArmies = armies.filter(a =>
+const defenderArmies = armies.filter(a =>
+const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, snapshot.date, battleId);
+const participantIds = newBattle.participantArmyIds;
+const oldOwner = province.owner;
+const cancelResult = cancelProvinceActivities(
+const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
+let currentActiveBattles = [...autoCombatResult.updatedBattles];
+const province = provinces.find(p => p.id === newBattle.provinceId);
+const attacker = armies.find(a => a.id === newBattle.attackerArmyId);
+const defender = armies.find(a => a.id === newBattle.defenderArmyId);
+const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
+const province = provinces.find(p => p.id === battle.provinceId);
+const attacker = armies.find(a => a.id === battle.attackerArmyId);
+const defender = armies.find(a => a.id === battle.defenderArmyId);
+const result = processDailyBattle(battle, attacker, defender, province);
+const province = provinces.find(p => p.id === finishedBattle.provinceId);
+const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
+const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
+const participantIds = finishedBattle.participantArmyIds;
+const winnerSide = finalResult.winner;
+const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
+const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
+const updatedArmiesList = armies.map(army => {
+const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
+const isWinner = army.owner === winnerCountry;
+const isLoser = army.owner === loserCountry;
+const retreatProvince = findRetreatProvince(army.owner, province, provinces);
+const isAttacker = w.attacker === attacker.owner;
+const remainingDefenders = armies.filter(a =>
+const oldOwner = province.owner;
+const cancelResult = cancelProvinceActivities(
+const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: attacker.owner };
+const updatedFinalResult = { ...finalResult, territoryChanged: false };
+const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
+const survivingCount = participantIds.filter(id => {
+const army = updatedArmiesList.find(a => a.id === id);
+const countryProvinces = provinces.filter(p => p.owner === country.tag);
+const idx = provinces.findIndex(p => p.id === updatedProv.id);
+const rebelArmy = createRebelArmy(revoltedProv);
+const countriesWithoutProvinces = countries.filter(c => {
+const ownedProvinces = provinces.filter(p => p.owner === c.tag);
+let currentPlayerTechState = playerTechStateRef.current;
+const playerCountry = countries.find(c => c?.tag === playerCountryTag);
+const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry, aiDifficultyRef.current, true);
+const dateString = formatGameDate(snapshot.date);
+let currentBotTechStates = new Map(botTechStatesRef.current);
+const botTechState = currentBotTechStates.get(country.tag);
+const botTechResult = processDailyTechProgress(botTechState, country, aiDifficultyRef.current, false);
+const dateString = formatGameDate(snapshot.date);
+const focusTitle = notif.replace('✅ Foco concluído: ', '');
+const techTitle = notif.replace('🔬 Pesquisa concluída: ', '');
+const attackerProvs = provinces.filter(p => p.owner === war.attacker).length;
+const defenderProvs = provinces.filter(p => p.owner === war.defender).length;
+const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
+const dateString = formatGameDate(snapshot.date);
+const botTechState = currentBotTechStates.get(country.tag);
+const economicResult = processAIEconomicDecisions(
+const armiesBefore = armies.filter(a => a.owner === country.tag);
+const armiesAfter = armies.filter(a => a.owner === country.tag);
+const armyBefore = armiesBefore.find(a => a.id === armyAfter.id);
+const destProvince = provinces.find(p => p.id === armyAfter.destination);
+const isEnemy = destProvince.owner !== country.tag;
+const armiesToMerge = new Map<string, Army[]>(); // provinceId -> armies
+const key = `${army.owner}_${army.location}`;
+const mergedRegiments = [...primaryArmy.regiments];
+const existingRegiment = mergedRegiments.find(r => r.type === regiment.type);
+const updatedPrimaryArmy = {
+const secondaryIds = secondaryArmies.map(a => a.id);
+const playerCountryData = countries.find(c => c.tag === playerCountryTag);
+const endGameResult = checkEndGameConditions(playerCountryData, provinces);
+const stats = calculateGameStats(
+const interval = SPEED_INTERVALS[gameSpeed];
+const handleOpenDiplomacy = useCallback((countryTag: string) => {
+const handleCloseDiplomacy = useCallback(() => {
+const handleProvinceClick = useCallback((provinceId: string) => {
+const province = provinces.find(p => p.id === provinceId);
+const handleProvinceHover = useCallback((provinceId: string | null) => {
+const handleClosePanel = useCallback(() => {
+const handleSpeedChange = useCallback((speed: number) => {
+const handleBuild = useCallback(
+const province = provinces.find((p) => p.id === provinceId);
+const existingBuilding = province.buildings.find((b) => b.type === buildingType);
+const currentLevel = existingBuilding?.level ?? 0;
+const cost = getBuildingCost(buildingType, currentLevel);
+const buildTime = getBuildingTime(buildingType, currentLevel);
+const result = queueBuilding(
+const handleCancelBuilding = useCallback(
+const result = cancelBuilding(constructionId, buildingConstructions, playerCountry.resources.gold);
+const handleRecruit = useCallback(
+const province = provinces.find((p) => p.id === provinceId);
+const costs = getRecruitmentCost(unitType);
+const conscriptionLaw = LAWS[playerCountry.activeLaws?.conscription || 'conscription_peacetime'];
+const armyCostMultiplier = conscriptionLaw?.bonuses.armyCostMultiplier ?? 1.0;
+const adjustedGoldCost = Math.floor(costs.gold * armyCostMultiplier);
+const existingRecruitment = prev.find(
+const handleCancelRecruitment = useCallback(
+const rec = recruitments.find(r => r.id === recruitmentId);
+const result = cancelRecruitment(recruitmentId, recruitments, playerCountry.resources.gold);
+const handleArmyClick = useCallback((armyId: string) => {
+const army = armiesRef.current.find(a => a.id === armyId);
+const handleProvinceRightClick = useCallback(
+const army = armiesRef.current.find((a) => a.id === selectedArmy);
+const updatedArmy = stopArmyMovement(army);
+const currentProvince = provincesRef.current.find(p => p.id === provinceId);
+const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
+const destProvince = provincesRef.current.find(p => p.id === provinceId);
+const handleMergeArmies = useCallback(
+const army1 = armiesRef.current.find((a) => a.id === selectedArmy);
+const army2 = armiesRef.current.find((a) => a.id === targetArmyId);
+const merged = mergeArmies(army1, army2);
+const filtered = prev.filter((a) => a.id !== army1.id && a.id !== army2.id);
+const handleSplitHalf = useCallback(() => {
+const army = armiesRef.current.find((a) => a.id === selectedArmy);
+const newArmy = splitArmyHalf(army, `${army.name} (Destacamento)`);
+const halfIndex = Math.floor(army.regiments.length / 2);
+const remainingRegiments = army.regiments.slice(halfIndex);
+const filtered = prev.filter((a) => a.id !== army.id);
+const handleSplitCustom = useCallback(() => {
+const army = armiesRef.current.find((a) => a.id === selectedArmy);
+const indices = Array.from(splitSelection);
+const newArmy = splitArmy(army, indices, `${army.name} (Destacamento)`);
+const remainingRegiments = army.regiments.filter((_, idx) => !splitSelection.has(idx));
+const filtered = prev.filter((a) => a.id !== army.id);
+const toggleSplitRegiment = useCallback((index: number) => {
+const next = new Set(prev);
+const handleImproveRelations = useCallback(() => {
+const handleOfferNonAggression = useCallback(() => {
+const handleDeclareWar = useCallback(() => {
+const result = declareWar(diplomaticRelations, wars, playerCountryTag, diplomacyTarget, date);
+const handleMakePeace = useCallback((warId: string) => {
+const war = wars.find(w => w.id === warId);
+const enemy = war.attacker === playerCountryTag ? war.defender : war.attacker;
+const result = makePeace(diplomaticRelations, wars, playerCountryTag, enemy);
+const handleStartFocus = useCallback((focusId: string) => {
+const updatedTechState = startNationalFocus(playerTechState, focusId);
+const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
+const handleStartResearch = useCallback((techId: string) => {
+const tech = TECHNOLOGIES?.find(t => t?.id === techId);
+const handleEndGameContinue = useCallback(() => {
+const handleEndGameRestart = useCallback(() => {
+const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
+const result = retreatArmyManually(armyId, battleId, armies, activeBattles, provinces);
+const army = armies.find(a => a.id === armyId);
+const battle = activeBattles.find(b => b.id === battleId);
+const province = provinces.find(p => p.id === battle?.provinceId);
+const winnerSide = result.winner === 'attacker' ? 'Atacante' : 'Defensor';
+const handleStopMovement = useCallback((armyId: string) => {
+const army = armies.find(a => a.id === armyId);
+const updatedArmy = stopArmyMovement(army);
+const province = provinces.find(p => p.id === army.location);
+const provinceName = province?.name || 'província desconhecida';
+const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
+const handleEnactLaw = useCallback((category: LawCategory, lawId: string) => {
+const law = LAWS[lawId];
+const battle = activeBattles.find(b =>
+const friendlyArmies = getFriendlyArmiesInProvince(
+
+============================================================
+FILE: src\components\AILogModal.tsx
+============================================================
+interface AILogModalProps {
+const uniqueCountries = Array.from(new Set(aiLogs.map(log => log.countryName)));
+const filteredLogs = aiLogs.filter(log => {
+const matchesAction = filter === 'all' || log.actionType === filter;
+const matchesCountry = countryFilter === 'all' || log.countryName === countryFilter;
+const getActionIcon = (type: AIActionType) => {
+const getActionLabel = (type: AIActionType) => {
+const getActionColor = (type: AIActionType) => {
+
+============================================================
+FILE: src\components\ArmyMarker.tsx
+============================================================
+interface ArmyMarkerProps {
+const country = countries.find(c => c.tag === army.owner);
+const size = calculateArmySize(army);
+const province = provinces.find(p => p.id === army.location);
+const x = baseX + (army.destination ? 0 : offsetX);
+const y = baseY + (army.destination ? 0 : offsetY);
+const isElevated = isSelected || isHovered;
+const formatSize = (n: number): string => {
+
+============================================================
+FILE: src\components\BattleHistoryModal.tsx
+============================================================
+interface BattleHistoryModalProps {
+const getCountryByTag = (tag: string): Country | undefined => {
+const formatDate = (date: { year: number; month: number; day: number }): string => {
+const attackerCountry = getCountryByTag(battle.attackerOriginal.owner);
+const defenderCountry = getCountryByTag(battle.defenderOriginal.owner);
+const playerWon =
+
+============================================================
+FILE: src\components\BattleReportModal.tsx
+============================================================
+interface BattleReportModalProps {
+const playerWon =
+const attackerCountry = allCountries.find(c => c.tag === attackerOriginal.owner);
+const defenderCountry = allCountries.find(c => c.tag === defenderOriginal.owner);
+const newOwnerCountry = newOwner ? allCountries.find(c => c.tag === newOwner) : null;
+const attackerInitialTroops = Math.floor(attackerOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
+const defenderInitialTroops = Math.floor(defenderOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
+const attackerSurvivors = Math.floor(attacker.regiments.reduce((sum, r) => sum + r.strength, 0));
+const defenderSurvivors = Math.floor(defender.regiments.reduce((sum, r) => sum + r.strength, 0));
+const calculatedAttackerCasualties = attackerCasualties;
+const calculatedDefenderCasualties = defenderCasualties;
+const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker, totalCasualties: number) => {
+const attackerBreakdown = getUnitBreakdown(attackerOriginal, attacker, calculatedAttackerCasualties);
+const defenderBreakdown = getUnitBreakdown(defenderOriginal, defender, calculatedDefenderCasualties);
+const getUnitIcon = (type: string) => {
+const getUnitName = (type: string) => {
+
+============================================================
+FILE: src\components\DifficultySelector.tsx
+============================================================
+interface DifficultySelectorProps {
+
+============================================================
+FILE: src\components\DiplomacyPanel.tsx
+============================================================
+interface DiplomacyPanelProps {
+const opinion = relation?.opinion ?? 0;
+const status = relation?.status ?? 'peace';
+const pactDays = relation?.pactDaysRemaining ?? 0;
+const getOpinionColor = (op: number): string => {
+const getOpinionLabel = (op: number): string => {
+const getStatusIcon = (s: string): string => {
+const canImproveRelations = playerCountry.resources.gold >= DIPLOMATIC_COSTS.improve_relations.gold && status !== 'war';
+const canOfferPact = playerCountry.resources.gold >= DIPLOMATIC_COSTS.offer_non_aggression.gold && status === 'peace';
+const canDeclareWar = status !== 'war' && pactDays <= 0;
+
+============================================================
+FILE: src\components\EndGameModal.tsx
+============================================================
+interface EndGameModalProps {
+const isVictory = endGameType === 'victory';
+
+============================================================
+FILE: src\components\GameMap.tsx
+============================================================
+interface MapProps {
+const svgRef = useRef<SVGSVGElement>(null);
+const armyOffsets = useMemo(() => {
+const offsets = new Map<string, { offsetX: number; offsetY: number }>();
+const groups = new Map<string, Army[]>();
+const group = groups.get(army.location) ?? [];
+const sortedArmies = useMemo(() => {
+const sorted = [...armies];
+const aMoving = a.destination ? 0 : 1;
+const bMoving = b.destination ? 0 : 1;
+const aSelected = a.id === selectedArmy ? 2 : 0;
+const bSelected = b.id === selectedArmy ? 2 : 0;
+const aHovered = a.id === hoveredArmyId ? 1 : 0;
+const bHovered = b.id === hoveredArmyId ? 1 : 0;
+const getProvinceColor = useCallback(
+const country = countries.find((c) => c.tag === province.owner);
+const getProvinceLightColor = useCallback(
+const country = countries.find((c) => c.tag === province.owner);
+const getProvinceClass = (province: Province): string => {
+const classes = ['map__province'];
+const handleMouseEnter = (e: React.MouseEvent, province: Province) => {
+const rect = svgRef.current?.getBoundingClientRect();
+const handleMouseMove = (e: React.MouseEvent, province: Province) => {
+const rect = svgRef.current?.getBoundingClientRect();
+const handleMouseLeave = () => {
+const handleClick = (provinceId: string) => {
+const handleZoomIn = () => {
+const handleZoomOut = () => {
+const handleResetZoom = () => {
+const handleMouseDown = (e: React.MouseEvent) => {
+const handleMouseMovePan = (e: React.MouseEvent) => {
+const dx = (e.clientX - panStart.x) * (viewBox.w / 800);
+const dy = (e.clientY - panStart.y) * (viewBox.h / 600);
+const handleMouseUp = () => {
+const getTooltipCountry = (province: Province) => {
+const getProvinceActivities = (provinceId: string, provinceOwner: string) => {
+const constructions = buildingConstructions.filter(
+const recruitmentsHere = recruitments.filter(
+const target = e.target as SVGElement;
+const provinceElement = target.closest?.('[data-province-id]');
+const provinceId = provinceElement.getAttribute('data-province-id');
+const rect = svgRef.current?.getBoundingClientRect();
+const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
+const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+const clickedProvince = provinces.find(p => {
+const dx = p.center.x - svgX;
+const dy = p.center.y - svgY;
+const isHovered = province.id === hoveredProvince;
+const isSelected = province.id === selectedProvince;
+const fillColor = isHovered || isSelected
+const activities = getProvinceActivities(province.id, province.owner);
+const hasActivities = activities.hasConstructions || activities.hasRecruitments;
+const iconY = province.center.y - 12;
+let iconX = province.center.x - 8;
+const def = BUILDING_DEFINITIONS[c.buildingType];
+const def = UNIT_DEFINITIONS[r.unitType];
+const unrest = province.unrest ?? 0;
+const iconY = province.center.y + 15;
+const iconX = province.center.x;
+const getColor = (unrest: number) => {
+const getDescription = (unrest: number) => {
+const needsPulse = unrest >= 50;
+const isCritical = unrest >= 80;
+const country = countries.find(c => c.tag === army.owner);
+const fullPath = [army.location!, army.destination!, ...army.path];
+const pathPoints = fullPath
+const pointsStr = pathPoints
+const province = provinces.find(p => p.id === battle.provinceId);
+const attacker = armies.find(a => a.id === battle.attackerArmyId);
+const defender = armies.find(a => a.id === battle.defenderArmyId);
+const attackerCountry = countries.find(c => c.tag === attacker.owner);
+const defenderCountry = countries.find(c => c.tag === defender.owner);
+const progress = ((battle.daysTotal - battle.daysRemaining) / battle.daysTotal) * 100;
+const offset = armyOffsets.get(army.id) ?? { offsetX: 0, offsetY: 0 };
+
+============================================================
+FILE: src\components\GovernmentModal.tsx
+============================================================
+interface GovernmentModalProps {
+const CATEGORY_INFO = {
+const activeLaws = playerCountry.activeLaws || {
+const renderBonuses = (law: typeof LAWS[string]) => {
+const bonuses = [];
+const value = Number(law.bonuses.goldMultiplier);
+const percent = ((value - 1) * 100).toFixed(0);
+const value = Number(law.bonuses.manpowerMultiplier);
+const percent = ((value - 1) * 100).toFixed(0);
+const value = Number(law.bonuses.popGrowthMultiplier);
+const percent = ((value - 1) * 100).toFixed(0);
+const value = Number(law.bonuses.buildTimeMultiplier);
+const percent = ((value - 1) * 100).toFixed(0);
+const value = Number(law.bonuses.armyCostMultiplier);
+const percent = ((value - 1) * 100).toFixed(0);
+const categoryInfo = CATEGORY_INFO[category];
+const lawIds = LAWS_BY_CATEGORY[category];
+const activeLawId = activeLaws[category];
+const law = LAWS[lawId];
+const isActive = lawId === activeLawId;
+const canAfford = playerCountry.resources.gold >= law.costGold;
+const bonuses = renderBonuses(law);
+
+============================================================
+FILE: src\components\NotificationLogModal.tsx
+============================================================
+interface NotificationLogModalProps {
+const getTypeIcon = (type: string) => {
+const getTypeColor = (type: string) => {
+
+============================================================
+FILE: src\components\ProvincePanel.tsx
+============================================================
+interface ProvincePanelProps {
+type PanelTab = 'info' | 'buildings' | 'military';
+const ownerCountry = getCountryByTag(province.owner);
+const isPlayerOwned = province.owner === playerCountry.tag;
+const armiesHere = armies.filter(a => a.location === province.id);
+const recruitmentsHere = recruitments.filter(r => r.provinceId === province.id);
+const getBuildingLevel = (type: BuildingType): number => {
+const building = province.buildings.find((b) => b.type === type);
+const neighborProvinces = province.neighbors.map((nId) => {
+const allProvinces = countries.flatMap((c) =>
+const neighborData = allProvinces.find((p) => p.id === nId);
+const neighborCountry = neighborData ? getCountryByTag(neighborData.owner) : undefined;
+const provinceConstructions = buildingConstructions.filter(
+const hasActivities = provinceConstructions.length > 0 || recruitmentsHere.length > 0;
+const unrest = province.unrest ?? 0;
+const isPacified = isProvincePacified(province);
+const armyCountry = getCountryByTag(army.owner);
+const def = BUILDING_DEFINITIONS[type];
+const currentLevel = getBuildingLevel(type);
+const canBuild = canBuildBuilding(type, currentLevel);
+const cost = getBuildingCost(type, currentLevel);
+const buildTime = getBuildingTime(type, currentLevel);
+const canAfford = playerCountry.resources.gold >= cost;
+const cantBuildReason = !canBuild
+const armyCountry = getCountryByTag(army.owner);
+const def = UNIT_DEFINITIONS[type];
+const canAffordGold = playerCountry.resources.gold >= def.cost;
+const canAffordManpower = playerCountry.resources.manpower >= def.manpowerCost;
+const canRecruit = canAffordGold && canAffordManpower;
+const cantRecruitReason = !canAffordGold
+const def = BUILDING_DEFINITIONS[item.buildingType];
+const progress = ((item.totalDays - item.daysRemaining) / item.totalDays) * 100;
+const isActive = idx === 0;
+const def = UNIT_DEFINITIONS[rec.unitType];
+const totalTime = def.trainingTime;
+const progress = ((totalTime - rec.daysRemaining) / totalTime) * 100;
+
+============================================================
+FILE: src\components\SettingsModal.tsx
+============================================================
+interface SettingsModalProps {
+
+============================================================
+FILE: src\components\TechnologyModal.tsx
+============================================================
+interface TechnologyModalProps {
+type TabType = 'focuses' | 'technologies';
+const canStartFocus = (focusId: string): boolean => {
+const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
+const canStartResearch = (techId: string): boolean => {
+const tech = TECHNOLOGIES?.find(t => t?.id === techId);
+const hasPrereqs = tech.prerequisites?.every(prereqId =>
+const getPrerequisiteNames = (prereqIds: string[], type: 'focus' | 'tech'): string[] => {
+const focus = NATIONAL_FOCUSES?.find(f => f?.id === id);
+const tech = TECHNOLOGIES?.find(t => t?.id === id);
+const renderFocuses = () => {
+const isActive = techState?.activeFocusId === focus.id;
+const isCompleted = techState?.completedFocuses?.includes(focus.id) ?? false;
+const canStart = canStartFocus(focus.id);
+const currentProgressDays = isActive ? (techState?.focusProgressDays || 0) : 0;
+const progress = focus.durationDays > 0 ? (currentProgressDays / focus.durationDays) * 100 : 0;
+const renderTechnologies = () => {
+const categories = ['MILITARY', 'ECONOMY', 'INFRASTRUCTURE'] as const;
+const categoryNames = {
+const isActive = techState?.activeResearchId === tech.id;
+const isResearched = techState?.completedTechnologies?.includes(tech.id) ?? false;
+const canStart = canStartResearch(tech.id);
+const currentProgressDays = isActive ? (techState?.researchProgressDays || 0) : 0;
+const progress = tech.durationDays > 0 ? (currentProgressDays / tech.durationDays) * 100 : 0;
+
+============================================================
+FILE: src\components\TopBar.tsx
+============================================================
+interface TopBarProps {
+function formatDate(date: GameDate): string {
+const months = [
+function formatRate(value: number): string {
+const goldBalance = economy.goldIncome - economy.goldExpense;
+
+============================================================
+FILE: src\components\WarPanel.tsx
+============================================================
+interface WarPanelProps {
+const playerWars = wars.filter(
+const getCountryByTag = (tag: string): Country | undefined => {
+const formatDate = (date: { year: number; month: number; day: number }): string => {
+const attacker = getCountryByTag(war.attacker);
+const defender = getCountryByTag(war.defender);
+const isPlayerAttacker = war.attacker === playerCountry.tag;
+const playerSide = isPlayerAttacker ? 'attacker' : 'defender';
+const playerCasualties = isPlayerAttacker ? war.attackerCasualties : war.defenderCasualties;
+const enemyCasualties = isPlayerAttacker ? war.defenderCasualties : war.attackerCasualties;
+
+============================================================
+FILE: src\constants\laws.ts
+============================================================
+export const LAWS_BY_CATEGORY = {
+export const DEFAULT_LAWS = {
+
+============================================================
+FILE: src\context\AILogContext.tsx
+============================================================
+interface AILogContextType {
+const AILogContext = createContext<AILogContextType | undefined>(undefined);
+const addAILog = useCallback((
+const clearAILogs = useCallback(() => {
+export const useAILog = (): AILogContextType => {
+const context = useContext(AILogContext);
+
+============================================================
+FILE: src\context\ToastContext.tsx
+============================================================
+interface ToastContextType {
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
+const addToast = useCallback((
+const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+const removeToast = useCallback((id: string) => {
+const markAllAsRead = useCallback(() => {
+const clearHistory = useCallback(() => {
+export const useToast = (): ToastContextType => {
+const context = useContext(ToastContext);
+
+============================================================
+FILE: src\data\buildings.ts
+============================================================
+export function getBuildingCost(type: BuildingType, currentLevel: number): number {
+const def = BUILDING_DEFINITIONS[type];
+export function getBuildingTime(type: BuildingType, currentLevel: number): number {
+const def = BUILDING_DEFINITIONS[type];
+const def = BUILDING_DEFINITIONS[type];
+
+============================================================
+FILE: src\data\countries.ts
+============================================================
+export function getCountryByTag(tag: string): Country | undefined {
+export function getCountryColor(tag: string): string {
+const country = getCountryByTag(tag);
+
+============================================================
+FILE: src\data\provinces.ts
+============================================================
+export function createProvinceMap(): Map<string, Province> {
+const map = new Map<string, Province>();
+export function getProvincesByCountry(countryTag: string): Province[] {
+
+============================================================
+FILE: src\data\units.ts
+============================================================
+export function getRecruitmentCost(unitType: UnitType): { gold: number; manpower: number; days: number } {
+const def = UNIT_DEFINITIONS[unitType];
+
+============================================================
+FILE: src\engine\aiEngine.ts
+============================================================
+const relation = diplomacy.find(
+const currentProv = provinces.find(p => p.id === provinceId);
+const neighborProv = provinces.find(p => p.id === neighborId);
+const neighborProv = provinces.find(p => p.id === neighborId);
+const relation = diplomacy.find(
+const relation = diplomacy.find(
+const destProv = provinces.find(p => p.id === destinationId);
+const currentProv = provinces.find(p => p.id === army.location);
+const path = findPath(army.location!, destinationId, provinces, botCountryId, diplomacy);
+let minDistance = Infinity;
+const distance = calculateDistance(aiArmy.location, enemyArmy.location, provinces);
+const visited = new Set<string>();
+const current = queue.shift()!;
+const province = provinces.find(p => p.id === current.id);
+let minDistance = Infinity;
+const isBorder = isBorderProvince(homeProv.id, allProvinces, homeProv.owner);
+const distance = calculateDistance(currentLocation, homeProv.id, allProvinces);
+const adjustedDistance = isBorder ? distance * 0.8 : distance;
+const currentProv = provinces.find(p => p.id === army.location);
+const isAtWar = isAtWarWithNeighbor(botCountryId, currentProv, provinces, diplomacy);
+const enemyCountries = wars
+const enemyArmies = armies.filter(a =>
+const aiArmyPower = calculateArmyBasePower(army);
+const nearestEnemy = findNearestEnemyArmy(army, enemyArmies, provinces);
+const enemyArmyPower = calculateArmyBasePower(nearestEnemy);
+const homeProvinces = provinces.filter(p => p.owner === botCountryId);
+const defensiveProvince = findClosestHomeProvince(army.location!, homeProvinces, provinces);
+const validNeighbors = currentProv.neighbors.filter(neighborId => {
+const prov = provinces.find(p => p.id === neighborId);
+const warTargets = validNeighbors.filter(neighborId => {
+const prov = provinces.find(p => p.id === neighborId);
+const chosenDestination = warTargets[Math.floor(Math.random() * warTargets.length)];
+const borderNeighbors = currentProv.neighbors.filter(neighborId => {
+const prov = provinces.find(p => p.id === neighborId);
+const chosenDestination = borderNeighbors[Math.floor(Math.random() * borderNeighbors.length)];
+const ownNeighbors = currentProv.neighbors.filter(neighborId => {
+const prov = provinces.find(p => p.id === neighborId);
+const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
+let updatedTechState = { ...techState };
+let updatedConstructions = [...buildingConstructions];
+let updatedRecruitments = [...recruitments];
+let updatedCountry = { ...country };
+const availableFocuses = NATIONAL_FOCUSES.filter(focus => {
+const selectedFocus = availableFocuses[0];
+const availableTechs = TECHNOLOGIES.filter(tech => {
+const affordableTech = availableTechs.find(t => updatedCountry.resources.gold >= t.costGold);
+const aiProvinces = provinces.filter(p => p.owner === country.tag);
+const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
+const hasConstruction = updatedConstructions.some(c => c.provinceId === targetProvince.id);
+const buildingTypes = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
+const chosenBuilding = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+const def = BUILDING_DEFINITIONS[chosenBuilding];
+const existingBuilding = targetProvince.buildings.find(b => b.type === chosenBuilding);
+const currentLevel = existingBuilding?.level ?? 0;
+const buildingCost = getBuildingCost(chosenBuilding, currentLevel);
+const buildTime = getBuildingTime(chosenBuilding, currentLevel);
+const translatedName = getBuildingName(chosenBuilding);
+const aiProvinces = provinces.filter(p => p.owner === country.tag);
+const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
+const unitTypes = Object.keys(UNIT_DEFINITIONS) as UnitType[];
+const chosenUnit = unitTypes[Math.floor(Math.random() * unitTypes.length)];
+const def = UNIT_DEFINITIONS[chosenUnit];
+const existingRecruitment = updatedRecruitments.find(
+const translatedUnit = getUnitName(chosenUnit);
+
+============================================================
+FILE: src\engine\buildings.ts
+============================================================
+const processedProvinces = new Set<string>();
+const updatedConstructions = constructions.map(item => {
+const province = provinces.find(p => p.id === item.provinceId);
+const newDays = item.daysRemaining - 1;
+const index = constructions.findIndex(c => c.id === constructionId);
+const target = constructions[index];
+const priorConstructionsInSameProvince = constructions
+const isCurrentlyActive = priorConstructionsInSameProvince.length === 0;
+let refundedGold = 0;
+const progressRatio = target.daysRemaining / target.totalDays;
+const refundFactor = Math.max(0.10, progressRatio);
+const updatedConstructions = constructions.filter(c => c.id !== constructionId);
+const priorConstructionsInSameProvince = constructions
+let constructionIdCounter = 0;
+export function generateConstructionId(): string {
+
+============================================================
+FILE: src\engine\combat.ts
+============================================================
+const COMBAT_BALANCE = {
+export function calculateArmySize(army: Army): number {
+export function calculateArmyMorale(army: Army): number {
+const totalMorale = army.regiments.reduce((sum, reg) => sum + reg.morale, 0);
+let totalPower = 0;
+let multiplier = UNIT_POWER_MULTIPLIERS[regiment.type] || 1.0;
+const regimentPower = regiment.strength * multiplier;
+const moraleBonus = 0.5 + (regiment.morale / 100);
+const basePower = calculateArmyBasePower(army, techBonuses);
+let bonusMultiplier = 1.0;
+let hasTerritorialBonus = false;
+const fortificationBonus = 1 + (province.defense * COMBAT_BALANCE.FORTIFICATION_BONUS_PER_LEVEL);
+const totalPower = basePower * bonusMultiplier;
+function calculateBattleDuration(attackerSize: number, defenderSize: number): number {
+const totalTroops = attackerSize + defenderSize;
+function calculateWinnerLosses(winnerSize: number, battleDays: number): number {
+const lossPercent = COMBAT_BALANCE.WINNER_LOSS_MIN +
+const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.WINNER_LOSS_MAX);
+function calculateLoserLosses(loserSize: number, battleDays: number): number {
+const lossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN +
+const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.LOSER_LOSS_MAX);
+function distributeLosses(army: Army, totalLoss: number): Army {
+const updatedRegiments = [...army.regiments];
+const armySize = calculateArmySize(army);
+let remainingLoss = Math.floor(totalLoss);
+const reg = updatedRegiments[i];
+const proportion = armySize > 0 ? reg.strength / armySize : 0;
+const loss = Math.min(Math.floor(reg.strength), Math.floor(remainingLoss * proportion));
+const survivingRegiments = updatedRegiments.filter(reg => Math.floor(reg.strength) > 0);
+const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
+const defenderOriginal = { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
+const attackerOriginalSize = calculateArmySize(attackerOriginal);
+const defenderOriginalSize = calculateArmySize(defenderOriginal);
+const battleDays = calculateBattleDuration(attackerOriginalSize, defenderOriginalSize);
+const attackerPower = calculateArmyBasePower(attacker, attackerTechBonuses);
+const winnerPower = Math.max(attackerPower, defenderPower);
+const loserPower = Math.min(attackerPower, defenderPower);
+const powerRatio = loserPower > 0 ? winnerPower / loserPower : 999;
+const finalAttackerSize = calculateArmySize(finalAttacker);
+const finalDefenderSize = calculateArmySize(finalDefender);
+const exactAttackerCasualties = Math.floor(attackerOriginalSize - finalAttackerSize);
+const exactDefenderCasualties = Math.floor(defenderOriginalSize - finalDefenderSize);
+const loser = winner === 'attacker' ? finalDefender : finalAttacker;
+const loserOwner = winner === 'attacker' ? defender.owner : attacker.owner;
+const hasEscapeRoute = province.neighbors.some(neighborId => {
+const neighborProvince = province.neighbors.includes(neighborId);
+const retreatProvinces = battleProvince.neighbors
+export function applySiegeAnnihilation(army: Army): Army {
+const defenderArmies = armies.filter(
+const combinedDefenderRegiments = defenderArmies.flatMap((a) => a.regiments);
+const attackerBonuses = techBonusesByCountry?.get(attackerArmy.owner);
+const defenderBonuses = techBonusesByCountry?.get(combinedDefender.owner);
+const result = resolveBattle(
+const totalDefenderSize = calculateArmySize(combinedDefender);
+const totalDefenderCasualties = result.defenderCasualties;
+const lossPercent = totalDefenderSize > 0 ? totalDefenderCasualties / totalDefenderSize : 0;
+const armySize = calculateArmySize(defenderArmy);
+const armyCasualties = Math.floor(armySize * lossPercent);
+const updatedArmy = distributeLosses(defenderArmy, armyCasualties);
+const updatedArmies = [...armies];
+const existingBattleIndex = updatedBattles.findIndex(b => b.provinceId === province.id);
+const existingBattle = existingBattleIndex !== -1 ? updatedBattles[existingBattleIndex] : null;
+const armiesInProvince = updatedArmies.filter(a => a.location === province.id && !a.inCombat);
+const attackerArmy = updatedArmies.find(a => a.id === existingBattle.attackerArmyId);
+const defenderArmy = updatedArmies.find(a => a.id === existingBattle.defenderArmyId);
+const attackerCountry = attackerArmy.owner;
+const defenderCountry = defenderArmy.owner;
+const isAtWarWithDefender = wars.some(
+const reinforcementTroops = calculateArmySize(army);
+const updatedBattle = addReinforcementsToBattle(existingBattle, army, side, province);
+const idx = updatedArmies.findIndex(a => a.id === army.id);
+const battleReinforcements = reinforcementsAdded.filter(r => r.battleId === existingBattle.id);
+const armiesByCountry = new Map<string, Army[]>();
+const provinceOwner = province.owner;
+const isAtWar = wars.some(
+const attackerArmies = armiesByCountry.get(attackerCountry) || [];
+const defenderArmies = armiesByCountry.get(defenderCountry) || [];
+const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, currentDate, battleId);
+const idx = updatedArmies.findIndex(a => a.id === army.id);
+const idx = updatedArmies.findIndex(a => a.id === army.id);
+const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+const totalTroops = attackerTroops + defenderTroops;
+const battleDays = Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
+const participantArmyIds = [
+const reinforcementTroops = calculateArmySize(reinforcementArmy);
+const updatedBattle = { ...battle };
+const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
+const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
+const daysRemaining = battle.daysRemaining - 1;
+const dailyAttackerLoss = Math.floor(battle.attackerInitialTroops / battle.daysTotal * 0.5);
+const dailyDefenderLoss = Math.floor(battle.defenderInitialTroops / battle.daysTotal * 0.5);
+const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
+const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
+const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
+const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
+const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
+const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
+const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
+function applyTroopLoss(army: Army, loss: number): Army {
+let remainingLoss = loss;
+const updatedRegiments = army.regiments.map(reg => {
+const regLoss = Math.min(reg.strength, remainingLoss);
+const powerRatio = winner === 'attacker'
+const attackerBeforeFinalLoss = {
+const defenderBeforeFinalLoss = {
+let finalAttacker = attacker;
+let finalDefender = defender;
+const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.daysTotal);
+const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, battle.daysTotal);
+const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.daysTotal);
+const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, battle.daysTotal);
+const participantIds = battle.participantArmyIds;
+const updatedAllArmies = allArmies.map(army => {
+const attackerOriginal = battle.attackerInitialSnapshot
+const defenderOriginal = battle.defenderInitialSnapshot
+const initialAttackerSize = battle.attackerInitialSnapshot
+const initialDefenderSize = battle.defenderInitialSnapshot
+const attackerTotalCasualties = initialAttackerSize - calculateArmySize(finalAttacker);
+const defenderTotalCasualties = initialDefenderSize - calculateArmySize(finalDefender);
+const army = armies.find(a => a.id === armyId);
+const battle = activeBattles.find(b => b.id === battleId);
+const battleProvince = provinces.find(p => p.id === battle.provinceId);
+const isAttackerSide = battle.attackerArmyId === armyId ||
+const retreatProvince = findRetreatProvince(army.owner, battleProvince, provinces);
+const updatedBattle = {
+const armyTroops = calculateArmySize(army);
+const updatedArmies = armies.map(a => {
+const remainingAttackerArmies = updatedBattle.participantArmyIds.filter(id => {
+const participantArmy = updatedArmies.find(a => a.id === id);
+const updatedBattles = activeBattles.filter(b => b.id !== battleId);
+const winner = updatedBattle.attackerCurrentTroops > 0 ? 'attacker' : 'defender';
+const updatedBattles = activeBattles.map(b => b.id === battleId ? updatedBattle : b);
+
+============================================================
+FILE: src\engine\diplomacy.ts
+============================================================
+let warIdCounter = 0;
+export function generateWarId(): string {
+const existing = relations.find(
+const relation = getOrCreateRelation(relations, countryA, countryB);
+export function canMakePeace(war: War, currentDate: { year: number; month: number; day: number }): boolean {
+const startDays = war.startDate.year * 365 + war.startDate.month * 30 + war.startDate.day;
+const currentDays = currentDate.year * 365 + currentDate.month * 30 + currentDate.day;
+const daysSinceStart = currentDays - startDays;
+const relation = getOrCreateRelation(relations, countryA, countryB);
+const updatedRelations = relations.map(r => {
+const hasRelation = updatedRelations.some(
+const updatedRelations = relations.map(r => {
+const updatedWars = wars.filter(
+const updatedRelations = relations.map(r => {
+const hasRelation = updatedRelations.some(
+const updatedRelations = relations.map(r => {
+const hasRelation = updatedRelations.some(
+const occupiedByAttacker = originalDefenderProvinces.filter(
+const occupiedByDefender = originalAttackerProvinces.filter(
+const attackerScore = occupiedByAttacker.length * 10;
+const defenderScore = occupiedByDefender.length * 10;
+const warScore = attackerScore - defenderScore;
+export function processDiplomacyTick(relations: DiplomaticRelation[]): DiplomaticRelation[] {
+const newDays = r.pactDaysRemaining - 1;
+
+============================================================
+FILE: src\engine\economy.ts
+============================================================
+const BALANCE = {
+const devMultiplier = 1 + (province.development - 1) * BALANCE.DEV_TAX_MULTIPLIER;
+let baseIncome = (province.population / 1000) * BALANCE.TAX_PER_POP * devMultiplier;
+const def = BUILDING_DEFINITIONS[building.type];
+export function calculateProvinceManpowerGain(province: Province): number {
+let gain = (province.population / 1000) * BALANCE.MANPOWER_FRACTION;
+const def = BUILDING_DEFINITIONS[building.type];
+export function calculateProvinceDefense(province: Province): number {
+let defense = province.defense;
+const def = BUILDING_DEFINITIONS[building.type];
+let growthRate = BALANCE.BASE_GROWTH_RATE;
+const def = BUILDING_DEFINITIONS[building.type];
+const popRatio = province.population / province.maxPopulation;
+const growth = province.population * growthRate;
+const newPop = Math.min(province.population + growth, province.maxPopulation);
+export function calculateMaxManpower(provinces: Province[]): number {
+const totalPop = provinces.reduce((sum, p) => sum + p.population, 0);
+export function calculateCountryExpenses(country: Country, provinces: Province[]): number {
+let expenses = country.provinces.length * BALANCE.MAINTENANCE_PER_PROVINCE;
+let totalGoldIncome = 0;
+let totalManpowerGain = 0;
+const conscriptionLaw = LAWS[country.activeLaws?.conscription || 'conscription_peacetime'];
+const taxationLaw = LAWS[country.activeLaws?.taxation || 'taxation_normal'];
+const governanceLaw = LAWS[country.activeLaws?.governance || 'governance_balanced'];
+const lawGoldMultiplier = taxationLaw?.bonuses.goldMultiplier ?? 1.0;
+const lawManpowerMultiplier = conscriptionLaw?.bonuses.manpowerMultiplier ?? 1.0;
+const lawPopGrowthMultiplier = taxationLaw?.bonuses.popGrowthMultiplier ?? 1.0;
+const lawBuildTimeMultiplier = governanceLaw?.bonuses.buildTimeMultiplier ?? 1.0;
+const stabilityModifiers = getStabilityModifiers(country.resources.stability);
+const goldIncomeMultiplier = (techBonuses?.goldIncomeMultiplier ?? 1.0) * lawGoldMultiplier * stabilityModifiers.goldIncome;
+const manpowerMultiplier = (techBonuses?.manpowerMultiplier ?? 1.0) * lawManpowerMultiplier * stabilityModifiers.manpowerGrowth;
+const buildTimeMultiplier = (techBonuses?.buildTimeMultiplier ?? 1.0) * lawBuildTimeMultiplier * stabilityModifiers.constructionSpeed;
+const recruitmentSpeedMultiplier = stabilityModifiers.recruitmentSpeed;
+const updatedProvinces = provinces.map((province) => {
+const unrest = province.unrest ?? 0;
+const unrestImpact = calculateUnrestEconomicImpact(unrest);
+const provinceGoldMultiplier = goldIncomeMultiplier * unrestImpact.goldMultiplier;
+const provinceManpowerMultiplier = manpowerMultiplier * unrestImpact.manpowerMultiplier;
+const provinceGrowthMultiplier = lawPopGrowthMultiplier * unrestImpact.growthMultiplier;
+const goldIncome = calculateProvinceGoldIncome(province, provinceGoldMultiplier);
+const manpowerGain = calculateProvinceManpowerGain(province) * provinceManpowerMultiplier;
+const basePopGrowth = calculatePopulationGrowth(province, country.resources.stability);
+const popGrowth = basePopGrowth * provinceGrowthMultiplier;
+const updatedBuildings = province.buildings.map((b) => ({
+const expenses = calculateCountryExpenses(country, updatedProvinces);
+const goldBalance = totalGoldIncome - expenses;
+const newManpower = Math.min(
+const newMaxManpower = calculateMaxManpower(updatedProvinces);
+
+============================================================
+FILE: src\engine\gameConditions.ts
+============================================================
+export type EndGameType = 'victory' | 'defeat' | null;
+export interface GameStats {
+const playerProvinces = allProvinces.filter(p => p.owner === playerCountry.tag);
+const totalProvinces = allProvinces.length;
+const totalDays = calculateDaysBetween(startDate, currentDate);
+const battlesWon = battleHistory.filter(battle =>
+const battlesLost = battleHistory.filter(battle =>
+let enemyCasualties = 0;
+let ownCasualties = 0;
+const playerIsAttacker = battle.attackerOriginal.owner === playerCountryTag;
+const provincesControlled = allProvinces.filter(p => p.owner === playerCountryTag).length;
+const totalProvinces = allProvinces.length;
+function calculateDaysBetween(start: GameDate, end: GameDate): number {
+const startDays = start.year * 360 + start.month * 30 + start.day;
+const endDays = end.year * 360 + end.month * 30 + end.day;
+export function formatDuration(totalDays: number): string {
+const years = Math.floor(totalDays / 360);
+const remainingDays = totalDays % 360;
+const months = Math.floor(remainingDays / 30);
+const days = remainingDays % 30;
+const parts = [];
+interface GameDate {
+
+============================================================
+FILE: src\engine\military.ts
+============================================================
+const relation = diplomacy.find(
+export function stopArmyMovement(army: Army): Army {
+let armyIdCounter = 0;
+export function generateArmyId(): string {
+let recruitmentIdCounter = 0;
+export function generateRecruitmentId(): string {
+export function createArmy(owner: string, name: string, location: string): Army {
+export function createRegiment(type: UnitType): Regiment {
+export function calculateArmySpeed(army: Army): number {
+let minSpeed = Infinity;
+const def = UNIT_DEFINITIONS[reg.type];
+let updatedArmies = [...armies];
+const updatedCountries = [...countries];
+const province = provinces.find(p => p.id === rec.provinceId);
+let recruitmentSpeedBonus = 0;
+const def = BUILDING_DEFINITIONS[building.type];
+const daysReduction = Math.floor(recruitmentSpeedBonus / 100);
+const newDays = rec.daysRemaining - 1 - daysReduction;
+const existingArmy = updatedArmies.find(
+const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
+const rec = recruitments.find(r => r.id === recruitmentId);
+const unitDef = UNIT_DEFINITIONS[rec.unitType];
+const totalCost = unitDef.cost;
+const totalDays = unitDef.trainingTime;
+const daysRemaining = rec.daysRemaining;
+const progressRatio = daysRemaining / totalDays;
+const refundFactor = Math.max(0.10, progressRatio); // Mínimo de 10%
+const refundedGold = Math.floor(totalCost * refundFactor);
+const updatedArmies = armies.map(army => {
+const nextProgress = army.movementProgress + army.movementSpeed;
+const originProvince = provinces.find(p => p.id === army.location);
+const destProvince = provinces.find(p => p.id === army.destination);
+let position = null;
+const reachedProvinceId = army.destination;
+const reachedProvince = provinces.find(p => p.id === reachedProvinceId);
+const enemyArmiesInProvince = armies.filter(a =>
+const relation = diplomacy.find(
+const remainingPath = army.path.slice(1);
+const movingArmies = updatedArmies.filter(army => {
+const hasArrived = arrivedArmies.some(a => a.id === army.id);
+const updatedProvinces = provinces.map(prov => {
+const captured = capturedProvinces.find(cp => cp.id === prov.id);
+const originProvince = provinces.find(p => p.id === army.location);
+const destinationProvince = provinces.find(p => p.id === destinationId);
+const path = findPath(army.location, destinationId, provinces, army.owner, diplomacy);
+const nextDestination = path[0];
+const fullPath = path; // path completo incluindo destino final
+export function getArmiesInProvince(armies: Army[], provinceId: string): Army[] {
+export function mergeArmies(army1: Army, army2: Army): Army {
+const mergedRegiments = [...army1.regiments, ...army2.regiments];
+const radius = 18 + (total > 4 ? (total - 4) * 3 : 0);
+const angleStep = (2 * Math.PI) / total;
+const angle = angleStep * index - Math.PI / 2;
+const adjacencyMap = new Map<string, string[]>();
+const visited = new Set<string>([startId]);
+const parent = new Map<string, string>();
+const current = queue.shift()!;
+const neighbors = adjacencyMap.get(current) ?? [];
+const neighborProvince = provinces.find(p => p.id === neighbor);
+const isAllowed = canMoveToProvince(ownerTag, neighborProvince.owner, diplomacy);
+const transferredRegiments = regimentsToTransfer.map(idx => ({ ...sourceArmy.regiments[idx] }));
+const remainingRegiments = sourceArmy.regiments.filter((_, idx) => !regimentsToTransfer.includes(idx));
+export function splitArmyHalf(sourceArmy: Army, newName: string): Army | null {
+const halfIndex = Math.floor(sourceArmy.regiments.length / 2);
+const indicesToTransfer = Array.from({ length: halfIndex }, (_, i) => i);
+
+============================================================
+FILE: src\engine\stability.ts
+============================================================
+export interface StabilityModifiers {
+export function getStabilityModifiers(stability: number): StabilityModifiers {
+export interface StabilityPrestigeEvent {
+export function calculateEventImpact(event: StabilityPrestigeEvent): {
+const newStability = Math.max(0, Math.min(100, country.resources.stability + stabilityChange));
+const newPrestige = Math.max(0, country.resources.prestige + prestigeChange);
+const symbol = stabilityChange > 0 ? '📈' : '📉';
+const symbol = prestigeChange > 0 ? '👑' : '💔';
+export function processDailyStabilityRecovery(country: Country): Country {
+let stabilityChange = 0;
+export function getStabilityDescription(stability: number): string {
+export function getStabilityColor(stability: number): string {
+
+============================================================
+FILE: src\engine\technology.ts
+============================================================
+const speedMultiplier = isPlayer ? 1.0 : DIFFICULTY_SPEED_MULTIPLIERS[aiDifficulty];
+let updatedTechState = {
+const focus = NATIONAL_FOCUSES?.find(f => f?.id === updatedTechState.activeFocusId);
+const progressIncrement = 1 * speedMultiplier;
+const newProgressDays = updatedTechState.focusProgressDays + progressIncrement;
+const tech = TECHNOLOGIES?.find(t => t?.id === updatedTechState.activeResearchId);
+const dailyCost = tech.costGold / tech.durationDays;
+const progressIncrement = 1 * speedMultiplier;
+const newProgressDays = updatedTechState.researchProgressDays + progressIncrement;
+const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
+const hasPrereqs = focus.prerequisites.every(prereqId =>
+const tech = TECHNOLOGIES?.find(t => t?.id === techId);
+const hasPrereqs = tech.prerequisites?.every(prereqId =>
+export function calculateTechBonuses(techState: CountryTechState): {
+const bonuses = {
+const focus = NATIONAL_FOCUSES.find(f => f.id === focusId);
+const tech = TECHNOLOGIES.find(t => t.id === techId);
+export function createInitialTechState(countryTag: string): CountryTechState {
+
+============================================================
+FILE: src\engine\unrest.ts
+============================================================
+export const UNREST_BALANCE = {
+export function calculateRebelArmySize(province: Province): number {
+const baseSize = Math.floor(province.population * UNREST_BALANCE.POPULATION_SCALE_FACTOR);
+const size = Math.max(
+export function createRebelArmy(province: Province): Army {
+const rebelSize = calculateRebelArmySize(province);
+let unrest = province.unrest ?? 0;
+let change = UNREST_BALANCE.DAILY_GROWTH_RATE;
+const temple = province.buildings.find(b => b.type === 'temple');
+const hasGarrison = armies.some(army =>
+const newUnrest = UNREST_BALANCE.INITIAL_UNREST_ON_CONQUEST;
+export function isProvincePacified(province: Province): boolean {
+export function getUnrestDescription(unrest: number): string {
+export function getUnrestColor(unrest: number): string {
+export function calculateUnrestEconomicImpact(unrest: number): {
+const penalty = unrest / 100; // 0 a 1
+
+============================================================
+FILE: src\types\aiLog.ts
+============================================================
+export type AIActionType = 'building' | 'military' | 'tech' | 'focus' | 'diplomacy';
+export interface AILogEntry {
+
+============================================================
+FILE: src\types\difficulty.ts
+============================================================
+export type AIDifficulty = 'easy' | 'medium' | 'hard' | 'impossible';
+
+============================================================
+FILE: src\types\diplomacy.ts
+============================================================
+export type DiplomaticStatus = 'peace' | 'war' | 'non_aggression_pact' | 'alliance';
+export interface DiplomaticRelation {
+export interface War {
+export type DiplomaticAction =
+export interface DiplomaticActionCost {
+
+============================================================
+FILE: src\types\government.ts
+============================================================
+export type LawCategory = 'conscription' | 'taxation' | 'governance';
+export interface Law {
+export interface ActiveLaws {
+
+============================================================
+FILE: src\types\index.ts
+============================================================
+export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification' | 'workshop' | 'temple' | 'port' | 'university';
+export interface Building {
+export interface BuildingConstruction {
+export interface Province {
+export interface Country {
+export interface CountryResources {
+export interface CountryEconomy {
+export interface BuildingDefinition {
+export interface BuildingBonus {
+export interface GameState {
+export interface GameDate {
+export type UnitType = 'infantry' | 'cavalry' | 'artillery' | 'archers' | 'heavy_cavalry' | 'elite_guard' | 'siege_engine';
+export interface UnitDefinition {
+export interface Regiment {
+export interface Army {
+export interface ActiveBattle {
+export interface Recruitment {
+export interface CombatResult {
+
+============================================================
+FILE: src\types\technology.ts
+============================================================
+export type TechnologyCategory = 'MILITARY' | 'ECONOMY' | 'INFRASTRUCTURE';
+export type RewardEffectType =
+export interface RewardEffect {
+export interface NationalFocus {
+export interface Technology {
+export interface CountryTechState {
+
+============================================================
+FILE: src\types\toast.ts
+============================================================
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+export interface ToastMessage {
+export interface GameNotificationLog {
+
+============================================================
+FILE: src\utils\translations.ts
+============================================================
+export function getBuildingName(type: string): string {
+export function getUnitName(type: string): string {
+export function getTechName(id: string): string {
+export function getFocusName(id: string): string {
+export function getDifficultyName(difficulty: string): string {
