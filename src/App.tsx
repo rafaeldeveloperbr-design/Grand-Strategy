@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useGameRefs } from './hooks/useGameRefs'
 import { TopBar } from './components/TopBar';
 import { GameMap } from './components/GameMap';
 import { ProvincePanel } from './components/ProvincePanel';
@@ -334,34 +335,35 @@ const App: React.FC = () => {
   /** Batalhas ativas em andamento */
   const [activeBattles, setActiveBattles] = useState<ActiveBattle[]>([]);
 
-  /** Refs para game loop */
-  const gameLoopRef = useRef<number | null>(null);
-  const provincesRef = useRef(provinces);
-  const countriesRef = useRef(allCountries);
-  const armiesRef = useRef(armies);
-  const recruitmentsRef = useRef(recruitments);
-  const warsRef = useRef(wars);
-  const diplomaticRelationsRef = useRef(diplomaticRelations);
-  const dateRef = useRef(date);
-  const buildingConstructionsRef = useRef(buildingConstructions);
-  const playerTechStateRef = useRef(playerTechState);
-  const botTechStatesRef = useRef(botTechStates);
-  const aiDifficultyRef = useRef(aiDifficulty);
-  const activeBattlesRef = useRef(activeBattles);
-  const ceilingLogRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => { provincesRef.current = provinces; }, [provinces]);
-  useEffect(() => { countriesRef.current = allCountries; }, [allCountries]);
-  useEffect(() => { armiesRef.current = armies; }, [armies]);
-  useEffect(() => { recruitmentsRef.current = recruitments; }, [recruitments]);
-  useEffect(() => { warsRef.current = wars; }, [wars]);
-  useEffect(() => { diplomaticRelationsRef.current = diplomaticRelations; }, [diplomaticRelations]);
-  useEffect(() => { dateRef.current = date; }, [date]);
-  useEffect(() => { playerTechStateRef.current = playerTechState; }, [playerTechState]);
-  useEffect(() => { botTechStatesRef.current = botTechStates; }, [botTechStates]);
-  useEffect(() => { buildingConstructionsRef.current = buildingConstructions; }, [buildingConstructions]);
-  useEffect(() => { aiDifficultyRef.current = aiDifficulty; }, [aiDifficulty]);
-  useEffect(() => { activeBattlesRef.current = activeBattles; }, [activeBattles]);
+    const {
+    gameLoopRef,
+    provincesRef,
+    countriesRef,
+    armiesRef,
+    recruitmentsRef,
+    warsRef,
+    diplomaticRelationsRef,
+    dateRef,
+    buildingConstructionsRef,
+    playerTechStateRef,
+    botTechStatesRef,
+    aiDifficultyRef,
+    activeBattlesRef,
+    ceilingLogRef
+  } = useGameRefs({
+    provinces,
+    allCountries,
+    armies,
+    recruitments,
+    wars,
+    diplomaticRelations,
+    date,
+    buildingConstructions,
+    playerTechState,
+    botTechStates,
+    aiDifficulty,
+    activeBattles
+  })
 
   // === Dados Derivados ===
   const playerCountry = useMemo(
