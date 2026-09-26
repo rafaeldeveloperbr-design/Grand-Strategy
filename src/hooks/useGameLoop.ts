@@ -2,6 +2,8 @@ import { useCallback, useEffect } from 'react';
 import { provincesData } from '../data/provinces';
 import { countries as initialCountries } from '../data/countries';
 import { processDailyTick } from '../engine/economy';
+import { processEconomyTick } from './gameLoop/economyTick';
+import { processMovementTick } from './gameLoop/movementTick';
 import {
   processRecruitments,
   processArmyMovement,
@@ -236,153 +238,13 @@ export function useGameLoop(props: Props) {
     let recruitments = [...snapshot.recruitments];
     let buildingConstructions = [...snapshot.buildingConstructions];
 
-    // ===== PASSO A: RECRUTAMENTO =====
-    const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
-    armies = recruitResult.armies;
-    recruitments = recruitResult.recruitments;
 
-    // Processa recrutamentos concluídos
-    for (const completed of recruitResult.completedRecruitments) {
-      const unitName = getUnitName(completed.unitType);
-      const province = provinces.find(p => p.id === completed.provinceId);
-      const provinceName = province?.name || 'província';
-      const dateString = formatGameDate(snapshot.date);
+    const movementResult = processMovementTick({ armies, provinces, relations, countries, addLog });
+    armies = movementResult.armies;
+    provinces = movementResult.provinces;
+    countries = movementResult.countries;
+    const arrivedArmies = movementResult.arrivedArmies;
 
-      // Mostra toast de conclusão APENAS para o jogador
-      if (completed.owner === playerCountryTag) {
-        if (completed.count > 1) {
-          addToast(
-            `Treinamento de ${completed.count}x ${unitName} concluído em ${provinceName}!`,
-            'success',
-            'Tropas Recrutadas',
-            dateString
-          );
-        } else {
-          addToast(
-            `Treinamento de ${unitName} concluído em ${provinceName}!`,
-            'success',
-            'Tropa Recrutada',
-            dateString
-          );
-        }
-      }
-
-      // Registra no log da IA se o recrutamento foi de um bot
-      if (completed.owner !== playerCountryTag) {
-        const country = countries.find(c => c.tag === completed.owner);
-        if (country && province) {
-          addAILog(
-            country.name,
-            'military',
-            `Recrutamento de ${unitName} concluído em ${provinceName}`,
-            dateString,
-            country.color
-          );
-        }
-      }
-    }
-
-    // ===== PASSO A.5: CONSTRUÇÕES =====
-    const constructionResult = processConstructions(buildingConstructions, provinces);
-    buildingConstructions = constructionResult.updatedConstructions;
-
-    // Processa construções concluídas
-    for (const completed of constructionResult.completedConstructions) {
-      const province = provinces.find(p => p.id === completed.provinceId);
-      if (province) {
-        // Adiciona o edifício à província
-        provinces = provinces.map(p => {
-          if (p.id === completed.provinceId) {
-            const existingBuilding = p.buildings.find(b => b.type === completed.buildingType);
-            if (existingBuilding) {
-              // Upgrade do edifício existente
-              return {
-                ...p,
-                buildings: p.buildings.map(b =>
-                  b.type === completed.buildingType
-                    ? { ...b, level: b.level + 1, daysRemaining: 0 }
-                    : b
-                )
-              };
-            } else {
-              // Novo edifício
-              return {
-                ...p,
-                buildings: [...p.buildings, {
-                  type: completed.buildingType,
-                  level: 1,
-                  daysRemaining: 0
-                }]
-              };
-            }
-          }
-          return p;
-        });
-
-        // Mostra toast de conclusão APENAS para o jogador
-        const buildingName = getBuildingName(completed.buildingType);
-        const dateString = formatGameDate(snapshot.date);
-
-        if (province.owner === playerCountryTag) {
-          addToast(
-            `Construção de ${buildingName} finalizada em ${province.name}!`,
-            'success',
-            'Obra Concluída',
-            dateString
-          );
-        }
-
-        // Registra no log da IA se a construção foi de um bot
-        if (province.owner !== playerCountryTag) {
-          const country = countries.find(c => c.tag === province.owner);
-          if (country) {
-            addAILog(
-              country.name,
-              'building',
-              `Construção de ${buildingName} concluída em ${province.name}`,
-              dateString,
-              country.color
-            );
-          }
-        }
-      }
-    }
-
-    // ===== PASSO B: MOVIMENTAÇÃO =====
-    const moveResult = processArmyMovement(armies, provinces, relations);
-    armies = moveResult.updatedArmies;
-    const arrivedArmies = moveResult.arrivedArmies;
-    provinces = moveResult.updatedProvinces; // Atualiza províncias capturadas
-
-     // ===== PASSO B.5: CORREÇÃO DE LIBERTAÇÃO REBELDE =====
-    // O processArmyMovement captura províncias para o tag rebelde (rebel_pXX).
-    // Convertemos IMEDIATAMENTE em libertação: dono = originalOwner, unrest 0.
-    if (provinces.some(p => p.owner.startsWith('rebel_'))) {
-      const changes: { id: string; name: string; newOwner: string }[] = [];
-
-      provinces = provinces.map(p => {
-        if (!p.owner.startsWith('rebel_')) return p;
-        const rebelArmy = armies.find(a => a.owner === p.owner);
-        const liberator = rebelArmy?.originalOwner || p.originalOwner;
-        if (!liberator) return p;
-        changes.push({ id: p.id, name: p.name, newOwner: liberator });
-        return { ...p, owner: liberator, unrest: 0 };
-      });
-
-      if (changes.length > 0) {
-        // Ressincroniza as listas de províncias dos países
-        countries = countries.map(c => ({
-          ...c,
-          provinces: provinces.filter(p => p.owner === c.tag).map(p => p.id),
-        }));
-
-        for (const ch of changes) {
-          const countryName = countries.find(c => c.tag === ch.newOwner)?.name || ch.newOwner;
-          console.log(`🏴 Libertação corrigida: ${ch.name} → ${countryName}`);
-          addLog(`🏴 ${ch.name} libertada! Devolvida a ${countryName}.`);
-        }
-      }
-    }
 
     // ===== PASSO C: DETECÇÃO E RESOLUÇÃO DE BATALHA =====
     // C.1: Processa exércitos que chegaram ao destino
@@ -869,22 +731,17 @@ export function useGameLoop(props: Props) {
     activeBattlesRef.current = currentActiveBattles;
     console.log(`✅ Estado atualizado: ${currentActiveBattles.length} batalhas ativas restantes`);
 
-    // ===== PASSO D: ECONOMIA/POPULAÇÃO =====
-    countries = countries.map(country => {
-      const countryProvinces = provinces.filter(p => p.owner === country.tag);
-      const { country: updatedCountry, provinces: updatedProvs } =
-        processDailyTick(country, countryProvinces);
-
-      for (const updatedProv of updatedProvs) {
-        const idx = provinces.findIndex(p => p.id === updatedProv.id);
-        if (idx !== -1) {
-          provinces = [...provinces];
-          provinces[idx] = updatedProv;
-        }
-      }
-
-      return updatedCountry;
+    // ===== PASSO A + A.5 + D - extraído para economyTick (148 linhas) =====
+    const economyResult = processEconomyTick({
+      recruitments, armies, countries, provinces, buildingConstructions,
+      playerCountryTag, date: snapshot.date, allCountries,
+      addToast, addAILog, addLog, formatGameDate
     });
+    recruitments = economyResult.recruitments;
+    armies = economyResult.armies;
+    provinces = economyResult.provinces;
+    buildingConstructions = economyResult.buildingConstructions;
+    countries = economyResult.countries;
 
     // ===== PASSO D.5: AGITAÇÃO PROVINCIAL E REVOLTAS =====
     const { updatedProvinces: provincesWithDecay, revoltedProvinces } =
@@ -1064,7 +921,7 @@ export function useGameLoop(props: Props) {
         const ceiling = Math.max(12000, playerTroops * multiplier); // piso p/ early game
         const canRecruitMilitary = botTroops < ceiling;
 
-          if (!canRecruitMilitary) {
+        if (!canRecruitMilitary) {
           if (!ceilingLogRef.current.has(country.tag)) {
             ceilingLogRef.current.add(country.tag);
             console.log(`🎯 Teto militar: ${country.name} (${Math.floor(botTroops)} tropas) atingiu o teto (${Math.floor(ceiling)}) → recrutamento PAUSADO`);
