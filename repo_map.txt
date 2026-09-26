@@ -2,7 +2,7 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-2767     2435     src\App.tsx  <-- QUEBRAR!
+1606     1446     src\App.tsx  <-- QUEBRAR!
 1116     948      src\engine\combat.ts  <-- QUEBRAR!
 771      707      src\components\GameMap.tsx  <-- QUEBRAR!
 687      597      src\engine\military.ts  <-- QUEBRAR!
@@ -10,7 +10,6 @@ LINHAS   CÓDIGO   ARQUIVO
 632      557      src\engine\rebellions.ts  <-- QUEBRAR!
 509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
-389      369      src\types\index.ts  <-- QUEBRAR!
 330      299      src\engine\diplomacy.ts  <-- QUEBRAR!
 319      283      src\components\TechnologyModal.tsx  <-- QUEBRAR!
 280      248      src\engine\technology.ts
@@ -18,10 +17,12 @@ LINHAS   CÓDIGO   ARQUIVO
 256      230      src\components\BattleReportModal.tsx
 220      184      src\engine\unrest.ts
 214      199      src\components\ArmyMarker.tsx
+199      173      src\hooks\gameLoop\battleContinuousTick.ts
 187      182      src\data\provinces.ts
 181      166      src\components\DiplomacyPanel.tsx
 181      170      src\components\TopBar.tsx
 168      155      src\components\WarPanel.tsx
+168      143      src\hooks\gameLoop\battleArrivalTick.ts
 164      139      src\engine\buildings.ts
 161      147      src\components\AILogModal.tsx
 161      141      src\engine\stability.ts
@@ -29,24 +30,39 @@ LINHAS   CÓDIGO   ARQUIVO
 149      144      src\data\buildings.ts
 149      129      src\engine\gameConditions.ts
 138      125      src\components\EndGameModal.tsx
+136      127      src\types\army.ts
 126      120      src\constants\laws.ts
+118      113      src\types\province.ts
+116      102      src\hooks\gameLoop\economyTick.ts
+114      95       src\hooks\useGameLoop.ts
+112      102      src\hooks\gameLoop\aiTick.ts
 110      100      src\components\BattleHistoryModal.tsx
 103      88       src\context\ToastContext.tsx
 103      100      src\data\units.ts
 100      96       src\data\countries.ts
 98       88       src\utils\translations.ts
 94       85       src\components\NotificationLogModal.tsx
+94       87       src\hooks\gameLoop\rebelTick.ts
+86       79       src\hooks\gameLoop\diplomacyTechTick.ts
 77       71       src\types\technology.ts
+70       62       src\hooks\gameLoop\unrestTick.ts
 70       65       src\types\diplomacy.ts
+68       64       src\hooks\useGameRefs.ts
 66       57       src\context\AILogContext.tsx
+62       59       src\types\country.ts
+55       47       src\hooks\gameLoop\movementTick.ts
 53       47       src\components\SettingsModal.tsx
 48       44       src\components\DifficultySelector.tsx
+43       39       src\types\battle.ts
 42       38       src\types\difficulty.ts
 31       27       src\components\ToastContainer.tsx
 28       25       src\types\government.ts
+26       22       src\types\game.ts
+26       19       src\types\index.ts
 25       22       src\types\toast.ts
 17       15       src\types\aiLog.ts
 15       14       vite.config.js
+8        8        src\types\date.ts
 6        5        src\main.tsx
 
 
@@ -54,257 +70,102 @@ DETALHE POR ARQUIVO
 ================================================================================
 
 ================================================================================
-FILE: src\App.tsx | Total: 2767 | Código: 2435 | Vazias: 332
+FILE: src\App.tsx | Total: 1606 | Código: 1446 | Vazias: 160
 ================================================================================
-L 107 | [Func             ] function createInitialArmies(): Army[] {
-L 224 | [Const Component  ] const App: React.FC = () => {
-L 320 | [Const            ] const map = new Map<string, CountryTechState>();
-L 338 | [Const            ] const gameLoopRef = useRef<number | null>(null);
-L 339 | [Const            ] const provincesRef = useRef(provinces);
-L 340 | [Const            ] const countriesRef = useRef(allCountries);
-L 341 | [Const            ] const armiesRef = useRef(armies);
-L 342 | [Const            ] const recruitmentsRef = useRef(recruitments);
-L 343 | [Const            ] const warsRef = useRef(wars);
-L 344 | [Const            ] const diplomaticRelationsRef = useRef(diplomaticRelations);
-L 345 | [Const            ] const dateRef = useRef(date);
-L 346 | [Const            ] const buildingConstructionsRef = useRef(buildingConstructions);
-L 347 | [Const            ] const playerTechStateRef = useRef(playerTechState);
-L 348 | [Const            ] const botTechStatesRef = useRef(botTechStates);
-L 349 | [Const            ] const aiDifficultyRef = useRef(aiDifficulty);
-L 350 | [Const            ] const activeBattlesRef = useRef(activeBattles);
-L 351 | [Const            ] const ceilingLogRef = useRef<Set<string>>(new Set());
-L 367 | [Const            ] const playerCountry = useMemo(
-L 372 | [Const            ] const selectedProvinceData = useMemo(
-L 377 | [Const            ] const selectedArmyData = useMemo(
-L 383 | [Const            ] const addLog = useCallback((msg: string) => {
-L 388 | [Const            ] const formatGameDate = useCallback((date: GameDate): string => {
-L 389 | [Const            ] const months = [
-L 399 | [Const            ] const cancelProvinceActivities = useCallback((
-L 408 | [Const            ] const cancelledRecruitments = currentRecruitments.filter(r => r.provinceId === provinceId);
-L 409 | [Const            ] const remainingRecruitments = currentRecruitments.filter(r => r.provinceId !== provinceId);
-L 412 | [Const            ] const cancelledConstructions = currentConstructions.filter(c => c.provinceId === provinceId);
-L 413 | [Const            ] const remainingConstructions = currentConstructions.filter(c => c.provinceId !== provinceId);
-L 416 | [Const            ] const updatedProvinces = currentProvinces.map(p => {
-L 428 | [Const            ] const province = provincesRef.current.find(p => p.id === provinceId);
-L 429 | [Const            ] const provinceName = province?.name || provinceId;
-L 432 | [Const            ] const unitName = getUnitName(rec.unitType);
-L 433 | [Const            ] const country = countriesRef.current.find(c => c.tag === oldOwner);
-L 450 | [Const            ] const province = provincesRef.current.find(p => p.id === provinceId);
-L 451 | [Const            ] const provinceName = province?.name || provinceId;
-L 454 | [Const            ] const buildingName = getBuildingName(construction.buildingType);
-L 455 | [Const            ] const country = countriesRef.current.find(c => c.tag === oldOwner);
-L 479 | [Const            ] const advanceDate = useCallback((currentDate: GameDate): GameDate => {
-L 492 | [Const            ] const processTick = useCallback(() => {
-L 494 | [Const            ] const snapshot = {
-L 515 | [Const            ] const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
-L 521 | [Const            ] const unitName = getUnitName(completed.unitType);
-L 522 | [Const            ] const province = provinces.find(p => p.id === completed.provinceId);
-L 523 | [Const            ] const provinceName = province?.name || 'província';
-L 524 | [Const            ] const dateString = formatGameDate(snapshot.date);
-L 547 | [Const            ] const country = countries.find(c => c.tag === completed.owner);
-L 561 | [Const            ] const constructionResult = processConstructions(buildingConstructions, provinces);
-L 566 | [Const            ] const province = provinces.find(p => p.id === completed.provinceId);
-L 571 | [Const            ] const existingBuilding = p.buildings.find(b => b.type === completed.buildingType);
-L 598 | [Const            ] const buildingName = getBuildingName(completed.buildingType);
-L 599 | [Const            ] const dateString = formatGameDate(snapshot.date);
-L 612 | [Const            ] const country = countries.find(c => c.tag === province.owner);
-L 627 | [Const            ] const moveResult = processArmyMovement(armies, provinces, relations);
-L 629 | [Const            ] const arrivedArmies = moveResult.arrivedArmies;
-L 640 | [Const            ] const rebelArmy = armies.find(a => a.owner === p.owner);
-L 641 | [Const            ] const liberator = rebelArmy?.originalOwner || p.originalOwner;
-L 655 | [Const            ] const countryName = countries.find(c => c.tag === ch.newOwner)?.name || ch.newOwner;
-L 665 | [Const            ] const province = provinces.find(p => p.id === arrived.location);
-L 672 | [Const            ] const isInWar = wars.some(
-L 678 | [Const            ] const isHostile = (ownerA: string, ownerB: string, origA?: string, origB?: string): boolean => {
-L 679 | [Const            ] const aRebel = ownerA.startsWith('rebel_');
-L 680 | [Const            ] const bRebel = ownerB.startsWith('rebel_');
-L 690 | [Const            ] const isRebelArrived = arrived.owner.startsWith('rebel_');
-L 692 | [Const            ] const enemies = armies.filter(a =>
-L 698 | [Const            ] const isRebelAttackingEnemy = isRebelArrived &&
-L 702 | [Const            ] const shouldBattle = enemies.length > 0 || isRebelAttackingEnemy || isInWar;
-L 713 | [Const            ] const existingBattle = activeBattles.find(b => b.provinceId === province.id);
-L 717 | [Const            ] const attackerArmies = armies.filter(a =>
-L 724 | [Const            ] const defenderArmies = armies.filter(a =>
-L 732 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-L 733 | [Const            ] const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, snapshot.date, battleId);
-L 736 | [Const            ] const participantIds = newBattle.participantArmyIds;
-L 771 | [Const            ] const oldOwner = province.owner;
-L 774 | [Const            ] const newOwner = (isRebelArrived && arrived.originalOwner)
-L 781 | [Const            ] const isLiberation = isRebelArrived && newOwner === arrived.originalOwner;
-L 782 | [Const            ] const conqueredProv = isLiberation
-L 799 | [Const            ] const cancelResult = cancelProvinceActivities(
-L 813 | [Const            ] const countryName = allCountries.find(c => c.tag === newOwner)?.name || newOwner;
-L 822 | [Const            ] const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
-L 834 | [Const            ] const province = provinces.find(p => p.id === newBattle.provinceId);
-L 835 | [Const            ] const attacker = armies.find(a => a.id === newBattle.attackerArmyId);
-L 836 | [Const            ] const defender = armies.find(a => a.id === newBattle.defenderArmyId);
-L 855 | [Const            ] const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
-L 876 | [Const            ] const province = provinces.find(p => p.id === battle.provinceId);
-L 877 | [Const            ] const attacker = armies.find(a => a.id === battle.attackerArmyId);
-L 878 | [Const            ] const defender = armies.find(a => a.id === battle.defenderArmyId);
-L 889 | [Const            ] const result = processDailyBattle(battle, attacker, defender, province);
-L 920 | [Const            ] const province = provinces.find(p => p.id === finishedBattle.provinceId);
-L 921 | [Const            ] const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
-L 922 | [Const            ] const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
-L 942 | [Const            ] const participantIds = finishedBattle.participantArmyIds;
-L 946 | [Const            ] const winnerSide = finalResult.winner;
-L 947 | [Const            ] const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
-L 948 | [Const            ] const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
-L 951 | [Const            ] const updatedArmiesList = armies.map(army => {
-L 958 | [Const            ] const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
-L 967 | [Const            ] const isWinner = army.owner === winnerCountry;
-L 968 | [Const            ] const isLoser = army.owner === loserCountry;
-L 976 | [Const            ] const retreatProvince = findRetreatProvince(army.owner, province, provinces);
-L1001 | [Const            ] const isAttacker = w.attacker === attacker.owner;
-L1014 | [Const            ] const remainingDefenders = armies.filter(a =>
-L1022 | [Const            ] const oldOwner = province.owner;
-L1025 | [Const            ] const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
-L1026 | [Const            ] const newProvinceOwner = rebelReturnOwner || attacker.owner;
-L1031 | [Const            ] const isLiberation = !!rebelReturnOwner;
-L1032 | [Const            ] const conqueredProvince = isLiberation
-L1051 | [Const            ] const cancelResult = cancelProvinceActivities(
-L1063 | [Const            ] const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner };
-L1065 | [Const            ] const countryName = allCountries.find(c => c.tag === rebelReturnOwner)?.name || rebelReturnOwner;
-L1078 | [Const            ] const updatedFinalResult = { ...finalResult, territoryChanged: false };
-L1094 | [Const            ] const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
-L1135 | [Const            ] const survivingCount = participantIds.filter(id => {
-L1136 | [Const            ] const army = updatedArmiesList.find(a => a.id === id);
-L1149 | [Const            ] const countryProvinces = provinces.filter(p => p.owner === country.tag);
-L1154 | [Const            ] const idx = provinces.findIndex(p => p.id === updatedProv.id);
-L1171 | [Const            ] const revoltedProvIds = revoltedProvinces.map(p => p.id);
-L1172 | [Const            ] const rebelResult = processRebelAccumulation(provinces, armies, revoltedProvIds);
-L1204 | [Const            ] const countriesWithoutProvinces = countries.filter(c => {
-L1208 | [Const            ] const ownedProvinces = provinces.filter(p => p.owner === c.tag);
-L1247 | [Const            ] const playerCountry = countries.find(c => c?.tag === playerCountryTag);
-L1249 | [Const            ] const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry, aiDifficultyRef.current, true);
-L1256 | [Const            ] const dateString = formatGameDate(snapshot.date);
-L1274 | [Const            ] const botTechState = currentBotTechStates.get(country.tag);
-L1276 | [Const            ] const botTechResult = processDailyTechProgress(botTechState, country, aiDifficultyRef.current, false);
-L1281 | [Const            ] const dateString = formatGameDate(snapshot.date);
-L1287 | [Const            ] const focusTitle = notif.replace('✅ Foco concluído: ', '');
-L1296 | [Const            ] const techTitle = notif.replace('🔬 Pesquisa concluída: ', '');
-L1316 | [Const            ] const attackerProvs = provinces.filter(p => p.owner === war.attacker).length;
-L1317 | [Const            ] const defenderProvs = provinces.filter(p => p.owner === war.defender).length;
-L1323 | [Const            ] const activeBots = countries.filter((c: Country) => c && c.tag !== playerCountryTag);
-L1324 | [Const            ] const dateString = formatGameDate(snapshot.date);
-L1328 | [Const            ] const botTechState = currentBotTechStates.get(country.tag);
-L1331 | [Const            ] const playerTroops = armies
-L1334 | [Const            ] const botTroops = armies
-L1337 | [Const            ] const botAtWar = wars.some(w => w.attacker === country.tag || w.defender === country.tag);
-L1338 | [Const            ] const multiplier = botAtWar ? 3 : 2;            // em guerra, teto mais alto
-L1339 | [Const            ] const ceiling = Math.max(12000, playerTroops * multiplier); // piso p/ early game
-L1340 | [Const            ] const canRecruitMilitary = botTroops < ceiling;
-L1352 | [Const            ] const economicResult = processAIEconomicDecisions(
-L1380 | [Const            ] const armiesBefore = armies.filter(a => a.owner === country.tag);
-L1382 | [Const            ] const armiesAfter = armies.filter(a => a.owner === country.tag);
-L1386 | [Const            ] const armyBefore = armiesBefore.find(a => a.id === armyAfter.id);
-L1388 | [Const            ] const destProvince = provinces.find(p => p.id === armyAfter.destination);
-L1390 | [Const            ] const isEnemy = destProvince.owner !== country.tag;
-L1408 | [Const            ] const armiesToMerge = new Map<string, Army[]>(); // provinceId -> armies
-L1415 | [Const            ] const key = `${army.owner}_${army.location}`;
-L1429 | [Const            ] const mergedRegiments = [...primaryArmy.regiments];
-L1433 | [Const            ] const existingRegiment = mergedRegiments.find(r => r.type === regiment.type);
-L1444 | [Const            ] const updatedPrimaryArmy = {
-L1451 | [Const            ] const secondaryIds = secondaryArmies.map(a => a.id);
-L1466 | [Const            ] const armiesHere = armies.filter(a => a.location === prov.id && !a.inCombat && !a.destination);
-L1469 | [Const            ] const rebelSide = armiesHere.filter(a => a.owner.startsWith('rebel_'));
-L1472 | [Const            ] const existingBattle = currentActiveBattles.find(b => b.provinceId === prov.id);
-L1475 | [Const            ] const origOwner = rebelSide[0].originalOwner;
-L1476 | [Const            ] const hostileSide = armiesHere.filter(a => !a.owner.startsWith('rebel_') && a.owner !== origOwner);
-L1479 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-L1480 | [Const            ] const newBattle = startContinuousBattle(rebelSide, hostileSide, prov, snapshot.date, battleId);
-L1481 | [Const            ] const participantIds = newBattle.participantArmyIds;
-L1495 | [Const            ] const warResult = ensureSeparatistWars(armies, provinces, wars, relations, snapshot.date);
-L1511 | [Const            ] const cleanupResult = cleanupSeparatistWars(armies, provinces, wars, relations);
-L1534 | [Const            ] const playerCountryData = countries.find(c => c.tag === playerCountryTag);
-L1536 | [Const            ] const endGameResult = checkEndGameConditions(playerCountryData, provinces);
-L1542 | [Const            ] const stats = calculateGameStats(
-L1595 | [Const            ] const interval = SPEED_INTERVALS[gameSpeed];
-L1608 | [Const            ] const handleOpenDiplomacy = useCallback((countryTag: string) => {
-L1615 | [Const            ] const handleCloseDiplomacy = useCallback(() => {
-L1620 | [Const            ] const handleProvinceClick = useCallback((provinceId: string) => {
-L1621 | [Const            ] const province = provinces.find(p => p.id === provinceId);
-L1632 | [Const            ] const handleProvinceHover = useCallback((provinceId: string | null) => {
-L1636 | [Const            ] const handleClosePanel = useCallback(() => {
-L1641 | [Const            ] const handleSpeedChange = useCallback((speed: number) => {
-L1648 | [Const            ] const handleBuild = useCallback(
-L1650 | [Const            ] const province = provinces.find((p) => p.id === provinceId);
-L1653 | [Const            ] const existingBuilding = province.buildings.find((b) => b.type === buildingType);
-L1654 | [Const            ] const currentLevel = existingBuilding?.level ?? 0;
-L1656 | [Const            ] const cost = getBuildingCost(buildingType, currentLevel);
-L1657 | [Const            ] const buildTime = getBuildingTime(buildingType, currentLevel);
-L1659 | [Const            ] const result = queueBuilding(
-L1693 | [Const            ] const handleCancelBuilding = useCallback(
-L1695 | [Const            ] const result = cancelBuilding(constructionId, buildingConstructions, playerCountry.resources.gold);
-L1721 | [Const            ] const handleRecruit = useCallback(
-L1725 | [Const            ] const province = provinces.find((p) => p.id === provinceId);
-L1731 | [Const            ] const costs = getRecruitmentCost(unitType);
-L1734 | [Const            ] const conscriptionLaw = LAWS[playerCountry.activeLaws?.conscription || 'conscription_peacetime'];
-L1735 | [Const            ] const armyCostMultiplier = conscriptionLaw?.bonuses.armyCostMultiplier ?? 1.0;
-L1736 | [Const            ] const adjustedGoldCost = Math.floor(costs.gold * armyCostMultiplier);
-L1773 | [Const            ] const existingRecruitment = prev.find(
-L1809 | [Const            ] const handleCancelRecruitment = useCallback(
-L1811 | [Const            ] const rec = recruitments.find(r => r.id === recruitmentId);
-L1814 | [Const            ] const result = cancelRecruitment(recruitmentId, recruitments, playerCountry.resources.gold);
-L1849 | [Const            ] const handleArmyClick = useCallback((armyId: string) => {
-L1850 | [Const            ] const army = armiesRef.current.find(a => a.id === armyId);
-L1862 | [Const            ] const handleProvinceRightClick = useCallback(
-L1866 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
-L1871 | [Const            ] const updatedArmy = stopArmyMovement(army);
-L1874 | [Const            ] const currentProvince = provincesRef.current.find(p => p.id === provinceId);
-L1888 | [Const            ] const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
-L1891 | [Const            ] const destProvince = provincesRef.current.find(p => p.id === provinceId);
-L1903 | [Const            ] const handleMergeArmies = useCallback(
-L1907 | [Const            ] const army1 = armiesRef.current.find((a) => a.id === selectedArmy);
-L1908 | [Const            ] const army2 = armiesRef.current.find((a) => a.id === targetArmyId);
-L1915 | [Const            ] const merged = mergeArmies(army1, army2);
-L1919 | [Const            ] const filtered = prev.filter((a) => a.id !== army1.id && a.id !== army2.id);
-L1936 | [Const            ] const handleSplitHalf = useCallback(() => {
-L1938 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
-L1942 | [Const            ] const newArmy = splitArmyHalf(army, `${army.name} (Destacamento)`);
-L1946 | [Const            ] const halfIndex = Math.floor(army.regiments.length / 2);
-L1947 | [Const            ] const remainingRegiments = army.regiments.slice(halfIndex);
-L1950 | [Const            ] const filtered = prev.filter((a) => a.id !== army.id);
-L1964 | [Const            ] const handleSplitCustom = useCallback(() => {
-L1966 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
-L1970 | [Const            ] const indices = Array.from(splitSelection);
-L1971 | [Const            ] const newArmy = splitArmy(army, indices, `${army.name} (Destacamento)`);
-L1975 | [Const            ] const remainingRegiments = army.regiments.filter((_, idx) => !splitSelection.has(idx));
-L1978 | [Const            ] const filtered = prev.filter((a) => a.id !== army.id);
-L1994 | [Const            ] const toggleSplitRegiment = useCallback((index: number) => {
-L1996 | [Const            ] const next = new Set(prev);
-L2009 | [Const            ] const handleImproveRelations = useCallback(() => {
-L2029 | [Const            ] const handleOfferNonAggression = useCallback(() => {
-L2049 | [Const            ] const handleDeclareWar = useCallback(() => {
-L2052 | [Const            ] const result = declareWar(diplomaticRelations, wars, playerCountryTag, diplomacyTarget, date);
-L2063 | [Const            ] const handleMakePeace = useCallback((warId: string) => {
-L2064 | [Const            ] const war = wars.find(w => w.id === warId);
-L2067 | [Const            ] const enemy = war.attacker === playerCountryTag ? war.defender : war.attacker;
-L2068 | [Const            ] const result = makePeace(diplomaticRelations, wars, playerCountryTag, enemy);
-L2075 | [Const            ] const handleStartFocus = useCallback((focusId: string) => {
-L2082 | [Const            ] const updatedTechState = startNationalFocus(playerTechState, focusId);
-L2088 | [Const            ] const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
-L2095 | [Const            ] const handleStartResearch = useCallback((techId: string) => {
-L2102 | [Const            ] const tech = TECHNOLOGIES?.find(t => t?.id === techId);
-L2139 | [Const            ] const handleEndGameContinue = useCallback(() => {
-L2148 | [Const            ] const handleEndGameRestart = useCallback(() => {
-L2156 | [Const            ] const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
-L2157 | [Const            ] const result = retreatArmyManually(armyId, battleId, armies, activeBattles, provinces);
-L2164 | [Const            ] const army = armies.find(a => a.id === armyId);
-L2165 | [Const            ] const battle = activeBattles.find(b => b.id === battleId);
-L2166 | [Const            ] const province = provinces.find(p => p.id === battle?.provinceId);
-L2178 | [Const            ] const winnerSide = result.winner === 'attacker' ? 'Atacante' : 'Defensor';
-L2198 | [Const            ] const handleStopMovement = useCallback((armyId: string) => {
-L2199 | [Const            ] const army = armies.find(a => a.id === armyId);
-L2203 | [Const            ] const updatedArmy = stopArmyMovement(army);
-L2218 | [Const            ] const province = provinces.find(p => p.id === army.location);
-L2219 | [Const            ] const provinceName = province?.name || 'província desconhecida';
-L2232 | [Const            ] const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
-L2244 | [Const            ] const handleEnactLaw = useCallback((category: LawCategory, lawId: string) => {
-L2245 | [Const            ] const law = LAWS[lawId];
-L2435 | [Const            ] const battle = activeBattles.find(b =>
-L2458 | [Const            ] const friendlyArmies = getFriendlyArmiesInProvince(
-L2757 | [Const Component  ] const AppWithProviders: React.FC = () => {
+L 109 | [Func             ] function createInitialArmies(): Army[] {
+L 226 | [Const Component  ] const App: React.FC = () => {
+L 322 | [Const            ] const map = new Map<string, CountryTechState>();
+L 370 | [Const            ] const playerCountry = useMemo(
+L 375 | [Const            ] const selectedProvinceData = useMemo(
+L 380 | [Const            ] const selectedArmyData = useMemo(
+L 386 | [Const            ] const addLog = useCallback((msg: string) => {
+L 391 | [Const            ] const formatGameDate = useCallback((date: GameDate): string => {
+L 392 | [Const            ] const months = [
+L 447 | [Const            ] const handleOpenDiplomacy = useCallback((countryTag: string) => {
+L 454 | [Const            ] const handleCloseDiplomacy = useCallback(() => {
+L 459 | [Const            ] const handleProvinceClick = useCallback((provinceId: string) => {
+L 460 | [Const            ] const province = provinces.find(p => p.id === provinceId);
+L 471 | [Const            ] const handleProvinceHover = useCallback((provinceId: string | null) => {
+L 475 | [Const            ] const handleClosePanel = useCallback(() => {
+L 480 | [Const            ] const handleSpeedChange = useCallback((speed: number) => {
+L 487 | [Const            ] const handleBuild = useCallback(
+L 489 | [Const            ] const province = provinces.find((p) => p.id === provinceId);
+L 492 | [Const            ] const existingBuilding = province.buildings.find((b) => b.type === buildingType);
+L 493 | [Const            ] const currentLevel = existingBuilding?.level ?? 0;
+L 495 | [Const            ] const cost = getBuildingCost(buildingType, currentLevel);
+L 496 | [Const            ] const buildTime = getBuildingTime(buildingType, currentLevel);
+L 498 | [Const            ] const result = queueBuilding(
+L 532 | [Const            ] const handleCancelBuilding = useCallback(
+L 534 | [Const            ] const result = cancelBuilding(constructionId, buildingConstructions, playerCountry.resources.gold);
+L 560 | [Const            ] const handleRecruit = useCallback(
+L 564 | [Const            ] const province = provinces.find((p) => p.id === provinceId);
+L 570 | [Const            ] const costs = getRecruitmentCost(unitType);
+L 573 | [Const            ] const conscriptionLaw = LAWS[playerCountry.activeLaws?.conscription || 'conscription_peacetime'];
+L 574 | [Const            ] const armyCostMultiplier = conscriptionLaw?.bonuses.armyCostMultiplier ?? 1.0;
+L 575 | [Const            ] const adjustedGoldCost = Math.floor(costs.gold * armyCostMultiplier);
+L 612 | [Const            ] const existingRecruitment = prev.find(
+L 648 | [Const            ] const handleCancelRecruitment = useCallback(
+L 650 | [Const            ] const rec = recruitments.find(r => r.id === recruitmentId);
+L 653 | [Const            ] const result = cancelRecruitment(recruitmentId, recruitments, playerCountry.resources.gold);
+L 688 | [Const            ] const handleArmyClick = useCallback((armyId: string) => {
+L 689 | [Const            ] const army = armiesRef.current.find(a => a.id === armyId);
+L 701 | [Const            ] const handleProvinceRightClick = useCallback(
+L 705 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
+L 710 | [Const            ] const updatedArmy = stopArmyMovement(army);
+L 713 | [Const            ] const currentProvince = provincesRef.current.find(p => p.id === provinceId);
+L 727 | [Const            ] const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
+L 730 | [Const            ] const destProvince = provincesRef.current.find(p => p.id === provinceId);
+L 742 | [Const            ] const handleMergeArmies = useCallback(
+L 746 | [Const            ] const army1 = armiesRef.current.find((a) => a.id === selectedArmy);
+L 747 | [Const            ] const army2 = armiesRef.current.find((a) => a.id === targetArmyId);
+L 754 | [Const            ] const merged = mergeArmies(army1, army2);
+L 758 | [Const            ] const filtered = prev.filter((a) => a.id !== army1.id && a.id !== army2.id);
+L 775 | [Const            ] const handleSplitHalf = useCallback(() => {
+L 777 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
+L 781 | [Const            ] const newArmy = splitArmyHalf(army, `${army.name} (Destacamento)`);
+L 785 | [Const            ] const halfIndex = Math.floor(army.regiments.length / 2);
+L 786 | [Const            ] const remainingRegiments = army.regiments.slice(halfIndex);
+L 789 | [Const            ] const filtered = prev.filter((a) => a.id !== army.id);
+L 803 | [Const            ] const handleSplitCustom = useCallback(() => {
+L 805 | [Const            ] const army = armiesRef.current.find((a) => a.id === selectedArmy);
+L 809 | [Const            ] const indices = Array.from(splitSelection);
+L 810 | [Const            ] const newArmy = splitArmy(army, indices, `${army.name} (Destacamento)`);
+L 814 | [Const            ] const remainingRegiments = army.regiments.filter((_, idx) => !splitSelection.has(idx));
+L 817 | [Const            ] const filtered = prev.filter((a) => a.id !== army.id);
+L 833 | [Const            ] const toggleSplitRegiment = useCallback((index: number) => {
+L 835 | [Const            ] const next = new Set(prev);
+L 848 | [Const            ] const handleImproveRelations = useCallback(() => {
+L 868 | [Const            ] const handleOfferNonAggression = useCallback(() => {
+L 888 | [Const            ] const handleDeclareWar = useCallback(() => {
+L 891 | [Const            ] const result = declareWar(diplomaticRelations, wars, playerCountryTag, diplomacyTarget, date);
+L 902 | [Const            ] const handleMakePeace = useCallback((warId: string) => {
+L 903 | [Const            ] const war = wars.find(w => w.id === warId);
+L 906 | [Const            ] const enemy = war.attacker === playerCountryTag ? war.defender : war.attacker;
+L 907 | [Const            ] const result = makePeace(diplomaticRelations, wars, playerCountryTag, enemy);
+L 914 | [Const            ] const handleStartFocus = useCallback((focusId: string) => {
+L 921 | [Const            ] const updatedTechState = startNationalFocus(playerTechState, focusId);
+L 927 | [Const            ] const focus = NATIONAL_FOCUSES?.find(f => f?.id === focusId);
+L 934 | [Const            ] const handleStartResearch = useCallback((techId: string) => {
+L 941 | [Const            ] const tech = TECHNOLOGIES?.find(t => t?.id === techId);
+L 978 | [Const            ] const handleEndGameContinue = useCallback(() => {
+L 987 | [Const            ] const handleEndGameRestart = useCallback(() => {
+L 995 | [Const            ] const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
+L 996 | [Const            ] const result = retreatArmyManually(armyId, battleId, armies, activeBattles, provinces);
+L1003 | [Const            ] const army = armies.find(a => a.id === armyId);
+L1004 | [Const            ] const battle = activeBattles.find(b => b.id === battleId);
+L1005 | [Const            ] const province = provinces.find(p => p.id === battle?.provinceId);
+L1017 | [Const            ] const winnerSide = result.winner === 'attacker' ? 'Atacante' : 'Defensor';
+L1037 | [Const            ] const handleStopMovement = useCallback((armyId: string) => {
+L1038 | [Const            ] const army = armies.find(a => a.id === armyId);
+L1042 | [Const            ] const updatedArmy = stopArmyMovement(army);
+L1057 | [Const            ] const province = provinces.find(p => p.id === army.location);
+L1058 | [Const            ] const provinceName = province?.name || 'província desconhecida';
+L1071 | [Const            ] const handleDifficultyChange = useCallback((newDifficulty: AIDifficulty) => {
+L1083 | [Const            ] const handleEnactLaw = useCallback((category: LawCategory, lawId: string) => {
+L1084 | [Const            ] const law = LAWS[lawId];
+L1274 | [Const            ] const battle = activeBattles.find(b =>
+L1297 | [Const            ] const friendlyArmies = getFriendlyArmiesInProvince(
+L1596 | [Const Component  ] const AppWithProviders: React.FC = () => {
 
 ================================================================================
 FILE: src\engine\combat.ts | Total: 1116 | Código: 948 | Vazias: 168
@@ -810,28 +671,6 @@ FILE: src\data\technologies.ts | Total: 492 | Código: 481 | Vazias: 11
 (nenhuma assinatura encontrada - pode ser só lógica solta)
 
 ================================================================================
-FILE: src\types\index.ts | Total: 389 | Código: 369 | Vazias: 20
-================================================================================
-L  12 | [Interface/Type/Enum] export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification' | 'workshop' | 'temple' | 'port' | 'university';
-L  17 | [Interface/Type/Enum] export interface Building {
-L  29 | [Interface/Type/Enum] export interface BuildingConstruction {
-L  50 | [Interface/Type/Enum] export interface Province {
-L  85 | [Interface/Type/Enum] export interface Country {
-L 117 | [Interface/Type/Enum] export interface CountryResources {
-L 133 | [Interface/Type/Enum] export interface CountryEconomy {
-L 147 | [Interface/Type/Enum] export interface BuildingDefinition {
-L 171 | [Interface/Type/Enum] export interface BuildingBonus {
-L 193 | [Interface/Type/Enum] export interface GameState {
-L 213 | [Interface/Type/Enum] export interface GameDate {
-L 228 | [Interface/Type/Enum] export type UnitType = 'infantry' | 'cavalry' | 'artillery' | 'archers' | 'heavy_cavalry' | 'elite_guard' | 'siege_engine';
-L 233 | [Interface/Type/Enum] export interface UnitDefinition {
-L 254 | [Interface/Type/Enum] export interface Regiment {
-L 265 | [Interface/Type/Enum] export interface Army {
-L 302 | [Interface/Type/Enum] export interface ActiveBattle {
-L 340 | [Interface/Type/Enum] export interface Recruitment {
-L 358 | [Interface/Type/Enum] export interface CombatResult {
-
-================================================================================
 FILE: src\engine\diplomacy.ts | Total: 330 | Código: 299 | Vazias: 31
 ================================================================================
 L  38 | [Func             ] export function generateWarId(): string {
@@ -1024,6 +863,40 @@ L  72 | [Const            ] const isElevated = isSelected || isHovered;
 L  75 | [Const            ] const formatSize = (n: number): string => {
 
 ================================================================================
+FILE: src\hooks\gameLoop\battleContinuousTick.ts | Total: 199 | Código: 173 | Vazias: 26
+================================================================================
+L  12 | [Interface/Type/Enum] type Params = {
+L  34 | [Func             ] export function processBattleContinuous(p: Params) {
+L  42 | [Const            ] const province = provinces.find(pr => pr.id === battle.provinceId);
+L  43 | [Const            ] const attacker = armies.find(a => a.id === battle.attackerArmyId);
+L  44 | [Const            ] const defender = armies.find(a => a.id === battle.defenderArmyId);
+L  50 | [Const            ] const result = processDailyBattle(battle, attacker, defender, province);
+L  68 | [Const            ] const province = provinces.find(pr => pr.id === finishedBattle.provinceId);
+L  69 | [Const            ] const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
+L  70 | [Const            ] const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
+L  76 | [Const            ] const participantIds = finishedBattle.participantArmyIds;
+L  77 | [Const            ] const winnerSide = finalResult.winner;
+L  78 | [Const            ] const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
+L  79 | [Const            ] const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
+L  81 | [Const            ] const updatedArmiesList = armies.map(army => {
+L  83 | [Const            ] const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
+L  85 | [Const            ] const isWinner = army.owner === winnerCountry;
+L  86 | [Const            ] const isLoser = army.owner === loserCountry;
+L  90 | [Const            ] const retreatProvince = findRetreatProvince(army.owner, province, provinces);
+L 106 | [Const            ] const isAttacker = w.attacker === attacker.owner;
+L 117 | [Const            ] const remainingDefenders = armies.filter(a => a.location === province.id && a.owner === defender.owner && !a.inCombat);
+L 120 | [Const            ] const oldOwner = province.owner;
+L 121 | [Const            ] const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
+L 122 | [Const            ] const newProvinceOwner = rebelReturnOwner || attacker.owner;
+L 126 | [Const            ] const isLiberation = !!rebelReturnOwner;
+L 127 | [Const            ] const conqueredProvince = isLiberation ? { ...pr, owner: newProvinceOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newProvinceOwner }, snapshot.date);
+L 139 | [Const            ] const cancelResult = cancelProvinceActivities(province.id, oldOwner, attacker.owner, recruitments, buildingConstructions, provinces);
+L 144 | [Const            ] const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner } as any;
+L 146 | [Const            ] const countryName = allCountries.find(c => c.tag === rebelReturnOwner)?.name || rebelReturnOwner;
+L 157 | [Const            ] const updatedFinalResult = { ...finalResult, territoryChanged: false } as any;
+L 167 | [Const            ] const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
+
+================================================================================
 FILE: src\data\provinces.ts | Total: 187 | Código: 182 | Vazias: 5
 ================================================================================
 L 176 | [Func             ] export function createProvinceMap(): Map<string, Province> {
@@ -1070,6 +943,38 @@ L  76 | [Const            ] const isPlayerAttacker = war.attacker === playerCoun
 L  77 | [Const            ] const playerSide = isPlayerAttacker ? 'attacker' : 'defender';
 L  78 | [Const            ] const playerCasualties = isPlayerAttacker ? war.attackerCasualties : war.defenderCasualties;
 L  79 | [Const            ] const enemyCasualties = isPlayerAttacker ? war.defenderCasualties : war.attackerCasualties;
+
+================================================================================
+FILE: src\hooks\gameLoop\battleArrivalTick.ts | Total: 168 | Código: 143 | Vazias: 25
+================================================================================
+L  11 | [Interface/Type/Enum] type Params = {
+L  30 | [Func             ] export function processBattleArrival(p: Params) {
+L  36 | [Const            ] const province = provinces.find(pr => pr.id === arrived.location);
+L  42 | [Const            ] const isInWar = wars.some(
+L  47 | [Const            ] const isHostile = (ownerA: string, ownerB: string, origA?: string, origB?: string): boolean => {
+L  48 | [Const            ] const aRebel = ownerA.startsWith('rebel_');
+L  49 | [Const            ] const bRebel = ownerB.startsWith('rebel_');
+L  59 | [Const            ] const isRebelArrived = arrived.owner.startsWith('rebel_');
+L  60 | [Const            ] const enemies = armies.filter(a =>
+L  66 | [Const            ] const isRebelAttackingEnemy = isRebelArrived &&
+L  70 | [Const            ] const shouldBattle = enemies.length > 0 || isRebelAttackingEnemy || isInWar;
+L  78 | [Const            ] const existingBattle = activeBattlesRef.current.find((b: ActiveBattle) => b.provinceId === province.id);
+L  81 | [Const            ] const attackerArmies = armies.filter(a => a.location === province.id && a.owner === arrived.owner && !a.inCombat);
+L  82 | [Const            ] const defenderArmies = armies.filter(a => a.location === province.id && a.owner !== arrived.owner && !a.inCombat && isHostile(arrived.owner, a.owner, arrived.originalOwner, a.originalOwner));
+L  84 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+L  85 | [Const            ] const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, snapshot.date, battleId);
+L  87 | [Const            ] const participantIds = newBattle.participantArmyIds;
+L 105 | [Const            ] const oldOwner = province.owner;
+L 106 | [Const            ] const newOwner = (isRebelArrived && arrived.originalOwner) ? arrived.originalOwner : arrived.owner;
+L 110 | [Const            ] const isLiberation = isRebelArrived && newOwner === arrived.originalOwner;
+L 111 | [Const            ] const conqueredProv = isLiberation ? { ...pr, owner: newOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newOwner }, snapshot.date);
+L 123 | [Const            ] const cancelResult = cancelProvinceActivities(province.id, oldOwner, newOwner, recruitments, buildingConstructions, provinces);
+L 129 | [Const            ] const countryName = allCountries.find(c => c.tag === newOwner)?.name || newOwner;
+L 138 | [Const            ] const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
+L 145 | [Const            ] const province = provinces.find(pr => pr.id === newBattle.provinceId);
+L 146 | [Const            ] const attacker = armies.find(a => a.id === newBattle.attackerArmyId);
+L 147 | [Const            ] const defender = armies.find(a => a.id === newBattle.defenderArmyId);
+L 159 | [Const            ] const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
 
 ================================================================================
 FILE: src\engine\buildings.ts | Total: 164 | Código: 139 | Vazias: 25
@@ -1192,10 +1097,95 @@ L  21 | [Const Component  ] export const EndGameModal: React.FC<EndGameModalProp
 L  29 | [Const            ] const isVictory = endGameType === 'victory';
 
 ================================================================================
+FILE: src\types\army.ts | Total: 136 | Código: 127 | Vazias: 9
+================================================================================
+L  13 | [Interface/Type/Enum] export type UnitType = 'infantry' | 'cavalry' | 'artillery' | 'archers' | 'heavy_cavalry' | 'elite_guard' | 'siege_engine';
+L  18 | [Interface/Type/Enum] export interface UnitDefinition {
+L  39 | [Interface/Type/Enum] export interface Regiment {
+L  50 | [Interface/Type/Enum] export interface Army {
+L  87 | [Interface/Type/Enum] export interface Recruitment {
+L 105 | [Interface/Type/Enum] export interface CombatResult {
+
+================================================================================
 FILE: src\constants\laws.ts | Total: 126 | Código: 120 | Vazias: 6
 ================================================================================
 L 116 | [Const            ] export const LAWS_BY_CATEGORY = {
 L 122 | [Const            ] export const DEFAULT_LAWS = {
+
+================================================================================
+FILE: src\types\province.ts | Total: 118 | Código: 113 | Vazias: 5
+================================================================================
+L   4 | [Interface/Type/Enum] export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification' | 'workshop' | 'temple' | 'port' | 'university';
+L   9 | [Interface/Type/Enum] export interface Building {
+L  21 | [Interface/Type/Enum] export interface BuildingConstruction {
+L  42 | [Interface/Type/Enum] export interface Province {
+L  77 | [Interface/Type/Enum] export interface BuildingDefinition {
+L 101 | [Interface/Type/Enum] export interface BuildingBonus {
+
+================================================================================
+FILE: src\hooks\gameLoop\economyTick.ts | Total: 116 | Código: 102 | Vazias: 14
+================================================================================
+L  13 | [Interface/Type/Enum] type Params = {
+L  28 | [Func             ] export function processEconomyTick(p: Params) {
+L  33 | [Const            ] const recruitResult = processRecruitments(recruitments, armies, countries, provinces);
+L  38 | [Const            ] const unitName = getUnitName(completed.unitType);
+L  39 | [Const            ] const province = provinces.find(pr => pr.id === completed.provinceId);
+L  40 | [Const            ] const provinceName = province?.name || 'província';
+L  41 | [Const            ] const dateString = formatGameDate(date);
+L  52 | [Const            ] const country = countries.find(c => c.tag === completed.owner);
+L  60 | [Const            ] const constructionResult = processConstructions(buildingConstructions, provinces);
+L  64 | [Const            ] const province = provinces.find(pr => pr.id === completed.provinceId);
+L  68 | [Const            ] const existingBuilding = pr.buildings.find(b => b.type === completed.buildingType);
+L  84 | [Const            ] const buildingName = getBuildingName(completed.buildingType);
+L  85 | [Const            ] const dateString = formatGameDate(date);
+L  92 | [Const            ] const country = countries.find(c => c.tag === province.owner);
+L 102 | [Const            ] const countryProvinces = provinces.filter(pr => pr.owner === country.tag);
+L 106 | [Const            ] const idx = provinces.findIndex(pr => pr.id === updatedProv.id);
+
+================================================================================
+FILE: src\hooks\useGameLoop.ts | Total: 114 | Código: 95 | Vazias: 19
+================================================================================
+L  19 | [Interface/Type/Enum] type Props = {
+L  34 | [Func             ] export function useGameLoop(props: Props) {
+L  46 | [Const            ] const cancelProvinceActivities = useCallback((provinceId: string, oldOwner: string, newOwner: string, rec: any, cons: any, provs: any) => {
+L  54 | [Const            ] const advanceDate = useCallback((d: GameDate): GameDate => {
+L  58 | [Const            ] const processTick = useCallback(() => {
+L  59 | [Const            ] const snapshot = {
+L  72 | [Const            ] const eco = processEconomyTick({ recruitments, armies, countries, provinces, buildingConstructions, playerCountryTag, date: snapshot.date, allCountries, addToast, addAILog, addLog, formatGameDate });
+L  75 | [Const            ] const mov = processMovementTick({ armies, provinces, relations, countries, addLog });
+L  78 | [Const            ] const arr = processBattleArrival({ arrivedArmies, armies, provinces, countries, wars, recruitments, buildingConstructions, currentActiveBattles, snapshot, playerCountryTag, allCountries, activeBattlesRef, addLog, addToast, setActiveBattles, cancelProvinceActivities });
+L  81 | [Const            ] const cont = processBattleContinuous({ armies, provinces, countries, wars, currentActiveBattles, recruitments, buildingConstructions, snapshot, playerCountryTag, allCountries, addLog, addToast, setActiveBattles, setArmies, setBattleHistory, setBattleReport, setIsPaused, activeBattlesRef, cancelProvinceActivities });
+L  84 | [Const            ] const unr = processUnrestTick({ provinces, armies, countries, wars, relations, snapshot, playerCountryTag, allCountries, addLog, addToast });
+L  87 | [Const            ] const dip = processDiplomacyTechTick({ countries, provinces, armies, wars, relations, playerCountryTag, snapshot, currentPlayerTechState, currentBotTechStates, aiDifficultyRef, playerTechStateRef, botTechStatesRef, addLog, addToast, addAILog, formatGameDate });
+L  90 | [Const            ] const ai = processAiTick({ countries, provinces, armies, wars, relations, buildingConstructions, recruitments, currentBotTechStates, playerCountryTag, aiDifficultyRef, ceilingLogRef, snapshot, allCountries, addAILog, formatGameDate });
+L  93 | [Const            ] const reb = processRebelTick({ provinces, armies, countries, wars, relations, currentActiveBattles, snapshot, playerCountryTag, hasTriggeredEndGame, battleHistory, dateRef, addLog, addToast, setActiveBattles, activeBattlesRef, setEndGameType, setGameStats, setHasTriggeredEndGame, setIsPaused });
+
+================================================================================
+FILE: src\hooks\gameLoop\aiTick.ts | Total: 112 | Código: 102 | Vazias: 10
+================================================================================
+L  14 | [Interface/Type/Enum] type Params = {
+L  32 | [Func             ] export function processAiTick(p: Params) {
+L  36 | [Const            ] const activeBots = countries.filter(c => c && c.tag !== playerCountryTag);
+L  37 | [Const            ] const dateString = formatGameDate(snapshot.date);
+L  40 | [Const            ] const botTechState = currentBotTechStates.get(country.tag);
+L  42 | [Const            ] const playerTroops = armies.filter(a => a.owner === playerCountryTag).reduce((sum, a) => sum + calculateArmySize(a), 0);
+L  43 | [Const            ] const botTroops = armies.filter(a => a.owner === country.tag).reduce((sum, a) => sum + calculateArmySize(a), 0);
+L  44 | [Const            ] const botAtWar = wars.some(w => w.attacker === country.tag || w.defender === country.tag);
+L  45 | [Const            ] const multiplier = botAtWar ? 3 : 2;
+L  46 | [Const            ] const ceiling = Math.max(12000, playerTroops * multiplier);
+L  47 | [Const            ] const canRecruitMilitary = botTroops < ceiling;
+L  55 | [Const            ] const economicResult = processAIEconomicDecisions(country, provinces, botTechState, buildingConstructions, recruitments, dateString, canRecruitMilitary);
+L  65 | [Const            ] const armiesBefore = armies.filter(a => a.owner === country.tag);
+L  67 | [Const            ] const armiesAfter = armies.filter(a => a.owner === country.tag);
+L  69 | [Const            ] const armyBefore = armiesBefore.find(a => a.id === armyAfter.id);
+L  71 | [Const            ] const destProvince = provinces.find(pr => pr.id === armyAfter.destination);
+L  73 | [Const            ] const isEnemy = destProvince.owner !== country.tag;
+L  80 | [Const            ] const armiesToMerge = new Map<string, Army[]>();
+L  84 | [Const            ] const key = `${army.owner}_${army.location}`;
+L  91 | [Const            ] const mergedRegiments = [...primaryArmy.regiments];
+L  94 | [Const            ] const existingRegiment = mergedRegiments.find(r => r.type === regiment.type);
+L 103 | [Const            ] const updatedPrimaryArmy = { ...primaryArmy, regiments: mergedRegiments, targetArmyId: null };
+L 104 | [Const            ] const secondaryIds = secondaryArmies.map(a => a.id);
 
 ================================================================================
 FILE: src\components\BattleHistoryModal.tsx | Total: 110 | Código: 100 | Vazias: 10
@@ -1253,6 +1243,39 @@ L  21 | [Hook/Func        ] const getTypeIcon = (type: string) => {
 L  31 | [Hook/Func        ] const getTypeColor = (type: string) => {
 
 ================================================================================
+FILE: src\hooks\gameLoop\rebelTick.ts | Total: 94 | Código: 87 | Vazias: 7
+================================================================================
+L  13 | [Interface/Type/Enum] type Params = {
+L  35 | [Func             ] export function processRebelTick(p: Params) {
+L  40 | [Const            ] const armiesHere = armies.filter(a => a.location === prov.id && !a.inCombat && !a.destination);
+L  42 | [Const            ] const rebelSide = armiesHere.filter(a => a.owner.startsWith('rebel_'));
+L  44 | [Const            ] const existingBattle = currentActiveBattles.find(b => b.provinceId === prov.id);
+L  46 | [Const            ] const origOwner = rebelSide[0].originalOwner;
+L  47 | [Const            ] const hostileSide = armiesHere.filter(a => !a.owner.startsWith('rebel_') && a.owner !== origOwner);
+L  49 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+L  50 | [Const            ] const newBattle = startContinuousBattle(rebelSide, hostileSide, prov, snapshot.date, battleId);
+L  51 | [Const            ] const participantIds = newBattle.participantArmyIds;
+L  62 | [Const            ] const warResult = ensureSeparatistWars(armies, provinces, wars, relations, snapshot.date);
+L  69 | [Const            ] const cleanupResult = cleanupSeparatistWars(armies, provinces, wars, relations);
+L  82 | [Const            ] const playerCountryData = countries.find(c => c.tag === playerCountryTag);
+L  84 | [Const            ] const endGameResult = checkEndGameConditions(playerCountryData, provinces);
+L  86 | [Const            ] const stats = calculateGameStats({ year: 1444, month: 11, day: 11 }, dateRef.current, battleHistory, playerCountryTag, provinces);
+
+================================================================================
+FILE: src\hooks\gameLoop\diplomacyTechTick.ts | Total: 86 | Código: 79 | Vazias: 7
+================================================================================
+L  14 | [Interface/Type/Enum] type Params = {
+L  33 | [Func             ] export function processDiplomacyTechTick(p: Params) {
+L  41 | [Const            ] const playerCountry = countries.find(c => c?.tag === playerCountryTag);
+L  43 | [Const            ] const playerTechResult = processDailyTechProgress(currentPlayerTechState, playerCountry, aiDifficultyRef.current, true);
+L  47 | [Const            ] const dateString = formatGameDate(snapshot.date);
+L  58 | [Const            ] const botTechState = currentBotTechStates.get(country.tag);
+L  60 | [Const            ] const botTechResult = processDailyTechProgress(botTechState, country, aiDifficultyRef.current, false);
+L  63 | [Const            ] const dateString = formatGameDate(snapshot.date);
+L  80 | [Const            ] const attackerProvs = provinces.filter(pr => pr.owner === war.attacker).length;
+L  81 | [Const            ] const defenderProvs = provinces.filter(pr => pr.owner === war.defender).length;
+
+================================================================================
 FILE: src\types\technology.ts | Total: 77 | Código: 71 | Vazias: 6
 ================================================================================
 L  10 | [Interface/Type/Enum] export type TechnologyCategory = 'MILITARY' | 'ECONOMY' | 'INFRASTRUCTURE';
@@ -1263,6 +1286,16 @@ L  51 | [Interface/Type/Enum] export interface Technology {
 L  68 | [Interface/Type/Enum] export interface CountryTechState {
 
 ================================================================================
+FILE: src\hooks\gameLoop\unrestTick.ts | Total: 70 | Código: 62 | Vazias: 8
+================================================================================
+L  11 | [Interface/Type/Enum] type Params = {
+L  24 | [Func             ] export function processUnrestTick(p: Params) {
+L  34 | [Const            ] const revoltedProvIds = revoltedProvinces.map(pr => pr.id);
+L  35 | [Const            ] const rebelResult = processRebelAccumulation(provinces, armies, revoltedProvIds);
+L  53 | [Const            ] const countriesWithoutProvinces = countries.filter(c => {
+L  55 | [Const            ] const ownedProvinces = provinces.filter(pr => pr.owner === c.tag);
+
+================================================================================
 FILE: src\types\diplomacy.ts | Total: 70 | Código: 65 | Vazias: 5
 ================================================================================
 L  10 | [Interface/Type/Enum] export type DiplomaticStatus = 'peace' | 'war' | 'non_aggression_pact' | 'alliance';
@@ -1270,6 +1303,26 @@ L  15 | [Interface/Type/Enum] export interface DiplomaticRelation {
 L  31 | [Interface/Type/Enum] export interface War {
 L  57 | [Interface/Type/Enum] export type DiplomaticAction =
 L  66 | [Interface/Type/Enum] export interface DiplomaticActionCost {
+
+================================================================================
+FILE: src\hooks\useGameRefs.ts | Total: 68 | Código: 64 | Vazias: 4
+================================================================================
+L   8 | [Interface/Type/Enum] type Props = {
+L  23 | [Func             ] export function useGameRefs(props: Props) {
+L  24 | [Const            ] const gameLoopRef = useRef<number | null>(null)
+L  25 | [Const            ] const provincesRef = useRef(props.provinces)
+L  26 | [Const            ] const countriesRef = useRef(props.allCountries)
+L  27 | [Const            ] const armiesRef = useRef(props.armies)
+L  28 | [Const            ] const recruitmentsRef = useRef(props.recruitments)
+L  29 | [Const            ] const warsRef = useRef(props.wars)
+L  30 | [Const            ] const diplomaticRelationsRef = useRef(props.diplomaticRelations)
+L  31 | [Const            ] const dateRef = useRef(props.date)
+L  32 | [Const            ] const buildingConstructionsRef = useRef(props.buildingConstructions)
+L  33 | [Const            ] const playerTechStateRef = useRef(props.playerTechState)
+L  34 | [Const            ] const botTechStatesRef = useRef(props.botTechStates)
+L  35 | [Const            ] const aiDifficultyRef = useRef(props.aiDifficulty)
+L  36 | [Const            ] const activeBattlesRef = useRef(props.activeBattles)
+L  37 | [Const            ] const ceilingLogRef = useRef<Set<string>>(new Set())
 
 ================================================================================
 FILE: src\context\AILogContext.tsx | Total: 66 | Código: 57 | Vazias: 9
@@ -1283,6 +1336,24 @@ L  60 | [Const            ] export const useAILog = (): AILogContextType => {
 L  61 | [Const            ] const context = useContext(AILogContext);
 
 ================================================================================
+FILE: src\types\country.ts | Total: 62 | Código: 59 | Vazias: 3
+================================================================================
+L   4 | [Interface/Type/Enum] export interface Country {
+L  36 | [Interface/Type/Enum] export interface CountryResources {
+L  52 | [Interface/Type/Enum] export interface CountryEconomy {
+
+================================================================================
+FILE: src\hooks\gameLoop\movementTick.ts | Total: 55 | Código: 47 | Vazias: 8
+================================================================================
+L   9 | [Interface/Type/Enum] type Params = {
+L  17 | [Func             ] export function processMovementTick(p: Params) {
+L  22 | [Const            ] const moveResult = processArmyMovement(armies, provinces, relations);
+L  24 | [Const            ] const arrivedArmies = moveResult.arrivedArmies;
+L  33 | [Const            ] const rebelArmy = armies.find(a => a.owner === pr.owner);
+L  34 | [Const            ] const liberator = rebelArmy?.originalOwner || pr.originalOwner;
+L  47 | [Const            ] const countryName = countries.find(c => c.tag === ch.newOwner)?.name || ch.newOwner;
+
+================================================================================
 FILE: src\components\SettingsModal.tsx | Total: 53 | Código: 47 | Vazias: 6
 ================================================================================
 L  12 | [Interface/Type/Enum] interface SettingsModalProps {
@@ -1293,6 +1364,11 @@ FILE: src\components\DifficultySelector.tsx | Total: 48 | Código: 44 | Vazias: 
 ================================================================================
 L  12 | [Interface/Type/Enum] interface DifficultySelectorProps {
 L  20 | [Const Component  ] export const DifficultySelector: React.FC<DifficultySelectorProps> = ({
+
+================================================================================
+FILE: src\types\battle.ts | Total: 43 | Código: 39 | Vazias: 4
+================================================================================
+L   7 | [Interface/Type/Enum] export interface ActiveBattle {
 
 ================================================================================
 FILE: src\types\difficulty.ts | Total: 42 | Código: 38 | Vazias: 4
@@ -1312,6 +1388,16 @@ L   9 | [Interface/Type/Enum] export interface Law {
 L  24 | [Interface/Type/Enum] export interface ActiveLaws {
 
 ================================================================================
+FILE: src\types\game.ts | Total: 26 | Código: 22 | Vazias: 4
+================================================================================
+L  11 | [Interface/Type/Enum] export interface GameState {
+
+================================================================================
+FILE: src\types\index.ts | Total: 26 | Código: 19 | Vazias: 7
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
 FILE: src\types\toast.ts | Total: 25 | Código: 22 | Vazias: 3
 ================================================================================
 L   7 | [Interface/Type/Enum] export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -1328,6 +1414,11 @@ L   9 | [Interface/Type/Enum] export interface AILogEntry {
 FILE: vite.config.js | Total: 15 | Código: 14 | Vazias: 1
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\types\date.ts | Total: 8 | Código: 8 | Vazias: 0
+================================================================================
+L   4 | [Interface/Type/Enum] export interface GameDate {
 
 ================================================================================
 FILE: src\main.tsx | Total: 6 | Código: 5 | Vazias: 1
