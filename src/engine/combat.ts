@@ -40,9 +40,9 @@ const COMBAT_BALANCE = {
   /** Perda do vencedor - máximo (30%) */
   WINNER_LOSS_MAX: 0.30,
   /** Perda do perdedor - mínimo (30%) */
-  LOSER_LOSS_MIN: 0.30,
+  LOSER_LOSS_MIN: 0.60,
   /** Perda do perdedor - máximo (60%) */
-  LOSER_LOSS_MAX: 0.60,
+  LOSER_LOSS_MAX: 0.80,
   /** Perda total em caso de cerco (100%) */
   SIEGE_LOSS_PERCENT: 1.0,
 };
@@ -139,64 +139,60 @@ export function calculateDefenderTotalPower(
  * Mínimo: 1 dia
  */
 function calculateBattleDuration(attackerSize: number, defenderSize: number): number {
-  const totalTroops = attackerSize + defenderSize;
-  return Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
+  const smaller = Math.min(attackerSize, defenderSize);
+  return Math.max(1, Math.min(20, Math.floor(smaller / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY)));
 }
+
 
 /**
  * Calcula as perdas do vencedor baseado na duração da batalha
  * Vencedor perde entre 10% e 30% das tropas
  */
-function calculateWinnerLosses(winnerSize: number, battleDays: number): number {
-  // Perdas aumentam com a duração da batalha
-  const lossPercent = COMBAT_BALANCE.WINNER_LOSS_MIN + 
-    ((COMBAT_BALANCE.WINNER_LOSS_MAX - COMBAT_BALANCE.WINNER_LOSS_MIN) * (battleDays / 10));
-  const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.WINNER_LOSS_MAX);
-  return Math.floor(winnerSize * cappedLossPercent);
+function calculateWinnerLosses(winnerSize: number, loserSize: number, powerRatio: number): number {
+  const maxLossByEnemy = loserSize; // nunca perde mais que o inimigo tem
+  let lossPercent: number;
+  if (powerRatio >= 3.0) lossPercent = 0.15;
+  else if (powerRatio >= 2.0) lossPercent = 0.25;
+  else if (powerRatio >= 1.5) lossPercent = 0.35;
+  else if (powerRatio >= 1.2) lossPercent = 0.45;
+  else lossPercent = 0.55;
+  const calculatedLoss = Math.floor(winnerSize * lossPercent);
+  return Math.min(calculatedLoss, maxLossByEnemy);
 }
 
 /**
  * Calcula as perdas do perdedor baseado na duração da batalha
  * Perdedor perde entre 30% e 60% das tropas
  */
-function calculateLoserLosses(loserSize: number, battleDays: number): number {
-  // Perdas aumentam com a duração da batalha
-  const lossPercent = COMBAT_BALANCE.LOSER_LOSS_MIN + 
-    ((COMBAT_BALANCE.LOSER_LOSS_MAX - COMBAT_BALANCE.LOSER_LOSS_MIN) * (battleDays / 10));
-  const cappedLossPercent = Math.min(lossPercent, COMBAT_BALANCE.LOSER_LOSS_MAX);
-  return Math.floor(loserSize * cappedLossPercent);
+function calculateLoserLosses(loserSize: number, powerRatio: number): number {
+  let lossPercent: number;
+  if (powerRatio >= 3.0) lossPercent = 0.80;
+  else if (powerRatio >= 2.0) lossPercent = 0.75;
+  else if (powerRatio >= 1.5) lossPercent = 0.70;
+  else lossPercent = 0.60;
+  return Math.floor(loserSize * lossPercent);
 }
-
 /**
  * Distribui perdas proporcionalmente entre os regimentos
  */
 function distributeLosses(army: Army, totalLoss: number): Army {
-  const updatedRegiments = [...army.regiments];
   const armySize = calculateArmySize(army);
-  let remainingLoss = Math.floor(totalLoss);
-
-  // Distribui perdas proporcionalmente ao tamanho de cada regimento
-  for (let i = 0; i < updatedRegiments.length && remainingLoss > 0; i++) {
-    const reg = updatedRegiments[i];
-    const proportion = armySize > 0 ? reg.strength / armySize : 0;
-    const loss = Math.min(Math.floor(reg.strength), Math.floor(remainingLoss * proportion));
-    
-    updatedRegiments[i] = {
+  if (armySize === 0 || totalLoss <= 0) return army;
+  const losses: number[] = army.regiments.map(reg => {
+    const proportion = reg.strength / armySize;
+    return Math.floor(totalLoss * proportion);
+  });
+  const sumLosses = losses.reduce((a, b) => a + b, 0);
+  if (sumLosses < totalLoss && losses.length > 0) losses[0] += totalLoss - sumLosses;
+  const updatedRegiments = army.regiments.map((reg, i) => {
+    const loss = Math.min(Math.floor(reg.strength), losses[i]);
+    return {
       ...reg,
       strength: Math.max(0, Math.floor(reg.strength - loss)),
       morale: Math.max(0, reg.morale - (loss / Math.max(reg.strength, 1)) * 20),
     };
-    
-    remainingLoss -= loss;
-  }
-
-  // Remove regimentos destruídos (strength <= 0)
-  const survivingRegiments = updatedRegiments.filter(reg => Math.floor(reg.strength) > 0);
-
-  return {
-    ...army,
-    regiments: survivingRegiments,
-  };
+  }).filter(reg => Math.floor(reg.strength) > 0);
+  return { ...army, regiments: updatedRegiments };
 }
 
 /**
@@ -240,15 +236,15 @@ export function resolveBattle(
 
   if (winner === 'attacker') {
     // Atacante venceu
-    attackerLoss = calculateWinnerLosses(attackerOriginalSize, battleDays);
-    defenderLoss = calculateLoserLosses(defenderOriginalSize, battleDays);
+     attackerLoss = calculateWinnerLosses(attackerOriginalSize, defenderOriginalSize, powerRatio);
+    defenderLoss = calculateLoserLosses(defenderOriginalSize, powerRatio);
 
     finalAttacker = distributeLosses(attacker, attackerLoss);
     finalDefender = distributeLosses(defender, defenderLoss);
   } else {
     // Defensor venceu
-    defenderLoss = calculateWinnerLosses(defenderOriginalSize, battleDays);
-    attackerLoss = calculateLoserLosses(attackerOriginalSize, battleDays);
+    defenderLoss = calculateWinnerLosses(defenderOriginalSize, attackerOriginalSize, powerRatio);
+    attackerLoss = calculateLoserLosses(attackerOriginalSize, powerRatio);
 
     finalAttacker = distributeLosses(attacker, attackerLoss);
     finalDefender = distributeLosses(defender, defenderLoss);
@@ -844,24 +840,22 @@ export function processDailyBattle(
  */
 function applyTroopLoss(army: Army, loss: number): Army {
   if (loss <= 0 || army.regiments.length === 0) return army;
-  
-  let remainingLoss = loss;
-  const updatedRegiments = army.regiments.map(reg => {
-    if (remainingLoss <= 0) return reg;
-    
-    const regLoss = Math.min(reg.strength, remainingLoss);
-    remainingLoss -= regLoss;
-    
+  const armySize = calculateArmySize(army);
+  if (armySize === 0) return army;
+  const losses: number[] = army.regiments.map(reg => {
+    const proportion = reg.strength / armySize;
+    return Math.floor(loss * proportion);
+  });
+  const sumLosses = losses.reduce((a, b) => a + b, 0);
+  if (sumLosses < loss && losses.length > 0) losses[0] += loss - sumLosses;
+  const updatedRegiments = army.regiments.map((reg, i) => {
+    const regLoss = Math.min(reg.strength, losses[i]);
     return {
       ...reg,
       strength: Math.max(0, reg.strength - regLoss),
     };
   }).filter(reg => reg.strength > 0);
-  
-  return {
-    ...army,
-    regiments: updatedRegiments,
-  };
+  return { ...army, regiments: updatedRegiments };
 }
 
 /**
@@ -903,8 +897,8 @@ export function finalizeBattle(
   let finalDefender = defender;
   
   if (winner === 'attacker') {
-    const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.daysTotal);
-    const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, battle.daysTotal);
+    const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.defenderCurrentTroops, powerRatio);
+    const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, powerRatio);
     
     console.log(`💥 Aplicando baixas finais (atacante venceu):`);
     console.log(`   Vencedor (atacante) perde: ${winnerLoss} tropas`);
@@ -913,8 +907,8 @@ export function finalizeBattle(
     finalAttacker = applyTroopLoss(attacker, winnerLoss);
     finalDefender = applyTroopLoss(defender, loserLoss);
   } else {
-    const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.daysTotal);
-    const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, battle.daysTotal);
+    const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.attackerCurrentTroops, powerRatio);
+    const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, powerRatio);
     
     console.log(`💥 Aplicando baixas finais (defensor venceu):`);
     console.log(`   Vencedor (defensor) perde: ${winnerLoss} tropas`);

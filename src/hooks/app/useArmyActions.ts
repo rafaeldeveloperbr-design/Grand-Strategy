@@ -1,17 +1,20 @@
 /**
- * useArmyActions.ts - CORRIGIDO
+ * useArmyActions.ts - CORRIGIDO - FIX EXÉRCITO TRAVADO
+ * Permite re-rota e destrava exército parado
  */
 import { useCallback } from 'react';
 import { moveArmy, mergeArmies, splitArmy, splitArmyHalf, stopArmyMovement } from '../../engine/military';
-import { calculateArmySize } from '../../engine/combat';
+import { calculateArmySize, retreatArmyManually } from '../../engine/combat';
 
 export function useArmyActions(params: any) {
-  const { selectedArmy, provincesRef, armiesRef, diplomaticRelationsRef, playerCountryTag, setArmies, addLog, addToast, splitSelection, setSplitSelection, setShowSplitModal } = params;
+  const { selectedArmy, setSelectedArmy, setSelectedProvince, setIsPanelOpen, provincesRef, armiesRef, diplomaticRelationsRef, playerCountryTag, setArmies, addLog, addToast, splitSelection, setSplitSelection, setShowSplitModal } = params;
 
   const handleProvinceRightClick = useCallback((provinceId: string) => {
     if (!selectedArmy) return;
     const army = armiesRef.current.find((a: any) => a.id === selectedArmy);
     if (!army || army.owner !== playerCountryTag) return;
+    
+    // Se clica na mesma província onde já está indo, para
     if (army.destination && army.location === provinceId) {
       const updatedArmy = stopArmyMovement(army);
       if (updatedArmy !== army) {
@@ -22,14 +25,30 @@ export function useArmyActions(params: any) {
       }
       return;
     }
-    if (army.destination) return;
-    const moved = moveArmy(army, provinceId, provincesRef.current, diplomaticRelationsRef.current);
+    
+    // CORREÇÃO TRAVAMENTO: Se já tem destino, permite trocar destino (para e move)
+    let armyToMove = army;
+    if (army.destination) {
+      armyToMove = stopArmyMovement(army);
+      console.log(`🔧 Exército ${army.name} tinha destino ${army.destination}, parando para re-rota para ${provinceId}`);
+    }
+    
+    const moved = moveArmy(armyToMove, provinceId, provincesRef.current, diplomaticRelationsRef.current);
     if (moved) {
       setArmies((prev: any) => prev.map((a: any) => a.id === army.id ? moved : a));
       const destProvince = provincesRef.current.find((p: any) => p.id === provinceId);
       addLog(`🚶 ${army.name} marchando para ${destProvince?.name ?? provinceId}`);
     } else {
-      addLog(`❌ Movimento não permitido`);
+      // Tenta forçar movimento mesmo sem guerra (para teste) - log mais detalhado
+      console.warn(`❌ Movimento bloqueado: ${army.name} de ${army.location} para ${provinceId}`, {
+        owner: army.owner,
+        destinationOwner: provincesRef.current.find((p: any) => p.id === provinceId)?.owner,
+        relations: diplomaticRelationsRef.current.filter((r: any) => 
+          (r.countryA === army.owner && r.countryB === provincesRef.current.find((p: any) => p.id === provinceId)?.owner) ||
+          (r.countryB === army.owner && r.countryA === provincesRef.current.find((p: any) => p.id === provinceId)?.owner)
+        )
+      });
+      addLog(`❌ Movimento não permitido: sem relação de guerra com o destino`);
     }
   }, [selectedArmy, playerCountryTag, addLog, addToast, armiesRef, diplomaticRelationsRef, provincesRef, setArmies]);
 
@@ -55,25 +74,25 @@ export function useArmyActions(params: any) {
     const halfIndex = Math.floor(army.regiments.length / 2);
     const remainingRegiments = army.regiments.slice(halfIndex);
     setArmies((prev: any) => { const filtered = prev.filter((a: any) => a.id !== army.id); return [...filtered, { ...army, regiments: remainingRegiments }, newArmy]; });
-    addLog(`✂️ ${army.name} dividido`);
+    addLog(`✂️ ${army.name} dividido. Novo: ${newArmy.name} (${calculateArmySize(newArmy).toLocaleString()} homens)`);
   }, [selectedArmy, playerCountryTag, addLog, armiesRef, setArmies]);
 
   const handleSplitCustom = useCallback(() => {
     if (!selectedArmy || splitSelection.size === 0) return;
     const army = armiesRef.current.find((a: any) => a.id === selectedArmy);
     if (!army || army.owner !== playerCountryTag || army.destination) return;
-    const indices = [...splitSelection] as number[];
+    const indices = Array.from(splitSelection as Set<number>) as number[];
     const newArmy = splitArmy(army, indices, `${army.name} (Destacamento)`);
     if (!newArmy) return;
     const remainingRegiments = army.regiments.filter((_: any, idx: number) => !splitSelection.has(idx));
     setArmies((prev: any) => { const filtered = prev.filter((a: any) => a.id !== army.id); return [...filtered, { ...army, regiments: remainingRegiments }, newArmy]; });
     setShowSplitModal(false); setSplitSelection(new Set());
-    addLog(`✂️ ${army.name} dividido customizado`);
+    addLog(`✂️ ${army.name} dividido. Novo: ${newArmy.name} (${calculateArmySize(newArmy).toLocaleString()} homens)`);
   }, [selectedArmy, splitSelection, playerCountryTag, addLog, armiesRef, setArmies, setShowSplitModal, setSplitSelection]);
 
   const handleRetreatArmy = useCallback((armyId: string, battleId: string) => {
     params.setArmies((prev: any) => prev.map((a: any) => a.id === armyId ? { ...a, isRetreating: true } : a));
-    addLog(`🏃 Exército ${armyId} recuando`);
+    addLog(`🏃 Exército ${armyId} recuando da batalha ${battleId}`);
   }, [params, addLog]);
 
   const handleStopMovement = useCallback((armyId: string) => {
@@ -83,5 +102,26 @@ export function useArmyActions(params: any) {
     setArmies((prev: any) => prev.map((a: any) => a.id === armyId ? stopped : a));
   }, [armiesRef, setArmies]);
 
-  return { handleProvinceRightClick, handleMergeArmies, handleSplitHalf, handleSplitCustom, handleRetreatArmy, handleStopMovement };
+  // NOVA FUNÇÃO: Destrava todos exércitos travados
+  const handleUnstuckAll = useCallback(() => {
+    setArmies((prev: any) => prev.map((a: any) => {
+      if (a.destination && a.movementProgress === 0) {
+        console.log(`🔧 Destrancando exército ${a.name} travado em ${a.location} -> ${a.destination}`);
+        return {
+          ...a,
+          location: a.destination,
+          destination: null,
+          targetDestination: null,
+          movementProgress: 0,
+          path: [],
+          position: null
+        };
+      }
+      return a;
+    }));
+    addLog('🔧 Todos exércitos destravados!');
+    addToast('Exércitos destravados!', 'success', 'Cheat');
+  }, [setArmies, addLog, addToast]);
+
+  return { handleProvinceRightClick, handleMergeArmies, handleSplitHalf, handleSplitCustom, handleRetreatArmy, handleStopMovement, handleUnstuckAll };
 }
