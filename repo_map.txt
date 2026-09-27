@@ -2,7 +2,6 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-633      544      src\engine\aiEngine.ts  <-- QUEBRAR!
 632      557      src\engine\rebellions.ts  <-- QUEBRAR!
 509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
@@ -19,6 +18,7 @@ LINHAS   CÓDIGO   ARQUIVO
 220      184      src\engine\unrest.ts
 214      199      src\components\ArmyMarker.tsx
 210      184      src\engine\combat\combatCalculations.ts
+209      182      src\engine\aiEngine\aiEconomy.ts
 199      173      src\hooks\gameLoop\battleContinuousTick.ts
 187      182      src\data\provinces.ts
 181      166      src\components\DiplomacyPanel.tsx
@@ -29,8 +29,10 @@ LINHAS   CÓDIGO   ARQUIVO
 161      147      src\components\AILogModal.tsx
 161      141      src\engine\stability.ts
 159      148      src\App.tsx
+158      131      src\engine\aiEngine\aiMovement.ts
 155      142      src\components\GovernmentModal.tsx
 155      133      src\engine\combat\combatRetreats.ts
+153      123      src\engine\aiEngine\aiHelpers.ts
 149      144      src\data\buildings.ts
 149      129      src\engine\gameConditions.ts
 148      121      src\engine\combat\battleFinalizer.ts
@@ -85,83 +87,12 @@ LINHAS   CÓDIGO   ARQUIVO
 6        5        src\main.tsx
 6        6        src\engine\combat\index.ts
 3        3        src\components\GameMap\index.ts
+3        3        src\engine\aiEngine\index.ts
 3        3        src\engine\military\index.ts
 
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\engine\aiEngine.ts | Total: 633 | Código: 544 | Vazias: 89
-================================================================================
-L  24 | [Func             ] function canMoveToProvince(
-L  37 | [Const            ] const relation = diplomacy.find(
-L  53 | [Func             ] function isBorderProvince(
-L  58 | [Const            ] const currentProv = provinces.find(p => p.id === provinceId);
-L  63 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
-L  71 | [Func             ] function isAtWarWithNeighbor(
-L  78 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
-L  81 | [Const            ] const relation = diplomacy.find(
-L  93 | [Func             ] function isAtWarWith(
-L  98 | [Const            ] const relation = diplomacy.find(
-L 109 | [Func             ] function createArmyWithRoute(
-L 117 | [Const            ] const destProv = provinces.find(p => p.id === destinationId);
-L 124 | [Const            ] const currentProv = provinces.find(p => p.id === army.location);
-L 136 | [Const            ] const path = findPath(army.location!, destinationId, provinces, botCountryId, diplomacy);
-L 155 | [Func             ] function findNearestEnemyArmy(
-L 169 | [Const            ] const distance = calculateDistance(aiArmy.location, enemyArmy.location, provinces);
-L 183 | [Func             ] function calculateDistance(
-L 190 | [Const            ] const visited = new Set<string>();
-L 195 | [Const            ] const current = queue.shift()!;
-L 201 | [Const            ] const province = provinces.find(p => p.id === current.id);
-L 218 | [Func             ] function findClosestHomeProvince(
-L 230 | [Const            ] const isBorder = isBorderProvince(homeProv.id, allProvinces, homeProv.owner);
-L 231 | [Const            ] const distance = calculateDistance(currentLocation, homeProv.id, allProvinces);
-L 234 | [Const            ] const adjustedDistance = isBorder ? distance * 0.8 : distance;
-L 259 | [Func             ] export function processAI(
-L 279 | [Const            ] const currentProv = provinces.find(p => p.id === army.location);
-L 285 | [Const            ] const isAtWar = isAtWarWithNeighbor(botCountryId, currentProv, provinces, diplomacy);
-L 290 | [Const            ] const enemyCountries = wars
-L 295 | [Const            ] const enemyArmies = armies.filter(a =>
-L 300 | [Const            ] const aiArmyPower = calculateArmyBasePower(army);
-L 304 | [Const            ] const nearestEnemy = findNearestEnemyArmy(army, enemyArmies, provinces);
-L 307 | [Const            ] const enemyArmyPower = calculateArmyBasePower(nearestEnemy);
-L 316 | [Const            ] const homeProvinces = provinces.filter(p => p.owner === botCountryId);
-L 317 | [Const            ] const defensiveProvince = findClosestHomeProvince(army.location!, homeProvinces, provinces);
-L 332 | [Const            ] const validNeighbors = currentProv.neighbors.filter(neighborId => {
-L 333 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
-L 344 | [Const            ] const warTargets = validNeighbors.filter(neighborId => {
-L 345 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
-L 353 | [Const            ] const chosenDestination = warTargets[Math.floor(Math.random() * warTargets.length)];
-L 367 | [Const            ] const borderNeighbors = currentProv.neighbors.filter(neighborId => {
-L 368 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
-L 376 | [Const            ] const chosenDestination = borderNeighbors[Math.floor(Math.random() * borderNeighbors.length)];
-L 381 | [Const            ] const ownNeighbors = currentProv.neighbors.filter(neighborId => {
-L 382 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
-L 387 | [Const            ] const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
-L 403 | [Func             ] export function processAIEconomicDecisions(
-L 429 | [Const            ] const availableFocuses = NATIONAL_FOCUSES.filter(focus => {
-L 444 | [Const            ] const selectedFocus = availableFocuses[0];
-L 463 | [Const            ] const availableTechs = TECHNOLOGIES.filter(tech => {
-L 477 | [Const            ] const affordableTech = availableTechs.find(t => updatedCountry.resources.gold >= t.costGold);
-L 507 | [Const            ] const aiProvinces = provinces.filter(p => p.owner === country.tag);
-L 511 | [Const            ] const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
-L 514 | [Const            ] const hasConstruction = updatedConstructions.some(c => c.provinceId === targetProvince.id);
-L 518 | [Const            ] const buildingTypes = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
-L 519 | [Const            ] const chosenBuilding = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
-L 520 | [Const            ] const def = BUILDING_DEFINITIONS[chosenBuilding];
-L 523 | [Const            ] const existingBuilding = targetProvince.buildings.find(b => b.type === chosenBuilding);
-L 524 | [Const            ] const currentLevel = existingBuilding?.level ?? 0;
-L 528 | [Const            ] const buildingCost = getBuildingCost(chosenBuilding, currentLevel);
-L 529 | [Const            ] const buildTime = getBuildingTime(chosenBuilding, currentLevel);
-L 552 | [Const            ] const translatedName = getBuildingName(chosenBuilding);
-L 570 | [Const            ] const aiProvinces = provinces.filter(p => p.owner === country.tag);
-L 573 | [Const            ] const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
-L 576 | [Const            ] const unitTypes = Object.keys(UNIT_DEFINITIONS) as UnitType[];
-L 577 | [Const            ] const chosenUnit = unitTypes[Math.floor(Math.random() * unitTypes.length)];
-L 578 | [Const            ] const def = UNIT_DEFINITIONS[chosenUnit];
-L 591 | [Const            ] const existingRecruitment = updatedRecruitments.find(
-L 616 | [Const            ] const translatedUnit = getUnitName(chosenUnit);
 
 ================================================================================
 FILE: src\engine\rebellions.ts | Total: 632 | Código: 557 | Vazias: 75
@@ -703,6 +634,33 @@ L 202 | [Const            ] const updatedRegiments = army.regiments.map((reg, i)
 L 203 | [Const            ] const regLoss = Math.min(reg.strength, losses[i]);
 
 ================================================================================
+FILE: src\engine\aiEngine\aiEconomy.ts | Total: 209 | Código: 182 | Vazias: 27
+================================================================================
+L   8 | [Func             ] export function processAIEconomicDecisions(
+L  31 | [Const            ] const availableFocuses = NATIONAL_FOCUSES.filter(focus => {
+L  44 | [Const            ] const selectedFocus = availableFocuses[0];
+L  60 | [Const            ] const availableTechs = TECHNOLOGIES.filter(tech => {
+L  72 | [Const            ] const affordableTech = availableTechs.find(t => updatedCountry.resources.gold >= t.costGold);
+L  98 | [Const            ] const aiProvinces = provinces.filter(p => p.owner === country.tag);
+L 101 | [Const            ] const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
+L 102 | [Const            ] const hasConstruction = updatedConstructions.some(c => c.provinceId === targetProvince.id);
+L 105 | [Const            ] const buildingTypes = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
+L 106 | [Const            ] const chosenBuilding = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+L 107 | [Const            ] const def = BUILDING_DEFINITIONS[chosenBuilding];
+L 109 | [Const            ] const existingBuilding = targetProvince.buildings.find(b => b.type === chosenBuilding);
+L 110 | [Const            ] const currentLevel = existingBuilding?.level ?? 0;
+L 113 | [Const            ] const buildingCost = getBuildingCost(chosenBuilding, currentLevel);
+L 114 | [Const            ] const buildTime = getBuildingTime(chosenBuilding, currentLevel);
+L 137 | [Const            ] const translatedName = getBuildingName(chosenBuilding);
+L 151 | [Const            ] const aiProvinces = provinces.filter(p => p.owner === country.tag);
+L 154 | [Const            ] const targetProvince = aiProvinces[Math.floor(Math.random() * aiProvinces.length)];
+L 155 | [Const            ] const unitTypes = Object.keys(UNIT_DEFINITIONS) as UnitType[];
+L 156 | [Const            ] const chosenUnit = unitTypes[Math.floor(Math.random() * unitTypes.length)];
+L 157 | [Const            ] const def = UNIT_DEFINITIONS[chosenUnit];
+L 169 | [Const            ] const existingRecruitment = updatedRecruitments.find(
+L 192 | [Const            ] const translatedUnit = getUnitName(chosenUnit);
+
+================================================================================
 FILE: src\hooks\gameLoop\battleContinuousTick.ts | Total: 199 | Código: 173 | Vazias: 26
 ================================================================================
 L  12 | [Interface/Type/Enum] type Params = {
@@ -887,6 +845,35 @@ L  97 | [Const            ] const cheats = useCheats({
 L 158 | [Const Component  ] const AppWithProviders: React.FC = () => <ToastProvider><AILogProvider><App /></AILogProvider></ToastProvider>;
 
 ================================================================================
+FILE: src\engine\aiEngine\aiMovement.ts | Total: 158 | Código: 131 | Vazias: 27
+================================================================================
+L  14 | [Func             ] function createArmyWithRoute(
+L  21 | [Const            ] const destProv = provinces.find(p => p.id === destinationId);
+L  26 | [Const            ] const currentProv = provinces.find(p => p.id === army.location);
+L  37 | [Const            ] const path = findPath(army.location!, destinationId, provinces, botCountryId, diplomacy);
+L  52 | [Func             ] export function processAI(
+L  68 | [Const            ] const currentProv = provinces.find(p => p.id === army.location);
+L  73 | [Const            ] const isAtWar = isAtWarWithNeighbor(botCountryId, currentProv, provinces, diplomacy);
+L  76 | [Const            ] const enemyCountries = wars
+L  80 | [Const            ] const enemyArmies = armies.filter(a =>
+L  84 | [Const            ] const aiArmyPower = calculateArmyBasePower(army);
+L  87 | [Const            ] const nearestEnemy = findNearestEnemyArmy(army, enemyArmies, provinces);
+L  90 | [Const            ] const enemyArmyPower = calculateArmyBasePower(nearestEnemy);
+L  96 | [Const            ] const homeProvinces = provinces.filter(p => p.owner === botCountryId);
+L  97 | [Const            ] const defensiveProvince = findClosestHomeProvince(army.location!, homeProvinces, provinces);
+L 109 | [Const            ] const validNeighbors = currentProv.neighbors.filter(neighborId => {
+L 110 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
+L 119 | [Const            ] const warTargets = validNeighbors.filter(neighborId => {
+L 120 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
+L 126 | [Const            ] const chosenDestination = warTargets[Math.floor(Math.random() * warTargets.length)];
+L 135 | [Const            ] const borderNeighbors = currentProv.neighbors.filter(neighborId => {
+L 136 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
+L 142 | [Const            ] const chosenDestination = borderNeighbors[Math.floor(Math.random() * borderNeighbors.length)];
+L 146 | [Const            ] const ownNeighbors = currentProv.neighbors.filter(neighborId => {
+L 147 | [Const            ] const prov = provinces.find(p => p.id === neighborId);
+L 152 | [Const            ] const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
+
+================================================================================
 FILE: src\components\GovernmentModal.tsx | Total: 155 | Código: 142 | Vazias: 13
 ================================================================================
 L  12 | [Interface/Type/Enum] interface GovernmentModalProps {
@@ -933,6 +920,30 @@ L 123 | [Const            ] const participantArmy = updatedArmies.find(a => a.id
 L 132 | [Const            ] const updatedBattles = activeBattles.filter(b => b.id !== battleId);
 L 135 | [Const            ] const winner = updatedBattle.attackerCurrentTroops > 0 ? 'attacker' : 'defender';
 L 147 | [Const            ] const updatedBattles = activeBattles.map(b => b.id === battleId ? updatedBattle : b);
+
+================================================================================
+FILE: src\engine\aiEngine\aiHelpers.ts | Total: 153 | Código: 123 | Vazias: 30
+================================================================================
+L   4 | [Func             ] export function canMoveToProvince(
+L  17 | [Const            ] const relation = diplomacy.find(
+L  29 | [Func             ] export function isBorderProvince(
+L  34 | [Const            ] const currentProv = provinces.find(p => p.id === provinceId);
+L  38 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
+L  43 | [Func             ] export function isAtWarWithNeighbor(
+L  50 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
+L  53 | [Const            ] const relation = diplomacy.find(
+L  62 | [Func             ] export function isAtWarWith(
+L  67 | [Const            ] const relation = diplomacy.find(
+L  75 | [Func             ] export function calculateDistance(
+L  82 | [Const            ] const visited = new Set<string>();
+L  87 | [Const            ] const current = queue.shift()!;
+L  93 | [Const            ] const province = provinces.find(p => p.id === current.id);
+L 107 | [Func             ] export function findNearestEnemyArmy(
+L 120 | [Const            ] const distance = calculateDistance(aiArmy.location, enemyArmy.location, provinces);
+L 131 | [Func             ] export function findClosestHomeProvince(
+L 142 | [Const            ] const isBorder = isBorderProvince(homeProv.id, allProvinces, homeProv.owner);
+L 143 | [Const            ] const distance = calculateDistance(currentLocation, homeProv.id, allProvinces);
+L 144 | [Const            ] const adjustedDistance = isBorder ? distance * 0.8 : distance;
 
 ================================================================================
 FILE: src\data\buildings.ts | Total: 149 | Código: 144 | Vazias: 5
@@ -1558,6 +1569,11 @@ FILE: src\engine\combat\index.ts | Total: 6 | Código: 6 | Vazias: 0
 
 ================================================================================
 FILE: src\components\GameMap\index.ts | Total: 3 | Código: 3 | Vazias: 0
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\engine\aiEngine\index.ts | Total: 3 | Código: 3 | Vazias: 0
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
 
