@@ -2,13 +2,13 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-632      557      src\engine\rebellions.ts  <-- QUEBRAR!
 509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
 393      333      src\engine\combat\continuousBattle.ts  <-- QUEBRAR!
 334      276      src\engine\military\movementEngine.ts  <-- QUEBRAR!
 330      299      src\engine\diplomacy.ts  <-- QUEBRAR!
 319      283      src\components\TechnologyModal.tsx  <-- QUEBRAR!
+299      262      src\engine\rebellions\rebelAI.ts
 280      248      src\engine\technology.ts
 273      234      src\engine\economy.ts
 256      230      src\components\BattleReportModal.tsx
@@ -30,6 +30,7 @@ LINHAS   CÓDIGO   ARQUIVO
 161      141      src\engine\stability.ts
 159      148      src\App.tsx
 158      131      src\engine\aiEngine\aiMovement.ts
+157      137      src\engine\rebellions\rebelAccumulation.ts
 155      142      src\components\GovernmentModal.tsx
 155      133      src\engine\combat\combatRetreats.ts
 153      123      src\engine\aiEngine\aiHelpers.ts
@@ -38,6 +39,7 @@ LINHAS   CÓDIGO   ARQUIVO
 148      121      src\engine\combat\battleFinalizer.ts
 138      125      src\components\EndGameModal.tsx
 136      127      src\types\army.ts
+135      118      src\engine\rebellions\rebelHelpers.ts
 135      121      src\hooks\app\useCheats.ts
 130      116      src\components\GameMap\ArmyMovementLayer.tsx
 127      115      src\hooks\app\useArmyActions.ts
@@ -89,103 +91,11 @@ LINHAS   CÓDIGO   ARQUIVO
 3        3        src\components\GameMap\index.ts
 3        3        src\engine\aiEngine\index.ts
 3        3        src\engine\military\index.ts
+3        3        src\engine\rebellions\index.ts
 
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\engine\rebellions.ts | Total: 632 | Código: 557 | Vazias: 75
-================================================================================
-L  19 | [Const            ] export const REBEL_ACCUMULATION_RATE = 1000;
-L  20 | [Const            ] export const SEPARATIST_THRESHOLD = 5000;
-L  22 | [Interface/Type/Enum] export interface RebelProcessingResult {
-L  29 | [Func             ] export function isRebelArmy(army: Army): boolean {
-L  33 | [Func             ] function getArmyTotalTroops(army: Army): number {
-L  38 | [Func             ] function generateRebelArmyId(): string {
-L  46 | [Func             ] export function processRebelAccumulation(
-L  52 | [Const            ] const updatedProvinces = [...provinces];
-L  57 | [Const            ] const province = updatedProvinces.find(p => p.id === provId);
-L  60 | [Const            ] const rebelArmyIndex = updatedArmies.findIndex(
-L  65 | [Const            ] const rebelArmy = { ...updatedArmies[rebelArmyIndex] };
-L  66 | [Const            ] const infantryIndex = rebelArmy.regiments.findIndex(r => r.type === 'infantry');
-L  69 | [Const            ] const updatedRegiments = rebelArmy.regiments.map(r => ({ ...r }));
-L  73 | [Const            ] const newReg = createRegiment('infantry');
-L  78 | [Const            ] const totalTroops = getArmyTotalTroops(rebelArmy);
-L  83 | [Const            ] const countryName = getCountryByTag(rebelArmy.originalOwner || '')?.name || 'país desconhecido';
-L  91 | [Const            ] const originalOwner = province.originalOwner || province.owner;
-L  92 | [Const            ] const countryName = getCountryByTag(originalOwner)?.name || province.name;
-L 112 | [Const            ] const reg = createRegiment('infantry');
-L 127 | [Func             ] function findSeparatistPath(
-L 135 | [Const            ] const visited = new Set<string>([startId]);
-L 136 | [Const            ] const parent = new Map<string, string>();
-L 140 | [Const            ] const current = queue.shift()!;
-L 151 | [Const            ] const currentProv = provinces.find(p => p.id === current);
-L 156 | [Const            ] const neighborProv = provinces.find(p => p.id === neighbor);
-L 170 | [Func             ] function findWayHomePath(
-L 176 | [Const            ] const visited = new Set<string>([startId]);
-L 177 | [Const            ] const parent = new Map<string, string>();
-L 181 | [Const            ] const current = queue.shift()!;
-L 191 | [Const            ] const currentProv = provinces.find(p => p.id === current);
-L 207 | [Func             ] function moveSeparatistArmy(
-L 213 | [Const            ] const currentProvince = provinces.find(p => p.id === army.location);
-L 217 | [Const            ] const targetProvince = provinces.find(p => p.id === targetId);
-L 238 | [Func             ] function mergeRebelArmies(armies: Army[]): Army[] {
-L 247 | [Const            ] const idx = result.findIndex(
-L 254 | [Const            ] const target = { ...result[idx] };
-L 255 | [Const            ] const regiments = target.regiments.map(r => ({ ...r }));
-L 257 | [Const            ] const existing = regiments.find(r => r.type === reg.type);
-L 280 | [Func             ] function integrateLiberatedRebels(armies: Army[], provinces: Province[]): Army[] {
-L 284 | [Const            ] const occupiedHome = provinces.some(
-L 308 | [Func             ] export function processSeparatistAI(
-L 315 | [Const            ] const separatistArmies = updatedArmies.filter(
-L 326 | [Const            ] const currentProvince = provinces.find(p => p.id === army.location);
-L 329 | [Const            ] const originalOwner = army.originalOwner || currentProvince.owner;
-L 334 | [Const            ] const historicNeighborTargets = (currentProvince.neighbors || []).filter(neighborId => {
-L 335 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
-L 344 | [Const            ] const targetId = historicNeighborTargets[0];
-L 345 | [Const            ] const targetProv = provinces.find(p => p.id === targetId);
-L 347 | [Const            ] const movedArmy = moveSeparatistArmy(army, targetId, provinces);
-L 350 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 353 | [Const            ] const targetProv = provinces.find(p => p.id === targetId);
-L 363 | [Const            ] const transitNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
-L 364 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
-L 374 | [Const            ] const transitProv = provinces.find(p => p.id === transitId)!;
-L 375 | [Const            ] const furtherTargets = (transitProv.neighbors || []).filter(nid => {
-L 376 | [Const            ] const p = provinces.find(x => x.id === nid);
-L 385 | [Const            ] const movedArmy = moveSeparatistArmy(army, transitId, provinces, true);
-L 387 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 402 | [Const            ] const remoteHistoricTargets = provinces.filter(p =>
-L 412 | [Const            ] const path = findSeparatistPath(army.location, target.id, provinces, originalOwner);
-L 420 | [Const            ] const nextStepId = bestPath[0];
-L 421 | [Const            ] const isHomeStep = provinces.find(p => p.id === nextStepId)?.owner === originalOwner;
-L 422 | [Const            ] const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, isHomeStep);
-L 424 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 442 | [Const            ] const homeNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
-L 443 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
-L 448 | [Const            ] const movedArmy = moveSeparatistArmy(army, homeNeighbors[0], provinces, true);
-L 450 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 460 | [Const            ] const homeProvinces = provinces.filter(p => p.originalOwner === originalOwner);
-L 464 | [Const            ] const path = findWayHomePath(army.location, home.id, provinces);
-L 471 | [Const            ] const nextStepId = bestHomePath[0];
-L 472 | [Const            ] const nextProv = provinces.find(p => p.id === nextStepId);
-L 473 | [Const            ] const allowHome = nextProv?.owner === originalOwner;
-L 474 | [Const            ] const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, allowHome);
-L 476 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 495 | [Func             ] export function checkRebelTerritoryReturn(winnerArmy: Army): string | null {
-L 512 | [Func             ] export function ensureSeparatistWars(
-L 523 | [Const            ] const separatists = armies.filter(
-L 529 | [Const            ] const occupiers = Array.from(new Set(
-L 537 | [Const            ] const exists = currentWars.some(w =>
-L 545 | [Const            ] const result = declareWar(currentRelations, currentWars, rebel.owner, occupier, currentDate);
-L 564 | [Func             ] export function cleanupSeparatistWars(
-L 582 | [Const            ] const rebelWars = currentWars.filter(
-L 587 | [Const            ] const rebelTag = war.attacker.startsWith('rebel_') ? war.attacker : war.defender;
-L 588 | [Const            ] const enemyTag = war.attacker === rebelTag ? war.defender : war.attacker;
-L 590 | [Const            ] const provId = rebelTag.replace('rebel_', '');
-L 591 | [Const            ] const rebelHome = provinces.find(p => p.id === provId)?.originalOwner;
-L 594 | [Const            ] const stillActive = armies.some(a => a.owner === rebelTag && a.separatistMode === true);
-L 596 | [Const            ] const stillOccupied = rebelHome
 
 ================================================================================
 FILE: src\components\ProvincePanel.tsx | Total: 509 | Código: 481 | Vazias: 28
@@ -386,6 +296,58 @@ L 200 | [Const            ] const isResearched = techState?.completedTechnologie
 L 201 | [Const            ] const canStart = canStartResearch(tech.id);
 L 204 | [Const            ] const currentProgressDays = isActive ? (techState?.researchProgressDays || 0) : 0;
 L 205 | [Const            ] const progress = tech.durationDays > 0 ? (currentProgressDays / tech.durationDays) * 100 : 0;
+
+================================================================================
+FILE: src\engine\rebellions\rebelAI.ts | Total: 299 | Código: 262 | Vazias: 37
+================================================================================
+L  15 | [Func             ] export function processSeparatistAI(
+L  22 | [Const            ] const separatistArmies = updatedArmies.filter(
+L  33 | [Const            ] const currentProvince = provinces.find(p => p.id === army.location);
+L  36 | [Const            ] const originalOwner = army.originalOwner || currentProvince.owner;
+L  39 | [Const            ] const historicNeighborTargets = (currentProvince.neighbors || []).filter(neighborId => {
+L  40 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
+L  49 | [Const            ] const targetId = historicNeighborTargets[0];
+L  50 | [Const            ] const targetProv = provinces.find(p => p.id === targetId);
+L  52 | [Const            ] const movedArmy = moveSeparatistArmy(army, targetId, provinces);
+L  55 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L  65 | [Const            ] const transitNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
+L  66 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
+L  76 | [Const            ] const transitProv = provinces.find(p => p.id === transitId)!;
+L  77 | [Const            ] const furtherTargets = (transitProv.neighbors || []).filter(nid => {
+L  78 | [Const            ] const p = provinces.find(x => x.id === nid);
+L  87 | [Const            ] const movedArmy = moveSeparatistArmy(army, transitId, provinces, true);
+L  89 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 102 | [Const            ] const remoteHistoricTargets = provinces.filter(p =>
+L 112 | [Const            ] const path = findSeparatistPath(army.location, target.id, provinces, originalOwner);
+L 120 | [Const            ] const nextStepId = bestPath[0];
+L 121 | [Const            ] const isHomeStep = provinces.find(p => p.id === nextStepId)?.owner === originalOwner;
+L 122 | [Const            ] const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, isHomeStep);
+L 124 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 140 | [Const            ] const homeNeighbors = (currentProvince.neighbors || []).filter(neighborId => {
+L 141 | [Const            ] const neighborProv = provinces.find(p => p.id === neighborId);
+L 146 | [Const            ] const movedArmy = moveSeparatistArmy(army, homeNeighbors[0], provinces, true);
+L 148 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 157 | [Const            ] const homeProvinces = provinces.filter(p => p.originalOwner === originalOwner);
+L 161 | [Const            ] const path = findWayHomePath(army.location, home.id, provinces);
+L 168 | [Const            ] const nextStepId = bestHomePath[0];
+L 169 | [Const            ] const nextProv = provinces.find(p => p.id === nextStepId);
+L 170 | [Const            ] const allowHome = nextProv?.owner === originalOwner;
+L 171 | [Const            ] const movedArmy = moveSeparatistArmy(army, nextStepId, provinces, allowHome);
+L 173 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 189 | [Func             ] export function checkRebelTerritoryReturn(winnerArmy: Army): string | null {
+L 196 | [Func             ] export function ensureSeparatistWars(
+L 207 | [Const            ] const separatists = armies.filter(
+L 212 | [Const            ] const occupiers = Array.from(new Set(
+L 219 | [Const            ] const exists = currentWars.some(w =>
+L 225 | [Const            ] const result = declareWar(currentRelations, currentWars, rebel.owner, occupier, currentDate);
+L 236 | [Func             ] export function cleanupSeparatistWars(
+L 254 | [Const            ] const rebelWars = currentWars.filter(
+L 259 | [Const            ] const rebelTag = war.attacker.startsWith('rebel_') ? war.attacker : war.defender;
+L 260 | [Const            ] const enemyTag = war.attacker === rebelTag ? war.defender : war.attacker;
+L 262 | [Const            ] const provId = rebelTag.replace('rebel_', '');
+L 263 | [Const            ] const rebelHome = provinces.find(p => p.id === provId)?.originalOwner;
+L 265 | [Const            ] const stillActive = armies.some(a => a.owner === rebelTag && a.separatistMode === true);
+L 266 | [Const            ] const stillOccupied = rebelHome
 
 ================================================================================
 FILE: src\engine\technology.ts | Total: 280 | Código: 248 | Vazias: 32
@@ -874,6 +836,30 @@ L 147 | [Const            ] const prov = provinces.find(p => p.id === neighborId
 L 152 | [Const            ] const chosenDestination = ownNeighbors[Math.floor(Math.random() * ownNeighbors.length)];
 
 ================================================================================
+FILE: src\engine\rebellions\rebelAccumulation.ts | Total: 157 | Código: 137 | Vazias: 20
+================================================================================
+L  16 | [Func             ] export function processRebelAccumulation(
+L  22 | [Const            ] const updatedProvinces = [...provinces];
+L  27 | [Const            ] const province = updatedProvinces.find(p => p.id === provId);
+L  30 | [Const            ] const rebelArmyIndex = updatedArmies.findIndex(
+L  35 | [Const            ] const rebelArmy = { ...updatedArmies[rebelArmyIndex] };
+L  36 | [Const            ] const infantryIndex = rebelArmy.regiments.findIndex(r => r.type === 'infantry');
+L  39 | [Const            ] const updatedRegiments = rebelArmy.regiments.map(r => ({ ...r }));
+L  43 | [Const            ] const newReg = createRegiment('infantry');
+L  48 | [Const            ] const totalTroops = getArmyTotalTroops(rebelArmy);
+L  53 | [Const            ] const countryName = getCountryByTag(rebelArmy.originalOwner || '')?.name || 'país desconhecido';
+L  61 | [Const            ] const originalOwner = province.originalOwner || province.owner;
+L  62 | [Const            ] const countryName = getCountryByTag(originalOwner)?.name || province.name;
+L  82 | [Const            ] const reg = createRegiment('infantry');
+L  97 | [Func             ] export function mergeRebelArmies(armies: Army[]): Army[] {
+L 106 | [Const            ] const idx = result.findIndex(
+L 113 | [Const            ] const target = { ...result[idx] };
+L 114 | [Const            ] const regiments = target.regiments.map(r => ({ ...r }));
+L 116 | [Const            ] const existing = regiments.find(r => r.type === reg.type);
+L 138 | [Func             ] export function integrateLiberatedRebels(armies: Army[], provinces: Province[]): Army[] {
+L 142 | [Const            ] const occupiedHome = provinces.some(
+
+================================================================================
 FILE: src\components\GovernmentModal.tsx | Total: 155 | Código: 142 | Vazias: 13
 ================================================================================
 L  12 | [Interface/Type/Enum] interface GovernmentModalProps {
@@ -1017,6 +1003,30 @@ L  39 | [Interface/Type/Enum] export interface Regiment {
 L  50 | [Interface/Type/Enum] export interface Army {
 L  87 | [Interface/Type/Enum] export interface Recruitment {
 L 105 | [Interface/Type/Enum] export interface CombatResult {
+
+================================================================================
+FILE: src\engine\rebellions\rebelHelpers.ts | Total: 135 | Código: 118 | Vazias: 17
+================================================================================
+L   4 | [Const            ] export const REBEL_ACCUMULATION_RATE = 1000;
+L   5 | [Const            ] export const SEPARATIST_THRESHOLD = 5000;
+L   7 | [Interface/Type/Enum] export interface RebelProcessingResult {
+L  14 | [Func             ] export function isRebelArmy(army: Army): boolean {
+L  18 | [Func             ] export function getArmyTotalTroops(army: Army): number {
+L  23 | [Func             ] export function generateRebelArmyId(): string {
+L  31 | [Func             ] export function findSeparatistPath(
+L  39 | [Const            ] const visited = new Set<string>([startId]);
+L  40 | [Const            ] const parent = new Map<string, string>();
+L  44 | [Const            ] const current = queue.shift()!;
+L  55 | [Const            ] const currentProv = provinces.find(p => p.id === current);
+L  60 | [Const            ] const neighborProv = provinces.find(p => p.id === neighbor);
+L  74 | [Func             ] export function findWayHomePath(
+L  80 | [Const            ] const visited = new Set<string>([startId]);
+L  81 | [Const            ] const parent = new Map<string, string>();
+L  85 | [Const            ] const current = queue.shift()!;
+L  95 | [Const            ] const currentProv = provinces.find(p => p.id === current);
+L 110 | [Func             ] export function moveSeparatistArmy(
+L 116 | [Const            ] const currentProvince = provinces.find(p => p.id === army.location);
+L 120 | [Const            ] const targetProvince = provinces.find(p => p.id === targetId);
 
 ================================================================================
 FILE: src\hooks\app\useCheats.ts | Total: 135 | Código: 121 | Vazias: 14
@@ -1579,5 +1589,10 @@ FILE: src\engine\aiEngine\index.ts | Total: 3 | Código: 3 | Vazias: 0
 
 ================================================================================
 FILE: src\engine\military\index.ts | Total: 3 | Código: 3 | Vazias: 0
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\engine\rebellions\index.ts | Total: 3 | Código: 3 | Vazias: 0
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
