@@ -222,9 +222,9 @@ export function checkAllProvinceCombats(
   return { armies: updatedArmies, newBattles, updatedBattles, reinforcementsAdded };
 }
 
+
 /**
- * Inicia uma nova batalha contínua (não resolve instantaneamente)
- * Aceita múltiplos exércitos de cada lado para incluir todos desde o Dia 1
+ * Inicia uma nova batalha contínua com duração proporcional ao menor exército (1000 tropas = 1 dia)
  */
 export function startContinuousBattle(
   attackerArmies: Army[],
@@ -233,13 +233,13 @@ export function startContinuousBattle(
   currentDate: GameDate,
   battleId: string
 ): ActiveBattle {
-  // Calcula tropas totais de cada lado
+  // Calcula tropas totais de cada lado no início
   const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
   const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
-  const totalTroops = attackerTroops + defenderTroops;
-  
-  // Calcula duração da batalha (2000 tropas = 1 dia)
-  const battleDays = Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
+
+  // 1. Duração baseada no MENOR exército (1000 tropas = 1 dia de batalha)
+  const smallerArmyTroops = Math.min(attackerTroops, defenderTroops);
+  const battleDays = Math.max(1, Math.floor(smallerArmyTroops / 1000));
 
   // Coleta todos os IDs de exércitos participantes
   const participantArmyIds = [
@@ -250,9 +250,7 @@ export function startContinuousBattle(
   console.log(`⚔️ Iniciando batalha contínua em ${province.name}: ${battleDays} dias`);
   console.log(`   Atacantes: ${attackerArmies.length} exércitos, ${attackerTroops} tropas`);
   console.log(`   Defensores: ${defenderArmies.length} exércitos, ${defenderTroops} tropas`);
-  console.log(`   Total de participantes: ${participantArmyIds.length} exércitos`);
 
-  // Cria snapshots iniciais dos exércitos principais (ANTES do combate)
   const attackerInitialSnapshot: Army = {
     ...attackerArmies[0],
     regiments: attackerArmies[0].regiments.map(r => ({ ...r }))
@@ -266,8 +264,8 @@ export function startContinuousBattle(
   return {
     id: battleId,
     provinceId: province.id,
-    attackerArmyId: attackerArmies[0].id, // Mantém referência ao primeiro atacante
-    defenderArmyId: defenderArmies[0].id, // Mantém referência ao primeiro defensor
+    attackerArmyId: attackerArmies[0].id,
+    defenderArmyId: defenderArmies[0].id,
     participantArmyIds: participantArmyIds,
     daysTotal: battleDays,
     daysRemaining: battleDays,
@@ -283,9 +281,10 @@ export function startContinuousBattle(
   };
 }
 
+
+
 /**
- * Adiciona reforços a uma batalha existente
- * Recalcula a duração da batalha com base nas novas tropas
+ * Adiciona reforços a uma batalha existente e ajusta a duração do combate
  */
 export function addReinforcementsToBattle(
   battle: ActiveBattle,
@@ -294,12 +293,6 @@ export function addReinforcementsToBattle(
   province: Province
 ): ActiveBattle {
   const reinforcementTroops = calculateArmySize(reinforcementArmy);
-  
-  console.log(`⚔️ REFORÇOS: Exército ${reinforcementArmy.id} (${reinforcementArmy.owner}) entrou na batalha em ${province.name}!`);
-  console.log(`   Lado: ${side === 'attacker' ? 'Atacante' : 'Defensor'}`);
-  console.log(`   Tropas adicionadas: ${reinforcementTroops}`);
-  
-  // Atualiza tropas do lado correspondente
   const updatedBattle = { ...battle };
   
   if (side === 'attacker') {
@@ -310,30 +303,22 @@ export function addReinforcementsToBattle(
     updatedBattle.defenderInitialTroops += reinforcementTroops;
   }
   
-  // Adiciona o ID do reforço à lista de participantes
   if (!updatedBattle.participantArmyIds.includes(reinforcementArmy.id)) {
     updatedBattle.participantArmyIds = [...updatedBattle.participantArmyIds, reinforcementArmy.id];
-    console.log(`   ✅ Exército ${reinforcementArmy.id} adicionado à lista de participantes`);
   }
   
-  // Recalcula duração da batalha com base nas novas tropas totais
-  const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
-  const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
+  // Recalcula os dias adicionais (1 dia a cada 1000 novos reforços)
+  const additionalDays = Math.floor(reinforcementTroops / 1000);
   
   updatedBattle.daysTotal += additionalDays;
   updatedBattle.daysRemaining += additionalDays;
   
-  console.log(`   Dias adicionais: ${additionalDays}`);
-  console.log(`   Nova duração total: ${updatedBattle.daysTotal} dias`);
-  console.log(`   Dias restantes: ${updatedBattle.daysRemaining}`);
-  console.log(`   Total de participantes: ${updatedBattle.participantArmyIds.length} exércitos`);
-  
   return updatedBattle;
 }
 
+
 /**
- * Processa um dia de batalha contínua
- * Aplica baixas diárias e reduz dias restantes
+ * Processa um dia de batalha contínua, aplica o desgaste diário e checa limites de recuo (1k)
  */
 export function processDailyBattle(
   battle: ActiveBattle,
@@ -346,24 +331,51 @@ export function processDailyBattle(
   defender: Army;
   finished: boolean;
 } {
-  // Reduz dias restantes
   const daysRemaining = battle.daysRemaining - 1;
   
-  // Calcula baixas diárias (distribuídas ao longo da batalha)
-  const dailyAttackerLoss = Math.floor(battle.attackerInitialTroops / battle.daysTotal * 0.5);
-  const dailyDefenderLoss = Math.floor(battle.defenderInitialTroops / battle.daysTotal * 0.5);
+  // Baixas diárias atenuadas (calculadas proporcionalmente sobre a duração da batalha)
+  const dailyAttackerLoss = Math.floor((battle.attackerInitialTroops / Math.max(1, battle.daysTotal)) * 0.35);
+  const dailyDefenderLoss = Math.floor((battle.defenderInitialTroops / Math.max(1, battle.daysTotal)) * 0.35);
   
-  // Aplica baixas
   const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
   const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
   
   const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
   const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
   
-  // Atualiza exércitos com tropas reduzidas
   const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
   const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
   
+  // 2. REGRA DO RECUO EM 1.000 HOMENS (1k)
+  // Se o exército iniciou com mais de 1000 homens e NÃO está defendendo seu próprio território
+  const attackerCanRetreat = battle.attackerInitialTroops > 1000 && province.owner !== attacker.owner;
+  const defenderCanRetreat = battle.defenderInitialTroops > 1000 && province.owner !== defender.owner;
+
+  const attackerShouldRetreat = attackerCanRetreat && attackerCurrentTroops <= 1000;
+  const defenderShouldRetreat = defenderCanRetreat && defenderCurrentTroops <= 1000;
+
+  // Luta até a morte ocorre se:
+  // - O exército iniciou com <= 1000 homens
+  // - O combate ocorre no próprio território em defesa
+  // - O exército chegou a 0 tropas
+  const finished = 
+    daysRemaining <= 0 || 
+    attackerCurrentTroops <= 0 || 
+    defenderCurrentTroops <= 0 || 
+    attackerShouldRetreat || 
+    defenderShouldRetreat;
+  
+  // Se houver recuo por atordoamento em 1k, atribui o recuo
+  if (finished && (attackerShouldRetreat || defenderShouldRetreat)) {
+    if (attackerShouldRetreat) {
+      console.log(`🏃‍♂️ Atacante atingiu ${attackerCurrentTroops} tropas (<= 1k) e iniciou recuo tático!`);
+      triggerRetreat(updatedAttacker, province);
+    } else if (defenderShouldRetreat) {
+      console.log(`🏃‍♂️ Defensor atingiu ${defenderCurrentTroops} tropas (<= 1k) e iniciou recuo tático!`);
+      triggerRetreat(updatedDefender, province);
+    }
+  }
+
   const updatedBattle: ActiveBattle = {
     ...battle,
     daysRemaining,
@@ -373,21 +385,21 @@ export function processDailyBattle(
     defenderCurrentTroops,
   };
   
-  const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
-  
-  console.log(`⚔️ Batalha ${battle.id}: Dia ${battle.daysTotal - daysRemaining}/${battle.daysTotal} - ${daysRemaining} dias restantes`);
-  
-  if (finished) {
-    console.log(`✅ Batalha finalizada em ${province.name} após ${battle.daysTotal} dias`);
-    console.log(`   Atacante: ${battle.attackerInitialTroops} → ${attackerCurrentTroops} (${attackerCasualties} baixas)`);
-    console.log(`   Defensor: ${battle.defenderInitialTroops} → ${defenderCurrentTroops} (${defenderCasualties} baixas)`);
-    console.log(`   Motivo: ${daysRemaining <= 0 ? 'Dias esgotados' : attackerCurrentTroops <= 0 ? 'Atacante destruído' : 'Defensor destruído'}`);
-  }
-  
   return {
     battle: updatedBattle,
     attacker: updatedAttacker,
     defender: updatedDefender,
     finished,
   };
+}
+
+/**
+ * Função auxiliar que configura o recuo automático das tropas para fora do território inimigo
+ */
+function triggerRetreat(army: Army, currentProvince: Province) {
+  army.inCombat = false;
+  // Recua para o território de origem ou para a capital
+  army.destination = army.owner;
+  army.targetDestination = army.owner;
+  army.path = [army.owner];
 }
