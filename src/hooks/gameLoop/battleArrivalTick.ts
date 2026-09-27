@@ -31,11 +31,11 @@ export function processBattleArrival(p: Params) {
   let { arrivedArmies, armies, provinces, countries, wars, recruitments, buildingConstructions, currentActiveBattles } = p;
   const { snapshot, playerCountryTag, allCountries, activeBattlesRef, addLog, addToast, setActiveBattles, cancelProvinceActivities } = p;
 
-  // C.1: Processa exércitos que chegaram ao destino
+  // 1. Primeiro move todo mundo que chegou pra lista principal
   for (const arrived of arrivedArmies) {
     const province = provinces.find(pr => pr.id === arrived.location);
     if (!province) {
-      armies = [...armies, arrived];
+      armies = [...armies, { ...arrived, inCombat: false, destination: null, path: [] }];
       continue;
     }
 
@@ -56,67 +56,24 @@ export function processBattleArrival(p: Params) {
       );
     };
 
-    const isRebelArrived = arrived.owner.startsWith('rebel_');
+    // Se não tem inimigo e não é guerra, só ocupa
     const enemies = armies.filter(a =>
       a.location === province.id &&
       a.id !== arrived.id &&
       isHostile(arrived.owner, a.owner, arrived.originalOwner, a.originalOwner)
     );
 
-    const isRebelAttackingEnemy = isRebelArrived &&
-      province.owner !== arrived.owner &&
-      province.owner !== (arrived.originalOwner || arrived.owner);
+    const shouldBattle = enemies.length > 0 || isInWar;
 
-    const shouldBattle = enemies.length > 0 || isRebelAttackingEnemy || isInWar;
-
-    if (province.owner !== arrived.owner && !shouldBattle) {
-      armies = [...armies, arrived];
-      continue;
-    }
-
-    if (enemies.length > 0) {
-      const existingBattle = activeBattlesRef.current.find((b: ActiveBattle) => b.provinceId === province.id);
-
-      if (!existingBattle) {
-        const attackerArmies = armies.filter(a => a.location === province.id && a.owner === arrived.owner && !a.inCombat);
-        const defenderArmies = armies.filter(a => a.location === province.id && a.owner !== arrived.owner && !a.inCombat && isHostile(arrived.owner, a.owner, arrived.originalOwner, a.originalOwner));
-
-        const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, snapshot.date, battleId);
-
-        const participantIds = newBattle.participantArmyIds;
-        armies = armies.map(a => participantIds.includes(a.id) ? { ...a, inCombat: true } : a);
-
-        setActiveBattles((prev: ActiveBattle[]) => [...prev, newBattle]);
-
-        addLog(`⚔️ Batalha iniciada em ${province.name}! Duração: ${newBattle.daysTotal} dias`);
-        if (arrived.owner === playerCountryTag || province.owner === playerCountryTag) {
-          addToast(`Batalha iniciada em ${province.name}! ${newBattle.daysTotal} dias de combate.`, 'warning', 'Batalha Iniciada');
-        }
-      } else {
-        armies = [...armies, { ...arrived, inCombat: true }];
-      }
-      continue;
-    }
-
-    armies = [...armies, arrived];
-
-    if (province.owner !== arrived.owner && shouldBattle) {
+    if (!shouldBattle && province.owner !== arrived.owner) {
+      // Ocupação pacífica
       const oldOwner = province.owner;
-      const newOwner = (isRebelArrived && arrived.originalOwner) ? arrived.originalOwner : arrived.owner;
+      const newOwner = arrived.owner;
 
-      provinces = provinces.map(pr => {
-        if (pr.id === province.id) {
-          const isLiberation = isRebelArrived && newOwner === arrived.originalOwner;
-          const conqueredProv = isLiberation ? { ...pr, owner: newOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newOwner }, snapshot.date);
-          return { ...conqueredProv, originalOwner: conqueredProv.originalOwner || oldOwner };
-        }
-        return pr;
-      });
-
+      provinces = provinces.map(pr => pr.id === province.id ? {...pr, owner: newOwner, originalOwner: pr.originalOwner || oldOwner } : pr);
       countries = countries.map(c => {
-        if (c.tag === newOwner) return { ...c, provinces: [...c.provinces, province.id] };
-        if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+        if (c.tag === newOwner) return {...c, provinces: [...c.provinces, province.id] };
+        if (c.tag === oldOwner) return {...c, provinces: c.provinces.filter(pid => pid !== province.id) };
         return c;
       });
 
@@ -125,43 +82,42 @@ export function processBattleArrival(p: Params) {
       buildingConstructions = cancelResult.constructions;
       provinces = cancelResult.provinces;
 
-      if (isRebelArrived) {
-        const countryName = allCountries.find(c => c.tag === newOwner)?.name || newOwner;
-        addLog(`🏴 Rebeldes libertaram ${province.name}! Devolvida a ${countryName}`);
-      } else {
-        addLog(`🏳️ ${arrived.owner} ocupou ${province.name} (sem resistência)`);
-      }
+      armies = [...armies, { ...arrived, inCombat: false, destination: null, targetDestination: null, path: [] }];
+      addLog(`🏳️ ${arrived.owner} ocupou ${province.name}`);
+      continue;
     }
+
+    // Se tem inimigo, não decide batalha aqui. Só coloca o exército na província livre
+    // O checkAllProvinceCombats abaixo vai cuidar de criar/juntar na batalha
+    armies = [...armies, { ...arrived, inCombat: false, destination: null, targetDestination: null, path: [] }];
   }
 
-  // C.2: Verificação automática de combate em todas as províncias
-  const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, activeBattlesRef.current);
+  // 2. Agora SIM verifica combate em todas as províncias com TODO MUNDO já no mapa
+  // Usa o ref mais atualizado
+  const battlesToCheck = activeBattlesRef.current.length > 0 ? activeBattlesRef.current : currentActiveBattles;
+  const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, battlesToCheck);
+  
   armies = autoCombatResult.armies;
-  currentActiveBattles = [...autoCombatResult.updatedBattles];
+  currentActiveBattles = [...autoCombatResult.updatedBattles, ...autoCombatResult.newBattles];
 
-  if (autoCombatResult.newBattles.length > 0) {
-    currentActiveBattles = [...currentActiveBattles, ...autoCombatResult.newBattles];
-    for (const newBattle of autoCombatResult.newBattles) {
-      const province = provinces.find(pr => pr.id === newBattle.provinceId);
+  // Atualiza o ref e o state de uma vez
+  activeBattlesRef.current = currentActiveBattles;
+  setActiveBattles(currentActiveBattles);
+
+  // Logs
+  for (const newBattle of autoCombatResult.newBattles) {
+    const province = provinces.find(pr => pr.id === newBattle.provinceId);
+    if (province) {
+      addLog(`⚔️ Batalha iniciada em ${province.name}! Duração: ${newBattle.daysTotal} dias`);
       const attacker = armies.find(a => a.id === newBattle.attackerArmyId);
-      const defender = armies.find(a => a.id === newBattle.defenderArmyId);
-      if (province && attacker && defender) {
-        addLog(`⚔️ Batalha iniciada em ${province.name}! Duração: ${newBattle.daysTotal} dias`);
-        if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
-          addToast(`Batalha iniciada em ${province.name}! ${newBattle.daysTotal} dias de combate.`, 'warning', 'Batalha Iniciada');
-        }
+      if (attacker && (attacker.owner === playerCountryTag || province.owner === playerCountryTag)) {
+        addToast(`Batalha em ${province.name}! ${newBattle.daysTotal} dias`, 'warning', 'Batalha Iniciada');
       }
     }
   }
 
-  if (autoCombatResult.reinforcementsAdded.length > 0) {
-    for (const reinforcement of autoCombatResult.reinforcementsAdded) {
-      const sideLabel = reinforcement.side === 'attacker' ? 'atacante' : 'defensor';
-      addLog(`⚔️ Reforço: ${reinforcement.armyOwner} enviou ${reinforcement.troops} tropas para ${reinforcement.provinceName} (lado ${sideLabel})`);
-      if (reinforcement.armyOwner === playerCountryTag) {
-        addToast(`Exército entrou como reforço em ${reinforcement.provinceName}! (+${reinforcement.troops} tropas)`, 'info', 'Reforço Adicionado');
-      }
-    }
+  for (const r of autoCombatResult.reinforcementsAdded) {
+    addLog(`⚔️ Reforço: ${r.armyOwner} +${r.troops} em ${r.provinceName}`);
   }
 
   return { armies, provinces, countries, currentActiveBattles, recruitments, buildingConstructions };

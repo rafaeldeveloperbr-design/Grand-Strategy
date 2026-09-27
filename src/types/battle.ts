@@ -37,6 +37,9 @@ export interface ActiveBattle {
   attackerInitialSnapshot?: Army;
   /** Snapshot inicial completo do defensor (ANTES do combate) */
   defenderInitialSnapshot?: Army;
+
+  shouldRetreatAttacker?: boolean
+  shouldRetreatDefender?: boolean
 }
 
 

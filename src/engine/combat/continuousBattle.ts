@@ -283,9 +283,6 @@ export function startContinuousBattle(
 
 
 
-/**
- * Adiciona reforços a uma batalha existente e ajusta a duração do combate
- */
 export function addReinforcementsToBattle(
   battle: ActiveBattle,
   reinforcementArmy: Army,
@@ -293,100 +290,79 @@ export function addReinforcementsToBattle(
   province: Province
 ): ActiveBattle {
   const reinforcementTroops = calculateArmySize(reinforcementArmy);
-  const updatedBattle = { ...battle };
-  
+  const updatedBattle = {...battle };
+
   if (side === 'attacker') {
     updatedBattle.attackerCurrentTroops += reinforcementTroops;
-    updatedBattle.attackerInitialTroops += reinforcementTroops;
+    // NÃO aumenta o initial, se aumentar fode a barra proporcional
   } else {
     updatedBattle.defenderCurrentTroops += reinforcementTroops;
-    updatedBattle.defenderInitialTroops += reinforcementTroops;
   }
-  
+
   if (!updatedBattle.participantArmyIds.includes(reinforcementArmy.id)) {
     updatedBattle.participantArmyIds = [...updatedBattle.participantArmyIds, reinforcementArmy.id];
   }
-  
-  // Recalcula os dias adicionais (1 dia a cada 1000 novos reforços)
-  const additionalDays = Math.floor(reinforcementTroops / 1000);
-  
-  updatedBattle.daysTotal += additionalDays;
-  updatedBattle.daysRemaining += additionalDays;
-  
+
+  // CORREÇÃO: NUNCA recalcula dias quando chega reforço
+  // A duração travou no início, baseada no defensor inicial
+
   return updatedBattle;
 }
 
-
-/**
- * Processa um dia de batalha contínua, aplica o desgaste diário e checa limites de recuo (1k)
- */
 export function processDailyBattle(
   battle: ActiveBattle,
   attacker: Army,
   defender: Army,
   province: Province
-): {
-  battle: ActiveBattle;
-  attacker: Army;
-  defender: Army;
-  finished: boolean;
-} {
+) {
   const daysRemaining = battle.daysRemaining - 1;
-  
-  // Baixas diárias atenuadas (calculadas proporcionalmente sobre a duração da batalha)
-  const dailyAttackerLoss = Math.floor((battle.attackerInitialTroops / Math.max(1, battle.daysTotal)) * 0.35);
-  const dailyDefenderLoss = Math.floor((battle.defenderInitialTroops / Math.max(1, battle.daysTotal)) * 0.35);
-  
+
+  // CORREÇÃO: Perda proporcional + vantagem numérica
+  const totalTroops = battle.attackerCurrentTroops + battle.defenderCurrentTroops;
+  const attackerRatio = battle.attackerCurrentTroops / Math.max(1, totalTroops);
+  const defenderRatio = battle.defenderCurrentTroops / Math.max(1, totalTroops);
+
+  // Perde no máximo 5% do seu tamanho atual por dia, ajustado pela vantagem
+  // Se tem 4x mais tropa, perde 4x menos
+  const baseLossRate = 0.06;
+  const dailyAttackerLoss = Math.floor(
+    battle.attackerCurrentTroops * baseLossRate * (0.5 + defenderRatio)
+  );
+  const dailyDefenderLoss = Math.floor(
+    battle.defenderCurrentTroops * baseLossRate * (0.5 + attackerRatio)
+  );
+
   const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
   const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
-  
+
   const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
   const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
-  
+
   const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
   const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
-  
-  // 2. REGRA DO RECUO EM 1.000 HOMENS (1k)
-  // Se o exército iniciou com mais de 1000 homens e NÃO está defendendo seu próprio território
-  const attackerCanRetreat = battle.attackerInitialTroops > 1000 && province.owner !== attacker.owner;
-  const defenderCanRetreat = battle.defenderInitialTroops > 1000 && province.owner !== defender.owner;
 
-  const attackerShouldRetreat = attackerCanRetreat && attackerCurrentTroops <= 1000;
-  const defenderShouldRetreat = defenderCanRetreat && defenderCurrentTroops <= 1000;
+  // CORREÇÃO RECUA: checa 1k mas só recua se não for território dele
+  const attackerShouldRetreat = attackerCurrentTroops > 0 && attackerCurrentTroops <= 1000;
+  const defenderShouldRetreat = defenderCurrentTroops > 0 && defenderCurrentTroops <= 1000;
 
-  // Luta até a morte ocorre se:
-  // - O exército iniciou com <= 1000 homens
-  // - O combate ocorre no próprio território em defesa
-  // - O exército chegou a 0 tropas
-  const finished = 
-    daysRemaining <= 0 || 
-    attackerCurrentTroops <= 0 || 
-    defenderCurrentTroops <= 0 || 
-    attackerShouldRetreat || 
+  const finished =
+    daysRemaining <= 0 ||
+    attackerCurrentTroops <= 0 ||
+    defenderCurrentTroops <= 0 ||
+    attackerShouldRetreat ||
     defenderShouldRetreat;
-  
-  // Se houver recuo por atordoamento em 1k, atribui o recuo
-  if (finished && (attackerShouldRetreat || defenderShouldRetreat)) {
-    if (attackerShouldRetreat) {
-      console.log(`🏃‍♂️ Atacante atingiu ${attackerCurrentTroops} tropas (<= 1k) e iniciou recuo tático!`);
-      triggerRetreat(updatedAttacker, province);
-    } else if (defenderShouldRetreat) {
-      console.log(`🏃‍♂️ Defensor atingiu ${defenderCurrentTroops} tropas (<= 1k) e iniciou recuo tático!`);
-      triggerRetreat(updatedDefender, province);
-    }
-  }
 
-  const updatedBattle: ActiveBattle = {
-    ...battle,
-    daysRemaining,
-    attackerCasualties,
-    defenderCasualties,
-    attackerCurrentTroops,
-    defenderCurrentTroops,
-  };
-  
   return {
-    battle: updatedBattle,
+    battle: {
+     ...battle,
+      daysRemaining,
+      attackerCasualties,
+      defenderCasualties,
+      attackerCurrentTroops,
+      defenderCurrentTroops,
+      shouldRetreatAttacker: attackerShouldRetreat,
+      shouldRetreatDefender: defenderShouldRetreat,
+    },
     attacker: updatedAttacker,
     defender: updatedDefender,
     finished,

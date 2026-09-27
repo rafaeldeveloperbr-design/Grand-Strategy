@@ -8,6 +8,7 @@ import { applyConquestUnrest } from '../../engine/unrest';
 import { applyStabilityPrestigeChanges } from '../../engine/stability';
 import type { Army, Province, Country, War, ActiveBattle, CombatResult, Recruitment, BuildingConstruction } from '../../types';
 import type { GameDate } from '../../types/date';
+import { calculateArmySize, applyTroopLoss } from '../../engine/combat/combatCalculations';
 
 type Params = {
   armies: Army[];
@@ -44,14 +45,23 @@ export function processBattleContinuous(p: Params) {
     const defender = armies.find(a => a.id === battle.defenderArmyId);
 
     if (!province || !attacker || !defender) {
+      stillActiveBattles.push(battle); // não apaga se não achar
       continue;
     }
 
     const result = processDailyBattle(battle, attacker, defender, province);
 
+    // CORREÇÃO: Atualiza todos os participantes com baixa proporcional
+    // O processDailyBattle já atualizou attacker/defender principais
+    // Reforços perdem proporcional também
     armies = armies.map(a => {
       if (a.id === attacker.id) return result.attacker;
       if (a.id === defender.id) return result.defender;
+      if (battle.participantArmyIds.includes(a.id)) {
+        // Reforço perde 6% também por dia
+        const dailyLoss = Math.floor(calculateArmySize(a) * 0.06);
+        return applyTroopLoss(a, dailyLoss);
+      }
       return a;
     });
 
@@ -62,7 +72,10 @@ export function processBattleContinuous(p: Params) {
     }
   }
 
+  // Atualiza batalhas ativas antes de finalizar
   currentActiveBattles = stillActiveBattles;
+  activeBattlesRef.current = currentActiveBattles;
+  setActiveBattles(currentActiveBattles);
 
   for (const finishedBattle of finishedBattles) {
     const province = provinces.find(pr => pr.id === finishedBattle.provinceId);
@@ -71,116 +84,57 @@ export function processBattleContinuous(p: Params) {
 
     if (!province || !attacker || !defender) continue;
 
-    const { result: finalResult } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies);
+    // finalizeBattle já libera TODO MUNDO, inclusive o 15k
+    const { result: finalResult, updatedArmies } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies);
 
-    const winnerSide = finalResult.winner;
-    const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
-    const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
+    // USA O updatedArmies QUE VEM DO FINALIZER, não cria outro
+    armies = updatedArmies;
 
-    // 🔴 CORREÇÃO DA DESSINCRONIZAÇÃO: Usa os exércitos retornados em finalResult
-    const finalAttackerArmy = { ...finalResult.attacker, inCombat: false };
-    const finalDefenderArmy = { ...finalResult.defender, inCombat: false };
+    // Conquista de território só se não tem mais defensores
+    const remainingDefenders = armies.filter(a => 
+      a.location === province.id && 
+      a.owner === defender.owner && 
+      !a.inCombat &&
+      calculateArmySize(a) > 0
+    );
 
-    const updatedArmiesList = armies.map(army => {
-      // Atualiza o Atacante com as tropas finais do combate
-      if (army.id === finalAttackerArmy.id) {
-        const hasTroops = finalAttackerArmy.regiments.length > 0 && finalAttackerArmy.regiments.some(r => r.strength > 0);
-        if (!hasTroops) return null;
+    if (finalResult.winner === 'attacker' && remainingDefenders.length === 0) {
+      const oldOwner = province.owner;
+      const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
+      const newProvinceOwner = rebelReturnOwner || attacker.owner;
 
-        if (finalAttackerArmy.owner === loserCountry) {
-          const retreatProvince = findRetreatProvince(finalAttackerArmy.owner, province, provinces);
-          return retreatProvince ? { ...finalAttackerArmy, location: retreatProvince.id } : null;
+      provinces = provinces.map(pr => {
+        if (pr.id === province.id) {
+          const isLiberation = !!rebelReturnOwner;
+          const conqueredProvince = isLiberation ? { ...pr, owner: newProvinceOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newProvinceOwner }, snapshot.date);
+          return { ...conqueredProvince, originalOwner: conqueredProvince.originalOwner || oldOwner };
         }
-        return finalAttackerArmy;
-      }
+        return pr;
+      });
 
-      // Atualiza o Defensor com as tropas finais do combate
-      if (army.id === finalDefenderArmy.id) {
-        const hasTroops = finalDefenderArmy.regiments.length > 0 && finalDefenderArmy.regiments.some(r => r.strength > 0);
-        if (!hasTroops) return null;
+      countries = countries.map(c => {
+        if (c.tag === newProvinceOwner) return { ...c, provinces: [...c.provinces, province.id] };
+        if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+        return c;
+      });
 
-        if (finalDefenderArmy.owner === loserCountry) {
-          const retreatProvince = findRetreatProvince(finalDefenderArmy.owner, province, provinces);
-          return retreatProvince ? { ...finalDefenderArmy, location: retreatProvince.id } : null;
-        }
-        return finalDefenderArmy;
-      }
+      const cancelResult = cancelProvinceActivities(province.id, oldOwner, attacker.owner, recruitments, buildingConstructions, provinces);
+      recruitments = cancelResult.recruitments;
+      buildingConstructions = cancelResult.constructions;
+      provinces = cancelResult.provinces;
 
-      return army;
-    }).filter(Boolean) as Army[];
-
-    armies = updatedArmiesList;
-    setArmies(updatedArmiesList);
-
-    wars = wars.map(w => {
-      if ((w.attacker === attacker.owner && w.defender === defender.owner) ||
-          (w.defender === attacker.owner && w.attacker === defender.owner)) {
-        const isAttacker = w.attacker === attacker.owner;
-        return {
-          ...w,
-          attackerCasualties: w.attackerCasualties + (isAttacker ? finalResult.attackerCasualties : finalResult.defenderCasualties),
-          defenderCasualties: w.defenderCasualties + (isAttacker ? finalResult.defenderCasualties : finalResult.attackerCasualties)
-        };
-      }
-      return w;
-    });
-
-    if (finalResult.winner === 'attacker') {
-      const remainingDefenders = armies.filter(a => a.location === province.id && a.owner === defender.owner && !a.inCombat);
-
-      if (remainingDefenders.length === 0) {
-        const oldOwner = province.owner;
-        const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
-        const newProvinceOwner = rebelReturnOwner || attacker.owner;
-
-        provinces = provinces.map(pr => {
-          if (pr.id === province.id) {
-            const isLiberation = !!rebelReturnOwner;
-            const conqueredProvince = isLiberation ? { ...pr, owner: newProvinceOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newProvinceOwner }, snapshot.date);
-            return { ...conqueredProvince, originalOwner: conqueredProvince.originalOwner || oldOwner };
-          }
-          return pr;
-        });
-
-        countries = countries.map(c => {
-          if (c.tag === newProvinceOwner) return { ...c, provinces: [...c.provinces, province.id] };
-          if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
-          return c;
-        });
-
-        const cancelResult = cancelProvinceActivities(province.id, oldOwner, attacker.owner, recruitments, buildingConstructions, provinces);
-        recruitments = cancelResult.recruitments;
-        buildingConstructions = cancelResult.constructions;
-        provinces = cancelResult.provinces;
-
-        const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner } as any;
-        if (rebelReturnOwner) {
-          const countryName = allCountries.find(c => c.tag === rebelReturnOwner)?.name || rebelReturnOwner;
-          addLog(`🏴 Rebeldes libertaram ${province.name}! Devolvida a ${countryName}!`);
-        } else {
-          addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
-        }
-        setBattleHistory((prev: any) => [updatedFinalResult, ...prev]);
-        if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
-          setBattleReport(updatedFinalResult);
-          setIsPaused(true);
-        }
-      } else {
-        const updatedFinalResult = { ...finalResult, territoryChanged: false } as any;
-        addLog(`🛡️ ${attacker.owner} venceu a batalha, mas ${defender.owner} ainda defende ${province.name}!`);
-        setBattleHistory((prev: any) => [updatedFinalResult, ...prev]);
-        if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
-          setBattleReport(updatedFinalResult);
-          setIsPaused(true);
-        }
+      const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner } as any;
+      addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
+      setBattleHistory((prev: any) => [updatedFinalResult, ...prev]);
+      if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
+        setBattleReport(updatedFinalResult);
+        setIsPaused(true);
       }
     } else {
-      addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
-      const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
-      if (retreatProvince && finalResult.attacker.regiments.length > 0) {
-        addLog(`🏃 ${attacker.owner} recuou para ${retreatProvince.name}`);
+      if (finalResult.winner === 'defender') {
+        addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
       } else {
-        addLog(`💀 ${attacker.owner} aniquilado em ${province.name}`);
+        addLog(`🛡️ ${attacker.owner} venceu, mas ${defender.owner} ainda tem tropas em ${province.name}!`);
       }
       setBattleHistory((prev: any) => [finalResult, ...prev]);
       if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
@@ -189,21 +143,17 @@ export function processBattleContinuous(p: Params) {
       }
     }
 
+    // Estabilidade
+    const winnerCountry = finalResult.winner === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
+    const loserCountry = finalResult.winner === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
     countries = countries.map(c => {
       if (c.tag === winnerCountry) return applyStabilityPrestigeChanges(c, 0, 2);
       if (c.tag === loserCountry) return applyStabilityPrestigeChanges(c, 0, -3);
       return c;
     });
-
-    if (finalResult.territoryChanged) {
-      countries = countries.map(c => {
-        if (c.tag === winnerCountry) return applyStabilityPrestigeChanges(c, 2, 5);
-        if (c.tag === loserCountry) return applyStabilityPrestigeChanges(c, -5, -5);
-        return c;
-      });
-    }
   }
 
+  setArmies(armies);
   setActiveBattles(currentActiveBattles);
   activeBattlesRef.current = currentActiveBattles;
 

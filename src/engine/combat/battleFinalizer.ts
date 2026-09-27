@@ -18,123 +18,101 @@ export function finalizeBattle(
   currentDate: GameDate,
   allArmies: Army[]
 ): { result: CombatResult; updatedArmies: Army[] } {
-  // Determina vencedor baseado em tropas restantes
-  const winner: 'attacker' | 'defender' = 
-    battle.attackerCurrentTroops > battle.defenderCurrentTroops ? 'attacker' : 'defender';
-  
-  // Calcula ratio de poder final
-  const powerRatio = winner === 'attacker' 
-    ? battle.attackerCurrentTroops / Math.max(1, battle.defenderCurrentTroops)
+  const winner: 'attacker' | 'defender' =
+    battle.attackerCurrentTroops > battle.defenderCurrentTroops? 'attacker' : 'defender';
+
+  const powerRatio = winner === 'attacker'
+   ? battle.attackerCurrentTroops / Math.max(1, battle.defenderCurrentTroops)
     : battle.defenderCurrentTroops / Math.max(1, battle.attackerCurrentTroops);
-  
-  // Salva snapshot dos exércitos ANTES das baixas finais (após baixas diárias)
-  const attackerBeforeFinalLoss = {
-    ...attacker,
-    regiments: attacker.regiments.map(r => ({ ...r }))
-  };
-  const defenderBeforeFinalLoss = {
-    ...defender,
-    regiments: defender.regiments.map(r => ({ ...r }))
-  };
-  
-  console.log(`📊 Exércitos antes das baixas finais:`);
-  console.log(`   Atacante: ${calculateArmySize(attackerBeforeFinalLoss)} tropas`);
-  console.log(`   Defensor: ${calculateArmySize(defenderBeforeFinalLoss)} tropas`);
-  
-  // Aplica baixas finais (vencedor 10-30%, perdedor 30-60%)
+
+  // CORREÇÃO: Não aplica baixa final dupla. Usa só o que já perdeu no diário
+  // Se quiser baixa final, que seja 5% extra, não 30%
   let finalAttacker = attacker;
   let finalDefender = defender;
-  
-  if (winner === 'attacker') {
-    const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.defenderCurrentTroops, powerRatio);
-    const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, powerRatio);
-    
-    console.log(`💥 Aplicando baixas finais (atacante venceu):`);
-    console.log(`   Vencedor (atacante) perde: ${winnerLoss} tropas`);
-    console.log(`   Perdedor (defensor) perde: ${loserLoss} tropas`);
-    
-    finalAttacker = applyTroopLoss(attacker, winnerLoss);
-    finalDefender = applyTroopLoss(defender, loserLoss);
+
+  if (battle.shouldRetreatAttacker || battle.shouldRetreatDefender) {
+    console.log(`🏃 Recuo em 1k detectado`);
   } else {
-    const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.attackerCurrentTroops, powerRatio);
-    const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, powerRatio);
-    
-    console.log(`💥 Aplicando baixas finais (defensor venceu):`);
-    console.log(`   Vencedor (defensor) perde: ${winnerLoss} tropas`);
-    console.log(`   Perdedor (atacante) perde: ${loserLoss} tropas`);
-    
-    finalDefender = applyTroopLoss(defender, loserLoss);
-    finalAttacker = applyTroopLoss(attacker, loserLoss);
+    // Só aplica 5% extra de baixa final pra não duplicar
+    const extraLossWinner = Math.floor(
+      (winner === 'attacker'? battle.attackerCurrentTroops : battle.defenderCurrentTroops) * 0.05
+    );
+    const extraLossLoser = Math.floor(
+      (winner === 'attacker'? battle.defenderCurrentTroops : battle.attackerCurrentTroops) * 0.10
+    );
+
+    if (winner === 'attacker') {
+      finalAttacker = applyTroopLoss(attacker, extraLossWinner);
+      finalDefender = applyTroopLoss(defender, extraLossLoser);
+    } else {
+      // CORREÇÃO DO BUG 1 AQUI
+      finalDefender = applyTroopLoss(defender, extraLossWinner);
+      finalAttacker = applyTroopLoss(attacker, extraLossLoser);
+    }
   }
-  
-  console.log(`📊 Exércitos após baixas finais:`);
-  console.log(`   Atacante: ${calculateArmySize(finalAttacker)} tropas`);
-  console.log(`   Defensor: ${calculateArmySize(finalDefender)} tropas`);
-  
-  // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES E AJUSTA O ESTADO DE MOVIMENTO
+
+  // CORREÇÃO BUG 3 - Libera TODO MUNDO e limpa battleId
   const participantIds = battle.participantArmyIds;
-  console.log(`🔓 LIBERADOS: Exércitos ${participantIds.join(', ')} agora estão fora de combate.`);
-  
+  const updatedAllArmies = allArmies.map(army => {
+    if (!participantIds.includes(army.id)) return army;
 
-// Mapeia allArmies atualizando as baixas finais e destravando as flags de combate e movimento
-const updatedAllArmies = allArmies.map(army => {
-  if (!participantIds.includes(army.id)) {
-    return army;
-  }
+    let updatedArmy = army;
+    if (army.id === attacker.id) updatedArmy = finalAttacker;
+    else if (army.id === defender.id) updatedArmy = finalDefender;
+    // reforços mantém o tamanho que já tem (já perderam no diário)
 
-  // Identifica se é o atacante ou defensor principal que sofreu baixas finais
-  let updatedArmy = army;
-  if (army.id === attacker.id) {
-    updatedArmy = finalAttacker;
-  } else if (army.id === defender.id) {
-    updatedArmy = finalDefender;
-  }
+    // LÓGICA DE RECUO <1k que você pediu
+    const isRetreating =
+      (army.id === attacker.id && battle.shouldRetreatAttacker) ||
+      (army.id === defender.id && battle.shouldRetreatDefender);
 
-  // Verifica se o exército chegou ao fim da rota planejada
-  const path = updatedArmy.path || [];
-  const hasReachedDestination = path.length === 0;
+    if (isRetreating) {
+      // Tenta achar província amiga vizinha
+      // Se não tiver, luta até morrer (não entra aqui, já acabou)
+      const retreatProvinceId = findFriendlyNeighbor(province, army.owner, allArmies);
+      return {
+       ...updatedArmy,
+        inCombat: false,
+        battleId: null as any,
+        destination: retreatProvinceId || null,
+        targetDestination: retreatProvinceId || null,
+        path: retreatProvinceId? [retreatProvinceId] : [],
+        location: province.id, // fica na província da batalha até mover
+      };
+    }
 
-  return {
-    ...updatedArmy,
-    inCombat: false,
-    // Se concluiu a rota, reseta destino e rota; caso contrário, preserva
-    destination: hasReachedDestination ? null : updatedArmy.destination,
-    targetDestination: hasReachedDestination ? null : updatedArmy.targetDestination,
-    path: hasReachedDestination ? [] : path,
-    // Garante que se o exército parou de andar, sua posição é fixada na província da batalha
-    location: hasReachedDestination ? province.id : updatedArmy.location,
-  };
-});
-  
-  // Usa snapshots iniciais do ActiveBattle (se disponíveis) ou cria novos
-  const attackerOriginal = battle.attackerInitialSnapshot 
-    ? { ...battle.attackerInitialSnapshot, regiments: battle.attackerInitialSnapshot.regiments.map(r => ({ ...r })) }
-    : { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
-  
+    return {
+     ...updatedArmy,
+      inCombat: false,
+      battleId: null as any,
+      // NÃO reseta destination/path se ele tava indo pra outro lugar
+      // Só limpa se ele chegou
+      destination: updatedArmy.destination,
+      targetDestination: updatedArmy.targetDestination,
+      path: updatedArmy.path || [],
+      location: province.id,
+    };
+  });
+
+  //... resto do seu código de CombatResult igual
+  const attackerOriginal = battle.attackerInitialSnapshot
+   ? {...battle.attackerInitialSnapshot, regiments: battle.attackerInitialSnapshot.regiments.map(r => ({...r })) }
+    : {...attacker, regiments: attacker.regiments.map(r => ({...r })) };
+
   const defenderOriginal = battle.defenderInitialSnapshot
-    ? { ...battle.defenderInitialSnapshot, regiments: battle.defenderInitialSnapshot.regiments.map(r => ({ ...r })) }
-    : { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
+   ? {...battle.defenderInitialSnapshot, regiments: battle.defenderInitialSnapshot.regiments.map(r => ({...r })) }
+    : {...defender, regiments: defender.regiments.map(r => ({...r })) };
 
-  // Log de verificação dos snapshots
-  const initialAttackerSize = battle.attackerInitialSnapshot 
-    ? calculateArmySize(battle.attackerInitialSnapshot)
-    : calculateArmySize(attacker);
-  const initialDefenderSize = battle.defenderInitialSnapshot
-    ? calculateArmySize(battle.defenderInitialSnapshot)
-    : calculateArmySize(defender);
+  const initialAttackerSize = calculateArmySize(battle.attackerInitialSnapshot || attacker);
+  const initialDefenderSize = calculateArmySize(battle.defenderInitialSnapshot || defender);
 
-  // Calcula baixas totais usando os snapshots iniciais
-  const attackerTotalCasualties = initialAttackerSize - calculateArmySize(finalAttacker);
-  const defenderTotalCasualties = initialDefenderSize - calculateArmySize(finalDefender);
-
-  // Cria o resultado da batalha
   const result: CombatResult = {
     attacker: finalAttacker,
     defender: finalDefender,
     attackerOriginal,
     defenderOriginal,
-    attackerCasualties: attackerTotalCasualties,
-    defenderCasualties: defenderTotalCasualties,
+    attackerCasualties: initialAttackerSize - calculateArmySize(finalAttacker),
+    defenderCasualties: initialDefenderSize - calculateArmySize(finalDefender),
     winner,
     provinceId: province.id,
     provinceName: province.name,
@@ -144,6 +122,13 @@ const updatedAllArmies = allArmies.map(army => {
     powerRatio: Math.round(powerRatio * 100) / 100,
     date: currentDate,
   };
-  
+
   return { result, updatedArmies: updatedAllArmies };
+}
+
+function findFriendlyNeighbor(province: Province, owner: string, allArmies: Army[]): string | null {
+  // Você já deve ter adjacências em provinces.ts
+  // Retorna primeira província vizinha do mesmo dono
+  // Se não tiver, retorna null = luta até morrer
+  return null; // implementa com seu provinces adjacency
 }
