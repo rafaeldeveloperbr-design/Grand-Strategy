@@ -39,7 +39,7 @@ export function checkAllProvinceCombats(
     provinceName: string;
   }> = [];
 
-  console.log('⚔️ checkAllProvinceCombats: verificando', provinces.length, 'províncias');
+  //console.log('⚔️ checkAllProvinceCombats: verificando', provinces.length, 'províncias');
 
   // Percorre todas as províncias
   for (const province of provinces) {
@@ -214,9 +214,9 @@ export function checkAllProvinceCombats(
     }
   }
 
-  console.log('⚔️ checkAllProvinceCombats:', newBattles.length, 'novas batalhas iniciadas');
+  //console.log('⚔️ checkAllProvinceCombats:', newBattles.length, 'novas batalhas iniciadas');
   if (reinforcementsAdded.length > 0) {
-    console.log('⚔️ checkAllProvinceCombats:', reinforcementsAdded.length, 'reforços adicionados');
+    //console.log('⚔️ checkAllProvinceCombats:', reinforcementsAdded.length, 'reforços adicionados');
   }
 
   return { armies: updatedArmies, newBattles, updatedBattles, reinforcementsAdded };

@@ -85,7 +85,7 @@ export function processBattleContinuous(p: Params) {
     if (!province || !attacker || !defender) continue;
 
     // finalizeBattle já libera TODO MUNDO, inclusive o 15k
-    const { result: finalResult, updatedArmies } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies);
+    const { result: finalResult, updatedArmies } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies, provinces, countries)
 
     // USA O updatedArmies QUE VEM DO FINALIZER, não cria outro
     armies = updatedArmies;
