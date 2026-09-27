@@ -2,7 +2,6 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
 393      333      src\engine\combat\continuousBattle.ts  <-- QUEBRAR!
 334      276      src\engine\military\movementEngine.ts  <-- QUEBRAR!
@@ -32,8 +31,10 @@ LINHAS   CÓDIGO   ARQUIVO
 158      131      src\engine\aiEngine\aiMovement.ts
 157      137      src\engine\rebellions\rebelAccumulation.ts
 155      142      src\components\GovernmentModal.tsx
+155      140      src\components\ProvincePanel\ProvincePanel.tsx
 155      133      src\engine\combat\combatRetreats.ts
 153      123      src\engine\aiEngine\aiHelpers.ts
+151      144      src\components\ProvincePanel\ProvinceInfoTab.tsx
 149      144      src\data\buildings.ts
 149      129      src\engine\gameConditions.ts
 148      121      src\engine\combat\battleFinalizer.ts
@@ -44,6 +45,7 @@ LINHAS   CÓDIGO   ARQUIVO
 130      116      src\components\GameMap\ArmyMovementLayer.tsx
 127      115      src\hooks\app\useArmyActions.ts
 126      120      src\constants\laws.ts
+118      110      src\components\ProvincePanel\ProvinceSidebar.tsx
 118      113      src\types\province.ts
 116      100      src\engine\military\recruitmentEngine.ts
 116      102      src\hooks\gameLoop\economyTick.ts
@@ -51,6 +53,7 @@ LINHAS   CÓDIGO   ARQUIVO
 114      95       src\hooks\useGameLoop.ts
 112      102      src\hooks\gameLoop\aiTick.ts
 110      100      src\components\BattleHistoryModal.tsx
+103      99       src\components\ProvincePanel\ProvinceMilitaryTab.tsx
 103      88       src\context\ToastContext.tsx
 103      100      src\data\units.ts
 100      96       src\data\countries.ts
@@ -59,6 +62,7 @@ LINHAS   CÓDIGO   ARQUIVO
 94       87       src\hooks\gameLoop\rebelTick.ts
 92       79       src\engine\military\militaryUtils.ts
 86       79       src\hooks\gameLoop\diplomacyTechTick.ts
+81       77       src\components\ProvincePanel\ProvinceBuildingsTab.tsx
 77       71       src\types\technology.ts
 72       66       src\hooks\app\useEconomyActions.ts
 70       62       src\hooks\gameLoop\unrestTick.ts
@@ -85,6 +89,7 @@ LINHAS   CÓDIGO   ARQUIVO
 25       22       src\types\toast.ts
 17       15       src\types\aiLog.ts
 15       14       vite.config.js
+9        8        src\components\ProvincePanel\index.tsx
 8        8        src\types\date.ts
 6        5        src\main.tsx
 6        6        src\engine\combat\index.ts
@@ -96,47 +101,6 @@ LINHAS   CÓDIGO   ARQUIVO
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\components\ProvincePanel.tsx | Total: 509 | Código: 481 | Vazias: 28
-================================================================================
-L  27 | [Interface/Type/Enum] interface ProvincePanelProps {
-L  42 | [Interface/Type/Enum] type PanelTab = 'info' | 'buildings' | 'military';
-L  47 | [Const Component  ] export const ProvincePanel: React.FC<ProvincePanelProps> = ({
-L  62 | [Const            ] const ownerCountry = getCountryByTag(province.owner);
-L  63 | [Const            ] const isPlayerOwned = province.owner === playerCountry.tag;
-L  66 | [Const            ] const armiesHere = armies.filter(a => a.location === province.id);
-L  68 | [Const            ] const recruitmentsHere = recruitments.filter(r => r.provinceId === province.id);
-L  70 | [Const            ] const getBuildingLevel = (type: BuildingType): number => {
-L  71 | [Const            ] const building = province.buildings.find((b) => b.type === type);
-L  75 | [Const            ] const neighborProvinces = province.neighbors.map((nId) => {
-L  76 | [Const            ] const allProvinces = countries.flatMap((c) =>
-L  79 | [Const            ] const neighborData = allProvinces.find((p) => p.id === nId);
-L  80 | [Const            ] const neighborCountry = neighborData ? getCountryByTag(neighborData.owner) : undefined;
-L  85 | [Const            ] const provinceConstructions = buildingConstructions.filter(
-L  88 | [Const            ] const hasActivities = provinceConstructions.length > 0 || recruitmentsHere.length > 0;
-L 171 | [Const            ] const unrest = province.unrest ?? 0;
-L 172 | [Const            ] const isPacified = isProvincePacified(province);
-L 222 | [Const            ] const armyCountry = getCountryByTag(army.owner);
-L 265 | [Const            ] const def = BUILDING_DEFINITIONS[type];
-L 266 | [Const            ] const currentLevel = getBuildingLevel(type);
-L 267 | [Const            ] const canBuild = canBuildBuilding(type, currentLevel);
-L 268 | [Const            ] const cost = getBuildingCost(type, currentLevel);
-L 269 | [Const            ] const buildTime = getBuildingTime(type, currentLevel);
-L 270 | [Const            ] const canAfford = playerCountry.resources.gold >= cost;
-L 271 | [Const            ] const cantBuildReason = !canBuild
-L 323 | [Const            ] const armyCountry = getCountryByTag(army.owner);
-L 356 | [Const            ] const def = UNIT_DEFINITIONS[type];
-L 357 | [Const            ] const canAffordGold = playerCountry.resources.gold >= def.cost;
-L 358 | [Const            ] const canAffordManpower = playerCountry.resources.manpower >= def.manpowerCost;
-L 359 | [Const            ] const canRecruit = canAffordGold && canAffordManpower;
-L 360 | [Const            ] const cantRecruitReason = !canAffordGold
-L 425 | [Const            ] const def = BUILDING_DEFINITIONS[item.buildingType];
-L 426 | [Const            ] const progress = ((item.totalDays - item.daysRemaining) / item.totalDays) * 100;
-L 427 | [Const            ] const isActive = idx === 0;
-L 469 | [Const            ] const def = UNIT_DEFINITIONS[rec.unitType];
-L 470 | [Const            ] const totalTime = def.trainingTime;
-L 471 | [Const            ] const progress = ((totalTime - rec.daysRemaining) / totalTime) * 100;
 
 ================================================================================
 FILE: src\data\technologies.ts | Total: 492 | Código: 481 | Vazias: 11
@@ -887,6 +851,22 @@ L 105 | [Const            ] const canAfford = playerCountry.resources.gold >= la
 L 106 | [Const            ] const bonuses = renderBonuses(law);
 
 ================================================================================
+FILE: src\components\ProvincePanel\ProvincePanel.tsx | Total: 155 | Código: 140 | Vazias: 15
+================================================================================
+L  10 | [Interface/Type/Enum] export interface ProvincePanelProps {
+L  25 | [Interface/Type/Enum] type PanelTab = 'info' | 'buildings' | 'military';
+L  27 | [Const Component  ] export const ProvincePanel: React.FC<ProvincePanelProps> = ({
+L  42 | [Const            ] const ownerCountry = getCountryByTag(province.owner);
+L  43 | [Const            ] const isPlayerOwned = province.owner === playerCountry.tag;
+L  45 | [Const            ] const armiesHere = armies.filter((a) => a.location === province.id);
+L  46 | [Const            ] const recruitmentsHere = recruitments.filter((r) => r.provinceId === province.id);
+L  48 | [Const            ] const neighborProvinces = province.neighbors.map((nId) => {
+L  49 | [Const            ] const allProvinces = countries.flatMap((c) =>
+L  52 | [Const            ] const neighborData = allProvinces.find((p) => p.id === nId);
+L  53 | [Const            ] const neighborCountry = neighborData ? getCountryByTag(neighborData.owner) : undefined;
+L  57 | [Const            ] const provinceConstructions = buildingConstructions.filter(
+
+================================================================================
 FILE: src\engine\combat\combatRetreats.ts | Total: 155 | Código: 133 | Vazias: 22
 ================================================================================
 L  10 | [Func             ] export function findRetreatProvince(
@@ -930,6 +910,14 @@ L 131 | [Func             ] export function findClosestHomeProvince(
 L 142 | [Const            ] const isBorder = isBorderProvince(homeProv.id, allProvinces, homeProv.owner);
 L 143 | [Const            ] const distance = calculateDistance(currentLocation, homeProv.id, allProvinces);
 L 144 | [Const            ] const adjustedDistance = isBorder ? distance * 0.8 : distance;
+
+================================================================================
+FILE: src\components\ProvincePanel\ProvinceInfoTab.tsx | Total: 151 | Código: 144 | Vazias: 7
+================================================================================
+L   6 | [Interface/Type/Enum] interface ProvinceInfoTabProps {
+L  17 | [Const Component  ] export const ProvinceInfoTab: React.FC<ProvinceInfoTabProps> = ({
+L  24 | [Const            ] const unrest = province.unrest ?? 0;
+L  25 | [Const            ] const isPacified = isProvincePacified(province);
 
 ================================================================================
 FILE: src\data\buildings.ts | Total: 149 | Código: 144 | Vazias: 5
@@ -1106,6 +1094,19 @@ L 116 | [Const            ] export const LAWS_BY_CATEGORY = {
 L 122 | [Const            ] export const DEFAULT_LAWS = {
 
 ================================================================================
+FILE: src\components\ProvincePanel\ProvinceSidebar.tsx | Total: 118 | Código: 110 | Vazias: 8
+================================================================================
+L   6 | [Interface/Type/Enum] interface ProvinceSidebarProps {
+L  13 | [Const Component  ] export const ProvinceSidebar: React.FC<ProvinceSidebarProps> = ({
+L  19 | [Const            ] const hasActivities = provinceConstructions.length > 0 || recruitmentsHere.length > 0;
+L  37 | [Const            ] const def = BUILDING_DEFINITIONS[item.buildingType];
+L  38 | [Const            ] const progress = ((item.totalDays - item.daysRemaining) / item.totalDays) * 100;
+L  39 | [Const            ] const isActive = idx === 0;
+L  83 | [Const            ] const def = UNIT_DEFINITIONS[rec.unitType];
+L  84 | [Const            ] const totalTime = def.trainingTime;
+L  85 | [Const            ] const progress = ((totalTime - rec.daysRemaining) / totalTime) * 100;
+
+================================================================================
 FILE: src\types\province.ts | Total: 118 | Código: 113 | Vazias: 5
 ================================================================================
 L   4 | [Interface/Type/Enum] export type BuildingType = 'farm' | 'market' | 'barracks' | 'fortification' | 'workshop' | 'temple' | 'port' | 'university';
@@ -1225,6 +1226,17 @@ L  50 | [Const            ] const defenderCountry = getCountryByTag(battle.defen
 L  51 | [Const            ] const playerWon =
 
 ================================================================================
+FILE: src\components\ProvincePanel\ProvinceMilitaryTab.tsx | Total: 103 | Código: 99 | Vazias: 4
+================================================================================
+L   6 | [Interface/Type/Enum] interface ProvinceMilitaryTabProps {
+L  13 | [Const Component  ] export const ProvinceMilitaryTab: React.FC<ProvinceMilitaryTabProps> = ({
+L  58 | [Const            ] const def = UNIT_DEFINITIONS[type];
+L  59 | [Const            ] const canAffordGold = playerCountry.resources.gold >= def.cost;
+L  60 | [Const            ] const canAffordManpower = playerCountry.resources.manpower >= def.manpowerCost;
+L  61 | [Const            ] const canRecruit = canAffordGold && canAffordManpower;
+L  62 | [Const            ] const cantRecruitReason = !canAffordGold
+
+================================================================================
 FILE: src\context\ToastContext.tsx | Total: 103 | Código: 88 | Vazias: 15
 ================================================================================
 L  11 | [Interface/Type/Enum] interface ToastContextType {
@@ -1317,6 +1329,21 @@ L  60 | [Const            ] const botTechResult = processDailyTechProgress(botTe
 L  63 | [Const            ] const dateString = formatGameDate(snapshot.date);
 L  80 | [Const            ] const attackerProvs = provinces.filter(pr => pr.owner === war.attacker).length;
 L  81 | [Const            ] const defenderProvs = provinces.filter(pr => pr.owner === war.defender).length;
+
+================================================================================
+FILE: src\components\ProvincePanel\ProvinceBuildingsTab.tsx | Total: 81 | Código: 77 | Vazias: 4
+================================================================================
+L  10 | [Interface/Type/Enum] interface ProvinceBuildingsTabProps {
+L  16 | [Const Component  ] export const ProvinceBuildingsTab: React.FC<ProvinceBuildingsTabProps> = ({
+L  21 | [Const            ] const getBuildingLevel = (type: BuildingType): number => {
+L  22 | [Const            ] const building = province.buildings.find((b) => b.type === type);
+L  31 | [Const            ] const def = BUILDING_DEFINITIONS[type];
+L  32 | [Const            ] const currentLevel = getBuildingLevel(type);
+L  33 | [Const            ] const canBuild = canBuildBuilding(type, currentLevel);
+L  34 | [Const            ] const cost = getBuildingCost(type, currentLevel);
+L  35 | [Const            ] const buildTime = getBuildingTime(type, currentLevel);
+L  36 | [Const            ] const canAfford = playerCountry.resources.gold >= cost;
+L  37 | [Const            ] const cantBuildReason = !canBuild
 
 ================================================================================
 FILE: src\types\technology.ts | Total: 77 | Código: 71 | Vazias: 6
@@ -1559,6 +1586,11 @@ L   9 | [Interface/Type/Enum] export interface AILogEntry {
 
 ================================================================================
 FILE: vite.config.js | Total: 15 | Código: 14 | Vazias: 1
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\components\ProvincePanel\index.tsx | Total: 9 | Código: 8 | Vazias: 1
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
 
