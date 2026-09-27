@@ -1,17 +1,7 @@
-/**
- * ============================================================
- * MÓDULO 3 - Componente de Marcador de Exército (v2)
- * ============================================================
- * Renderiza exércitos no mapa como marcadores visuais.
- * Suporte a:
- * - Offset visual para exércitos na mesma província
- * - Z-index dinâmico (hover/seleção eleva o marcador)
- * - Animações de movimento e seleção
- */
-
 import React from 'react';
 import { Army, Province, Country } from '../types';
 import { calculateArmySize } from '../engine/combat';
+import { formatArmySize } from '../utils/formatters';
 
 interface ArmyMarkerProps {
   army: Army;
@@ -42,10 +32,12 @@ export const ArmyMarker: React.FC<ArmyMarkerProps> = ({
   onHover,
 }) => {
   const effectiveTag = army.owner.startsWith('rebel_') && army.originalOwner 
-  ? army.originalOwner 
-  : army.owner;
-const country = countries.find(c => c.tag === effectiveTag);
-  const size = calculateArmySize(army);
+    ? army.originalOwner 
+    : army.owner;
+  const country = countries.find(c => c.tag === effectiveTag);
+  
+  // Recalcula dinamicamente a soma do exército atual no estado
+  const size = calculateArmySize(army); 
   
   // Determina posição base (se está em movimento, usa position; senão, centro da província)
   let baseX: number, baseY: number;
@@ -71,10 +63,12 @@ const country = countries.find(c => c.tag === effectiveTag);
   // Elevação visual: selected > hovered > normal
   const isElevated = isSelected || isHovered;
 
-  // Formata número de tropas (ex: 5000 -> 5k)
+  // Formata número de tropas garantindo 1 casa decimal (Ex: 8385 -> 8.4k, 15000 -> 15.0k)
   const formatSize = (n: number): string => {
-    if (n >= 10000) return `${(n / 1000).toFixed(0)}k`;
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    if (n >= 1000) {
+      const val = (n / 1000).toFixed(1);
+      return val.endsWith('.0') ? `${Math.floor(n / 1000)}k` : `${val}k`;
+    }
     return n.toString();
   };
 
@@ -138,7 +132,7 @@ const country = countries.find(c => c.tag === effectiveTag);
         dominantBaseline="middle"
         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
       >
-        {formatSize(size)}
+        {formatArmySize(size)}
       </text>
       
       {/* Indicador de movimento */}

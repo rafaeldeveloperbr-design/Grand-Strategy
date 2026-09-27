@@ -1,5 +1,5 @@
 /**
- * battleContinuousTick.ts - 280 linhas - PASSO 4.4
+ * battleContinuousTick.ts - PASSO 4.4
  * Processa batalhas contínuas ativas e finaliza batalhas
  */
 import { processDailyBattle, finalizeBattle, findRetreatProvince } from '../../engine/combat';
@@ -73,27 +73,39 @@ export function processBattleContinuous(p: Params) {
 
     const { result: finalResult } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies);
 
-    const participantIds = finishedBattle.participantArmyIds;
     const winnerSide = finalResult.winner;
     const winnerCountry = winnerSide === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
     const loserCountry = winnerSide === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
 
+    // 🔴 CORREÇÃO DA DESSINCRONIZAÇÃO: Usa os exércitos retornados em finalResult
+    const finalAttackerArmy = { ...finalResult.attacker, inCombat: false };
+    const finalDefenderArmy = { ...finalResult.defender, inCombat: false };
+
     const updatedArmiesList = armies.map(army => {
-      if (!participantIds.includes(army.id)) return army;
-      const hasTroops = army.regiments.length > 0 && army.regiments.some(r => r.strength > 0);
-      if (!hasTroops) return null;
-      const isWinner = army.owner === winnerCountry;
-      const isLoser = army.owner === loserCountry;
-      if (isWinner) {
-        return { ...army, inCombat: false };
-      } else if (isLoser) {
-        const retreatProvince = findRetreatProvince(army.owner, province, provinces);
-        if (retreatProvince) {
-          return { ...army, inCombat: false, location: retreatProvince.id };
-        } else {
-          return null;
+      // Atualiza o Atacante com as tropas finais do combate
+      if (army.id === finalAttackerArmy.id) {
+        const hasTroops = finalAttackerArmy.regiments.length > 0 && finalAttackerArmy.regiments.some(r => r.strength > 0);
+        if (!hasTroops) return null;
+
+        if (finalAttackerArmy.owner === loserCountry) {
+          const retreatProvince = findRetreatProvince(finalAttackerArmy.owner, province, provinces);
+          return retreatProvince ? { ...finalAttackerArmy, location: retreatProvince.id } : null;
         }
+        return finalAttackerArmy;
       }
+
+      // Atualiza o Defensor com as tropas finais do combate
+      if (army.id === finalDefenderArmy.id) {
+        const hasTroops = finalDefenderArmy.regiments.length > 0 && finalDefenderArmy.regiments.some(r => r.strength > 0);
+        if (!hasTroops) return null;
+
+        if (finalDefenderArmy.owner === loserCountry) {
+          const retreatProvince = findRetreatProvince(finalDefenderArmy.owner, province, provinces);
+          return retreatProvince ? { ...finalDefenderArmy, location: retreatProvince.id } : null;
+        }
+        return finalDefenderArmy;
+      }
+
       return army;
     }).filter(Boolean) as Army[];
 

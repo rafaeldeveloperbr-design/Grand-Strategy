@@ -1,5 +1,6 @@
 import React from 'react';
 import { CombatResult, Country } from '../types';
+import { formatArmySize } from '../utils/formatters';
 
 interface BattleReportModalProps {
   battleResult: CombatResult;
@@ -41,7 +42,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const defenderCountry = allCountries.find(c => c.tag === defenderOriginal.owner);
   const newOwnerCountry = newOwner ? allCountries.find(c => c.tag === newOwner) : null;
 
-  // Usa dados estáticos do snapshot (NÃO recalcula)
+  // Usa dados estáticos do snapshot
   const attackerInitialTroops = Math.floor(attackerOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
   const defenderInitialTroops = Math.floor(defenderOriginal.regiments.reduce((sum, r) => sum + r.strength, 0));
   
@@ -49,17 +50,17 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const attackerSurvivors = Math.floor(attacker.regiments.reduce((sum, r) => sum + r.strength, 0));
   const defenderSurvivors = Math.floor(defender.regiments.reduce((sum, r) => sum + r.strength, 0));
   
-  // Usa as baixas JÁ CALCULADAS no backend (NÃO recalcula)
+  // Baixas calculadas
   const calculatedAttackerCasualties = attackerCasualties;
   const calculatedDefenderCasualties = defenderCasualties;
 
-  // Log de verificação (apenas em desenvolvimento)
+  // Log de verificação no console padronizado com formatArmySize
   console.log('📊 BattleReportModal - Dados do snapshot:');
-  console.log(`   Atacante - Inicial: ${attackerInitialTroops}, Final: ${attackerSurvivors}, Baixas: ${calculatedAttackerCasualties}`);
-  console.log(`   Defensor - Inicial: ${defenderInitialTroops}, Final: ${defenderSurvivors}, Baixas: ${calculatedDefenderCasualties}`);
+  console.log(`   Atacante - Inicial: ${attackerInitialTroops} (${formatArmySize(attackerInitialTroops)}), Final: ${attackerSurvivors} (${formatArmySize(attackerSurvivors)}), Baixas: ${calculatedAttackerCasualties} (${formatArmySize(calculatedAttackerCasualties)})`);
+  console.log(`   Defensor - Inicial: ${defenderInitialTroops} (${formatArmySize(defenderInitialTroops)}), Final: ${defenderSurvivors} (${formatArmySize(defenderSurvivors)}), Baixas: ${calculatedDefenderCasualties} (${formatArmySize(calculatedDefenderCasualties)})`);
   console.log(`   Verificação: ${attackerInitialTroops} - ${attackerSurvivors} = ${attackerInitialTroops - attackerSurvivors} (deve ser ${calculatedAttackerCasualties})`);
 
-  // Agrupa baixas por tipo de unidade (APENAS para exibição, não para cálculo)
+  // Agrupa baixas por tipo de unidade
   const getUnitBreakdown = (originalArmy: typeof attackerOriginal, finalArmy: typeof attacker, totalCasualties: number) => {
     const breakdown: Record<string, { initial: number; final: number; lost: number }> = {};
     
@@ -79,7 +80,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
       breakdown[reg.type].final += Math.floor(reg.strength);
     });
 
-    // Calcula perdas por tipo (diferença entre inicial e final)
+    // Calcula perdas por tipo
     Object.keys(breakdown).forEach(type => {
       breakdown[type].lost = Math.floor(breakdown[type].initial - breakdown[type].final);
     });
@@ -166,15 +167,21 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             <div className="army-stats">
               <div className="stat-row">
                 <span className="stat-label">Tropas Iniciais:</span>
-                <span className="stat-value">{attackerInitialTroops.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(attackerInitialTroops)} <small className="text-muted">({attackerInitialTroops.toLocaleString()})</small>
+                </span>
               </div>
               <div className="stat-row">
                 <span className="stat-label">Sobreviventes:</span>
-                <span className="stat-value">{attackerSurvivors.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(attackerSurvivors)} <small className="text-muted">({attackerSurvivors.toLocaleString()})</small>
+                </span>
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>
-                <span className="stat-value">{calculatedAttackerCasualties.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(calculatedAttackerCasualties)} <small className="text-muted">({calculatedAttackerCasualties.toLocaleString()})</small>
+                </span>
               </div>
             </div>
 
@@ -186,10 +193,10 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
                   <span className="unit-icon">{getUnitIcon(type)}</span>
                   <span className="unit-name">{getUnitName(type)}</span>
                   <div className="unit-stats">
-                    <span className="initial">{data.initial}</span>
+                    <span className="initial">{formatArmySize(data.initial)}</span>
                     <span className="arrow">→</span>
-                    <span className="final">{data.final}</span>
-                    <span className="lost">(-{data.lost})</span>
+                    <span className="final">{formatArmySize(data.final)}</span>
+                    <span className="lost">(-{formatArmySize(data.lost)})</span>
                   </div>
                 </div>
               ))}
@@ -213,15 +220,21 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             <div className="army-stats">
               <div className="stat-row">
                 <span className="stat-label">Tropas Iniciais:</span>
-                <span className="stat-value">{defenderInitialTroops.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(defenderInitialTroops)} <small className="text-muted">({defenderInitialTroops.toLocaleString()})</small>
+                </span>
               </div>
               <div className="stat-row">
                 <span className="stat-label">Sobreviventes:</span>
-                <span className="stat-value">{defenderSurvivors.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(defenderSurvivors)} <small className="text-muted">({defenderSurvivors.toLocaleString()})</small>
+                </span>
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>
-                <span className="stat-value">{calculatedDefenderCasualties.toLocaleString()}</span>
+                <span className="stat-value">
+                  {formatArmySize(calculatedDefenderCasualties)} <small className="text-muted">({calculatedDefenderCasualties.toLocaleString()})</small>
+                </span>
               </div>
             </div>
 
@@ -233,10 +246,10 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
                   <span className="unit-icon">{getUnitIcon(type)}</span>
                   <span className="unit-name">{getUnitName(type)}</span>
                   <div className="unit-stats">
-                    <span className="initial">{data.initial}</span>
+                    <span className="initial">{formatArmySize(data.initial)}</span>
                     <span className="arrow">→</span>
-                    <span className="final">{data.final}</span>
-                    <span className="lost">(-{data.lost})</span>
+                    <span className="final">{formatArmySize(data.final)}</span>
+                    <span className="lost">(-{formatArmySize(data.lost)})</span>
                   </div>
                 </div>
               ))}
