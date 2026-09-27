@@ -2,7 +2,6 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-771      707      src\components\GameMap.tsx  <-- QUEBRAR!
 687      597      src\engine\military.ts  <-- QUEBRAR!
 633      544      src\engine\aiEngine.ts  <-- QUEBRAR!
 632      557      src\engine\rebellions.ts  <-- QUEBRAR!
@@ -14,6 +13,8 @@ LINHAS   CÓDIGO   ARQUIVO
 280      248      src\engine\technology.ts
 273      234      src\engine\economy.ts
 256      230      src\components\BattleReportModal.tsx
+253      237      src\components\GameMap\ProvinceLayer.tsx
+230      211      src\components\GameMap\GameMap.tsx
 228      193      src\engine\combat\battleResolver.ts
 220      184      src\engine\unrest.ts
 214      199      src\components\ArmyMarker.tsx
@@ -36,10 +37,12 @@ LINHAS   CÓDIGO   ARQUIVO
 138      125      src\components\EndGameModal.tsx
 136      127      src\types\army.ts
 135      121      src\hooks\app\useCheats.ts
+130      116      src\components\GameMap\ArmyMovementLayer.tsx
 127      115      src\hooks\app\useArmyActions.ts
 126      120      src\constants\laws.ts
 118      113      src\types\province.ts
 116      102      src\hooks\gameLoop\economyTick.ts
+114      104      src\components\GameMap\BattleMarkersOverlay.tsx
 114      95       src\hooks\useGameLoop.ts
 112      102      src\hooks\gameLoop\aiTick.ts
 110      100      src\components\BattleHistoryModal.tsx
@@ -56,6 +59,7 @@ LINHAS   CÓDIGO   ARQUIVO
 70       65       src\types\diplomacy.ts
 68       64       src\hooks\useGameRefs.ts
 66       57       src\context\AILogContext.tsx
+64       56       src\components\GameMap\useMapControls.ts
 62       59       src\types\country.ts
 55       49       src\hooks\app\useGameSelection.ts
 55       50       src\hooks\app\useTechActions.ts
@@ -65,6 +69,7 @@ LINHAS   CÓDIGO   ARQUIVO
 48       44       src\components\DifficultySelector.tsx
 46       40       src\hooks\app\useDiplomacyActions.ts
 43       39       src\types\battle.ts
+42       37       src\components\GameMap\GameMapTooltip.tsx
 42       38       src\types\difficulty.ts
 35       32       src\hooks\app\useGameModals.ts
 31       27       src\components\ToastContainer.tsx
@@ -77,88 +82,11 @@ LINHAS   CÓDIGO   ARQUIVO
 8        8        src\types\date.ts
 6        5        src\main.tsx
 6        6        src\engine\combat\index.ts
+3        3        src\components\GameMap\index.ts
 
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\components\GameMap.tsx | Total: 771 | Código: 707 | Vazias: 64
-================================================================================
-L  22 | [Interface/Type/Enum] interface MapProps {
-L  41 | [Const Component  ] export const GameMap: React.FC<MapProps> = ({
-L  61 | [Const            ] const svgRef = useRef<SVGSVGElement>(null);
-L  67 | [Const            ] const armyOffsets = useMemo(() => {
-L  68 | [Const            ] const offsets = new Map<string, { offsetX: number; offsetY: number }>();
-L  71 | [Const            ] const groups = new Map<string, Army[]>();
-L  74 | [Const            ] const group = groups.get(army.location) ?? [];
-L 104 | [Const            ] const sortedArmies = useMemo(() => {
-L 105 | [Const            ] const sorted = [...armies];
-L 108 | [Const            ] const aMoving = a.destination ? 0 : 1;
-L 109 | [Const            ] const bMoving = b.destination ? 0 : 1;
-L 113 | [Const            ] const aSelected = a.id === selectedArmy ? 2 : 0;
-L 114 | [Const            ] const bSelected = b.id === selectedArmy ? 2 : 0;
-L 118 | [Const            ] const aHovered = a.id === hoveredArmyId ? 1 : 0;
-L 119 | [Const            ] const bHovered = b.id === hoveredArmyId ? 1 : 0;
-L 128 | [Const            ] const getProvinceColor = useCallback(
-L 130 | [Const            ] const country = countries.find((c) => c.tag === province.owner);
-L 139 | [Const            ] const getProvinceLightColor = useCallback(
-L 141 | [Const            ] const country = countries.find((c) => c.tag === province.owner);
-L 150 | [Const            ] const getProvinceClass = (province: Province): string => {
-L 151 | [Const            ] const classes = ['map__province'];
-L 160 | [Hook/Func        ] const handleMouseEnter = (e: React.MouseEvent, province: Province) => {
-L 162 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
-L 175 | [Hook/Func        ] const handleMouseMove = (e: React.MouseEvent, province: Province) => {
-L 176 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
-L 189 | [Hook/Func        ] const handleMouseLeave = () => {
-L 197 | [Hook/Func        ] const handleClick = (provinceId: string) => {
-L 204 | [Hook/Func        ] const handleZoomIn = () => {
-L 216 | [Hook/Func        ] const handleZoomOut = () => {
-L 228 | [Hook/Func        ] const handleResetZoom = () => {
-L 235 | [Hook/Func        ] const handleMouseDown = (e: React.MouseEvent) => {
-L 242 | [Hook/Func        ] const handleMouseMovePan = (e: React.MouseEvent) => {
-L 244 | [Const            ] const dx = (e.clientX - panStart.x) * (viewBox.w / 800);
-L 245 | [Const            ] const dy = (e.clientY - panStart.y) * (viewBox.h / 600);
-L 255 | [Hook/Func        ] const handleMouseUp = () => {
-L 262 | [Hook/Func        ] const getTooltipCountry = (province: Province) => {
-L 269 | [Hook/Func        ] const getProvinceActivities = (provinceId: string, provinceOwner: string) => {
-L 271 | [Const            ] const constructions = buildingConstructions.filter(
-L 274 | [Const            ] const recruitmentsHere = recruitments.filter(
-L 319 | [Const            ] const target = e.target as SVGElement;
-L 320 | [Const            ] const provinceElement = target.closest?.('[data-province-id]');
-L 322 | [Const            ] const provinceId = provinceElement.getAttribute('data-province-id');
-L 330 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
-L 332 | [Const            ] const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
-L 333 | [Const            ] const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
-L 334 | [Const            ] const clickedProvince = provinces.find(p => {
-L 335 | [Const            ] const dx = p.center.x - svgX;
-L 336 | [Const            ] const dy = p.center.y - svgY;
-L 358 | [Const            ] const isHovered = province.id === hoveredProvince;
-L 359 | [Const            ] const isSelected = province.id === selectedProvince;
-L 360 | [Const            ] const fillColor = isHovered || isSelected
-L 406 | [Const            ] const activities = getProvinceActivities(province.id, province.owner);
-L 407 | [Const            ] const hasActivities = activities.hasConstructions || activities.hasRecruitments;
-L 411 | [Const            ] const iconY = province.center.y - 12;
-L 439 | [Const            ] const def = BUILDING_DEFINITIONS[c.buildingType];
-L 469 | [Const            ] const def = UNIT_DEFINITIONS[r.unitType];
-L 481 | [Const            ] const unrest = province.unrest ?? 0;
-L 484 | [Const            ] const iconY = province.center.y + 15;
-L 485 | [Const            ] const iconX = province.center.x;
-L 488 | [Hook/Func        ] const getColor = (unrest: number) => {
-L 496 | [Hook/Func        ] const getDescription = (unrest: number) => {
-L 505 | [Const            ] const needsPulse = unrest >= 50;
-L 506 | [Const            ] const isCritical = unrest >= 80;
-L 587 | [Const            ] const country = countries.find(c => c.tag === army.owner);
-L 590 | [Const            ] const fullPath = [army.location!, army.destination!, ...army.path];
-L 591 | [Const            ] const pathPoints = fullPath
-L 598 | [Const            ] const pointsStr = pathPoints
-L 626 | [Const            ] const province = provinces.find(p => p.id === battle.provinceId);
-L 629 | [Const            ] const attacker = armies.find(a => a.id === battle.attackerArmyId);
-L 630 | [Const            ] const defender = armies.find(a => a.id === battle.defenderArmyId);
-L 633 | [Const            ] const attackerCountry = countries.find(c => c.tag === attacker.owner);
-L 634 | [Const            ] const defenderCountry = countries.find(c => c.tag === defender.owner);
-L 636 | [Const            ] const progress = ((battle.daysTotal - battle.daysRemaining) / battle.daysTotal) * 100;
-L 729 | [Const            ] const offset = armyOffsets.get(army.id) ?? { offsetX: 0, offsetY: 0 };
 
 ================================================================================
 FILE: src\engine\military.ts | Total: 687 | Código: 597 | Vazias: 90
@@ -652,6 +580,57 @@ L  93 | [Hook/Func        ] const getUnitIcon = (type: string) => {
 L 102 | [Hook/Func        ] const getUnitName = (type: string) => {
 
 ================================================================================
+FILE: src\components\GameMap\ProvinceLayer.tsx | Total: 253 | Código: 237 | Vazias: 16
+================================================================================
+L   6 | [Interface/Type/Enum] interface ProvinceLayerProps {
+L  19 | [Const Component  ] export const ProvinceLayer: React.FC<ProvinceLayerProps> = ({
+L  31 | [Const            ] const getProvinceColor = useCallback(
+L  33 | [Const            ] const country = countries.find((c) => c.tag === province.owner);
+L  39 | [Const            ] const getProvinceLightColor = useCallback(
+L  41 | [Const            ] const country = countries.find((c) => c.tag === province.owner);
+L  47 | [Const            ] const getProvinceClass = (province: Province): string => {
+L  48 | [Const            ] const classes = ['map__province'];
+L  54 | [Hook/Func        ] const getProvinceActivities = (provinceId: string, provinceOwner: string) => {
+L  55 | [Const            ] const constructions = buildingConstructions.filter(
+L  58 | [Const            ] const recruitmentsHere = recruitments.filter(
+L  73 | [Const            ] const isHovered = province.id === hoveredProvince;
+L  74 | [Const            ] const isSelected = province.id === selectedProvince;
+L  75 | [Const            ] const fillColor = isHovered || isSelected
+L  79 | [Const            ] const activities = getProvinceActivities(province.id, province.owner);
+L  80 | [Const            ] const hasActivities = activities.hasConstructions || activities.hasRecruitments;
+L  82 | [Const            ] const unrest = province.unrest ?? 0;
+L  83 | [Const            ] const iconY = province.center.y - 12;
+L  84 | [Const            ] const iconX = province.center.x - 8;
+L  86 | [Hook/Func        ] const getUnrestColor = (val: number) => {
+L  94 | [Hook/Func        ] const getUnrestDescription = (val: number) => {
+L 102 | [Const            ] const needsPulse = unrest >= 50;
+L 103 | [Const            ] const isCritical = unrest >= 80;
+L 170 | [Const            ] const def = BUILDING_DEFINITIONS[c.buildingType];
+L 199 | [Const            ] const def = UNIT_DEFINITIONS[r.unitType];
+
+================================================================================
+FILE: src\components\GameMap\GameMap.tsx | Total: 230 | Código: 211 | Vazias: 19
+================================================================================
+L   9 | [Interface/Type/Enum] export interface MapProps {
+L  25 | [Const Component  ] export const GameMap: React.FC<MapProps> = ({
+L  42 | [Const            ] const svgRef = useRef<SVGSVGElement>(null);
+L  54 | [Hook/Func        ] const handleMouseEnter = (e: React.MouseEvent, province: Province) => {
+L  56 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
+L  66 | [Hook/Func        ] const handleMouseMove = (e: React.MouseEvent, province: Province) => {
+L  67 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
+L  77 | [Hook/Func        ] const handleMouseLeave = () => {
+L  82 | [Hook/Func        ] const handleClick = (provinceId: string) => {
+L 119 | [Const            ] const target = e.target as SVGElement;
+L 120 | [Const            ] const provinceElement = target.closest?.('[data-province-id]');
+L 122 | [Const            ] const provinceId = provinceElement.getAttribute('data-province-id');
+L 130 | [Const            ] const rect = svgRef.current?.getBoundingClientRect();
+L 132 | [Const            ] const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
+L 133 | [Const            ] const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+L 134 | [Const            ] const clickedProvince = provinces.find((p) => {
+L 135 | [Const            ] const dx = p.center.x - svgX;
+L 136 | [Const            ] const dy = p.center.y - svgY;
+
+================================================================================
 FILE: src\engine\combat\battleResolver.ts | Total: 228 | Código: 193 | Vazias: 35
 ================================================================================
 L  18 | [Func             ] export function resolveBattle(
@@ -1076,6 +1055,29 @@ L  89 | [Const            ] const godMode = useCallback(() => {
 L 104 | [Hook/Func        ] const handler = (e: KeyboardEvent) => {
 
 ================================================================================
+FILE: src\components\GameMap\ArmyMovementLayer.tsx | Total: 130 | Código: 116 | Vazias: 14
+================================================================================
+L   6 | [Interface/Type/Enum] interface ArmyMovementLayerProps {
+L  16 | [Const Component  ] export const ArmyMovementLayer: React.FC<ArmyMovementLayerProps> = ({
+L  25 | [Const            ] const armyOffsets = useMemo(() => {
+L  26 | [Const            ] const offsets = new Map<string, { offsetX: number; offsetY: number }>();
+L  28 | [Const            ] const groups = new Map<string, Army[]>();
+L  31 | [Const            ] const group = groups.get(army.location) ?? [];
+L  51 | [Const            ] const sortedArmies = useMemo(() => {
+L  52 | [Const            ] const sorted = [...armies];
+L  54 | [Const            ] const aMoving = a.destination ? 0 : 1;
+L  55 | [Const            ] const bMoving = b.destination ? 0 : 1;
+L  58 | [Const            ] const aSelected = a.id === selectedArmy ? 2 : 0;
+L  59 | [Const            ] const bSelected = b.id === selectedArmy ? 2 : 0;
+L  62 | [Const            ] const aHovered = a.id === hoveredArmyId ? 1 : 0;
+L  63 | [Const            ] const bHovered = b.id === hoveredArmyId ? 1 : 0;
+L  75 | [Const            ] const country = countries.find((c) => c.tag === army.owner);
+L  77 | [Const            ] const fullPath = [army.location!, army.destination!, ...army.path];
+L  78 | [Const            ] const pathPoints = fullPath
+L  84 | [Const            ] const pointsStr = pathPoints
+L 112 | [Const            ] const offset = armyOffsets.get(army.id) ?? { offsetX: 0, offsetY: 0 };
+
+================================================================================
 FILE: src\hooks\app\useArmyActions.ts | Total: 127 | Código: 115 | Vazias: 12
 ================================================================================
 L   9 | [Func             ] export function useArmyActions(params: any) {
@@ -1140,6 +1142,18 @@ L  85 | [Const            ] const dateString = formatGameDate(date);
 L  92 | [Const            ] const country = countries.find(c => c.tag === province.owner);
 L 102 | [Const            ] const countryProvinces = provinces.filter(pr => pr.owner === country.tag);
 L 106 | [Const            ] const idx = provinces.findIndex(pr => pr.id === updatedProv.id);
+
+================================================================================
+FILE: src\components\GameMap\BattleMarkersOverlay.tsx | Total: 114 | Código: 104 | Vazias: 10
+================================================================================
+L   4 | [Interface/Type/Enum] interface BattleMarkersOverlayProps {
+L  11 | [Const Component  ] export const BattleMarkersOverlay: React.FC<BattleMarkersOverlayProps> = ({
+L  20 | [Const            ] const province = provinces.find((p) => p.id === battle.provinceId);
+L  23 | [Const            ] const attacker = armies.find((a) => a.id === battle.attackerArmyId);
+L  24 | [Const            ] const defender = armies.find((a) => a.id === battle.defenderArmyId);
+L  27 | [Const            ] const attackerCountry = countries.find((c) => c.tag === attacker.owner);
+L  28 | [Const            ] const defenderCountry = countries.find((c) => c.tag === defender.owner);
+L  30 | [Const            ] const progress = ((battle.daysTotal - battle.daysRemaining) / battle.daysTotal) * 100;
 
 ================================================================================
 FILE: src\hooks\useGameLoop.ts | Total: 114 | Código: 95 | Vazias: 19
@@ -1359,6 +1373,19 @@ L  60 | [Const            ] export const useAILog = (): AILogContextType => {
 L  61 | [Const            ] const context = useContext(AILogContext);
 
 ================================================================================
+FILE: src\components\GameMap\useMapControls.ts | Total: 64 | Código: 56 | Vazias: 8
+================================================================================
+L   3 | [Func             ] export function useMapControls() {
+L   8 | [Hook/Func        ] const handleZoomIn = () => {
+L  17 | [Hook/Func        ] const handleZoomOut = () => {
+L  26 | [Hook/Func        ] const handleResetZoom = () => {
+L  30 | [Hook/Func        ] const handleMouseDown = (e: React.MouseEvent) => {
+L  37 | [Hook/Func        ] const handleMouseMovePan = (e: React.MouseEvent) => {
+L  39 | [Const            ] const dx = (e.clientX - panStart.x) * (viewBox.w / 800);
+L  40 | [Const            ] const dy = (e.clientY - panStart.y) * (viewBox.h / 600);
+L  50 | [Hook/Func        ] const handleMouseUp = () => {
+
+================================================================================
 FILE: src\types\country.ts | Total: 62 | Código: 59 | Vazias: 3
 ================================================================================
 L   4 | [Interface/Type/Enum] export interface Country {
@@ -1445,6 +1472,15 @@ FILE: src\types\battle.ts | Total: 43 | Código: 39 | Vazias: 4
 L   7 | [Interface/Type/Enum] export interface ActiveBattle {
 
 ================================================================================
+FILE: src\components\GameMap\GameMapTooltip.tsx | Total: 42 | Código: 37 | Vazias: 5
+================================================================================
+L   4 | [Interface/Type/Enum] interface GameMapTooltipProps {
+L   9 | [Const Component  ] export const GameMapTooltip: React.FC<GameMapTooltipProps> = ({ tooltip, countries }) => {
+L  12 | [Const            ] const getProvinceColor = (province: Province): string => {
+L  13 | [Const            ] const country = countries.find((c) => c.tag === province.owner);
+L  17 | [Hook/Func        ] const getTooltipCountry = (province: Province) => {
+
+================================================================================
 FILE: src\types\difficulty.ts | Total: 42 | Código: 38 | Vazias: 4
 ================================================================================
 L  11 | [Interface/Type/Enum] export type AIDifficulty = 'easy' | 'medium' | 'hard' | 'impossible';
@@ -1508,5 +1544,10 @@ FILE: src\main.tsx | Total: 6 | Código: 5 | Vazias: 1
 
 ================================================================================
 FILE: src\engine\combat\index.ts | Total: 6 | Código: 6 | Vazias: 0
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\components\GameMap\index.ts | Total: 3 | Código: 3 | Vazias: 0
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
