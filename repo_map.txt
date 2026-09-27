@@ -2,20 +2,22 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-1110     951      src\engine\combat.ts  <-- QUEBRAR!
 771      707      src\components\GameMap.tsx  <-- QUEBRAR!
 687      597      src\engine\military.ts  <-- QUEBRAR!
 633      544      src\engine\aiEngine.ts  <-- QUEBRAR!
 632      557      src\engine\rebellions.ts  <-- QUEBRAR!
 509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
+393      333      src\engine\combat\continuousBattle.ts  <-- QUEBRAR!
 330      299      src\engine\diplomacy.ts  <-- QUEBRAR!
 319      283      src\components\TechnologyModal.tsx  <-- QUEBRAR!
 280      248      src\engine\technology.ts
 273      234      src\engine\economy.ts
 256      230      src\components\BattleReportModal.tsx
+228      193      src\engine\combat\battleResolver.ts
 220      184      src\engine\unrest.ts
 214      199      src\components\ArmyMarker.tsx
+210      184      src\engine\combat\combatCalculations.ts
 199      173      src\hooks\gameLoop\battleContinuousTick.ts
 187      182      src\data\provinces.ts
 181      166      src\components\DiplomacyPanel.tsx
@@ -27,8 +29,10 @@ LINHAS   CÓDIGO   ARQUIVO
 161      141      src\engine\stability.ts
 159      148      src\App.tsx
 155      142      src\components\GovernmentModal.tsx
+155      133      src\engine\combat\combatRetreats.ts
 149      144      src\data\buildings.ts
 149      129      src\engine\gameConditions.ts
+148      121      src\engine\combat\battleFinalizer.ts
 138      125      src\components\EndGameModal.tsx
 136      127      src\types\army.ts
 135      121      src\hooks\app\useCheats.ts
@@ -72,151 +76,11 @@ LINHAS   CÓDIGO   ARQUIVO
 15       14       vite.config.js
 8        8        src\types\date.ts
 6        5        src\main.tsx
+6        6        src\engine\combat\index.ts
 
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\engine\combat.ts | Total: 1110 | Código: 951 | Vazias: 159
-================================================================================
-L  31 | [Const            ] const COMBAT_BALANCE = {
-L  53 | [Func             ] export function calculateArmySize(army: Army): number {
-L  60 | [Func             ] export function calculateArmyMorale(army: Army): number {
-L  62 | [Const            ] const totalMorale = army.regiments.reduce((sum, reg) => sum + reg.morale, 0);
-L  71 | [Func             ] export function calculateArmyBasePower(
-L  95 | [Const            ] const regimentPower = regiment.strength * multiplier;
-L  98 | [Const            ] const moraleBonus = 0.5 + (regiment.morale / 100);
-L 108 | [Func             ] export function calculateDefenderTotalPower(
-L 113 | [Const            ] const basePower = calculateArmyBasePower(army, techBonuses);
-L 126 | [Const            ] const fortificationBonus = 1 + (province.defense * COMBAT_BALANCE.FORTIFICATION_BONUS_PER_LEVEL);
-L 131 | [Const            ] const totalPower = basePower * bonusMultiplier;
-L 141 | [Func             ] function calculateBattleDuration(attackerSize: number, defenderSize: number): number {
-L 142 | [Const            ] const smaller = Math.min(attackerSize, defenderSize);
-L 151 | [Func             ] function calculateWinnerLosses(winnerSize: number, loserSize: number, powerRatio: number): number {
-L 152 | [Const            ] const maxLossByEnemy = loserSize; // nunca perde mais que o inimigo tem
-L 159 | [Const            ] const calculatedLoss = Math.floor(winnerSize * lossPercent);
-L 167 | [Func             ] function calculateLoserLosses(loserSize: number, powerRatio: number): number {
-L 178 | [Func             ] function distributeLosses(army: Army, totalLoss: number): Army {
-L 179 | [Const            ] const armySize = calculateArmySize(army);
-L 182 | [Const            ] const proportion = reg.strength / armySize;
-L 185 | [Const            ] const sumLosses = losses.reduce((a, b) => a + b, 0);
-L 187 | [Const            ] const updatedRegiments = army.regiments.map((reg, i) => {
-L 188 | [Const            ] const loss = Math.min(Math.floor(reg.strength), losses[i]);
-L 202 | [Func             ] export function resolveBattle(
-L 211 | [Const            ] const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
-L 212 | [Const            ] const defenderOriginal = { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
-L 215 | [Const            ] const attackerOriginalSize = calculateArmySize(attackerOriginal);
-L 216 | [Const            ] const defenderOriginalSize = calculateArmySize(defenderOriginal);
-L 219 | [Const            ] const battleDays = calculateBattleDuration(attackerOriginalSize, defenderOriginalSize);
-L 222 | [Const            ] const attackerPower = calculateArmyBasePower(attacker, attackerTechBonuses);
-L 227 | [Const            ] const winnerPower = Math.max(attackerPower, defenderPower);
-L 228 | [Const            ] const loserPower = Math.min(attackerPower, defenderPower);
-L 229 | [Const            ] const powerRatio = loserPower > 0 ? winnerPower / loserPower : 999;
-L 273 | [Const            ] const finalAttackerSize = calculateArmySize(finalAttacker);
-L 274 | [Const            ] const finalDefenderSize = calculateArmySize(finalDefender);
-L 276 | [Const            ] const exactAttackerCasualties = Math.floor(attackerOriginalSize - finalAttackerSize);
-L 277 | [Const            ] const exactDefenderCasualties = Math.floor(defenderOriginalSize - finalDefenderSize);
-L 285 | [Const            ] const loser = winner === 'attacker' ? finalDefender : finalAttacker;
-L 286 | [Const            ] const loserOwner = winner === 'attacker' ? defender.owner : attacker.owner;
-L 289 | [Const            ] const hasEscapeRoute = province.neighbors.some(neighborId => {
-L 290 | [Const            ] const neighborProvince = province.neighbors.includes(neighborId);
-L 321 | [Func             ] export function findRetreatProvince(
-L 327 | [Const            ] const retreatProvinces = battleProvince.neighbors
-L 344 | [Func             ] export function applySiegeAnnihilation(army: Army): Army {
-L 356 | [Func             ] export function resolveProvinceBattle(
-L 368 | [Const            ] const defenderArmies = armies.filter(
-L 379 | [Const            ] const combinedDefenderRegiments = defenderArmies.flatMap((a) => a.regiments);
-L 393 | [Const            ] const attackerBonuses = techBonusesByCountry?.get(attackerArmy.owner);
-L 394 | [Const            ] const defenderBonuses = techBonusesByCountry?.get(combinedDefender.owner);
-L 396 | [Const            ] const result = resolveBattle(
-L 406 | [Const            ] const totalDefenderSize = calculateArmySize(combinedDefender);
-L 407 | [Const            ] const totalDefenderCasualties = result.defenderCasualties;
-L 413 | [Const            ] const lossPercent = totalDefenderSize > 0 ? totalDefenderCasualties / totalDefenderSize : 0;
-L 419 | [Const            ] const armySize = calculateArmySize(defenderArmy);
-L 420 | [Const            ] const armyCasualties = Math.floor(armySize * lossPercent);
-L 425 | [Const            ] const updatedArmy = distributeLosses(defenderArmy, armyCasualties);
-L 453 | [Func             ] export function checkAllProvinceCombats(
-L 473 | [Const            ] const updatedArmies = [...armies];
-L 490 | [Const            ] const existingBattleIndex = updatedBattles.findIndex(b => b.provinceId === province.id);
-L 491 | [Const            ] const existingBattle = existingBattleIndex !== -1 ? updatedBattles[existingBattleIndex] : null;
-L 494 | [Const            ] const armiesInProvince = updatedArmies.filter(a => a.location === province.id && !a.inCombat);
-L 503 | [Const            ] const attackerArmy = updatedArmies.find(a => a.id === existingBattle.attackerArmyId);
-L 504 | [Const            ] const defenderArmy = updatedArmies.find(a => a.id === existingBattle.defenderArmyId);
-L 512 | [Const            ] const attackerCountry = attackerArmy.owner;
-L 513 | [Const            ] const defenderCountry = defenderArmy.owner;
-L 541 | [Const            ] const isAtWarWithDefender = wars.some(
-L 554 | [Const            ] const reinforcementTroops = calculateArmySize(army);
-L 555 | [Const            ] const updatedBattle = addReinforcementsToBattle(existingBattle, army, side, province);
-L 569 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 580 | [Const            ] const battleReinforcements = reinforcementsAdded.filter(r => r.battleId === existingBattle.id);
-L 595 | [Const            ] const armiesByCountry = new Map<string, Army[]>();
-L 608 | [Const            ] const provinceOwner = province.owner;
-L 617 | [Const            ] const isAtWar = wars.some(
-L 631 | [Const            ] const attackerArmies = armiesByCountry.get(attackerCountry) || [];
-L 632 | [Const            ] const defenderArmies = armiesByCountry.get(defenderCountry) || [];
-L 641 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-L 642 | [Const            ] const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, currentDate, battleId);
-L 647 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 653 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
-L 672 | [Func             ] export function startContinuousBattle(
-L 680 | [Const            ] const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
-L 681 | [Const            ] const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
-L 682 | [Const            ] const totalTroops = attackerTroops + defenderTroops;
-L 685 | [Const            ] const battleDays = Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
-L 688 | [Const            ] const participantArmyIds = [
-L 733 | [Func             ] export function addReinforcementsToBattle(
-L 739 | [Const            ] const reinforcementTroops = calculateArmySize(reinforcementArmy);
-L 746 | [Const            ] const updatedBattle = { ...battle };
-L 763 | [Const            ] const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
-L 764 | [Const            ] const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
-L 781 | [Func             ] export function processDailyBattle(
-L 793 | [Const            ] const daysRemaining = battle.daysRemaining - 1;
-L 796 | [Const            ] const dailyAttackerLoss = Math.floor(battle.attackerInitialTroops / battle.daysTotal * 0.5);
-L 797 | [Const            ] const dailyDefenderLoss = Math.floor(battle.defenderInitialTroops / battle.daysTotal * 0.5);
-L 800 | [Const            ] const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
-L 801 | [Const            ] const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
-L 803 | [Const            ] const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
-L 804 | [Const            ] const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
-L 807 | [Const            ] const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
-L 808 | [Const            ] const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
-L 819 | [Const            ] const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
-L 841 | [Func             ] function applyTroopLoss(army: Army, loss: number): Army {
-L 843 | [Const            ] const armySize = calculateArmySize(army);
-L 846 | [Const            ] const proportion = reg.strength / armySize;
-L 849 | [Const            ] const sumLosses = losses.reduce((a, b) => a + b, 0);
-L 851 | [Const            ] const updatedRegiments = army.regiments.map((reg, i) => {
-L 852 | [Const            ] const regLoss = Math.min(reg.strength, losses[i]);
-L 864 | [Func             ] export function finalizeBattle(
-L 877 | [Const            ] const powerRatio = winner === 'attacker'
-L 882 | [Const            ] const attackerBeforeFinalLoss = {
-L 886 | [Const            ] const defenderBeforeFinalLoss = {
-L 900 | [Const            ] const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.defenderCurrentTroops, powerRatio);
-L 901 | [Const            ] const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, powerRatio);
-L 910 | [Const            ] const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.attackerCurrentTroops, powerRatio);
-L 911 | [Const            ] const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, powerRatio);
-L 926 | [Const            ] const participantIds = battle.participantArmyIds;
-L 930 | [Const            ] const updatedAllArmies = allArmies.map(army => {
-L 938 | [Const            ] const attackerOriginal = battle.attackerInitialSnapshot
-L 942 | [Const            ] const defenderOriginal = battle.defenderInitialSnapshot
-L 947 | [Const            ] const initialAttackerSize = battle.attackerInitialSnapshot
-L 950 | [Const            ] const initialDefenderSize = battle.defenderInitialSnapshot
-L 962 | [Const            ] const attackerTotalCasualties = initialAttackerSize - calculateArmySize(finalAttacker);
-L 963 | [Const            ] const defenderTotalCasualties = initialDefenderSize - calculateArmySize(finalDefender);
-L1000 | [Func             ] export function retreatArmyManually(
-L1014 | [Const            ] const army = armies.find(a => a.id === armyId);
-L1021 | [Const            ] const battle = activeBattles.find(b => b.id === battleId);
-L1034 | [Const            ] const battleProvince = provinces.find(p => p.id === battle.provinceId);
-L1041 | [Const            ] const isAttackerSide = battle.attackerArmyId === armyId ||
-L1045 | [Const            ] const retreatProvince = findRetreatProvince(army.owner, battleProvince, provinces);
-L1055 | [Const            ] const updatedBattle = {
-L1061 | [Const            ] const armyTroops = calculateArmySize(army);
-L1069 | [Const            ] const updatedArmies = armies.map(a => {
-L1077 | [Const            ] const remainingAttackerArmies = updatedBattle.participantArmyIds.filter(id => {
-L1078 | [Const            ] const participantArmy = updatedArmies.find(a => a.id === id);
-L1087 | [Const            ] const updatedBattles = activeBattles.filter(b => b.id !== battleId);
-L1090 | [Const            ] const winner = updatedBattle.attackerCurrentTroops > 0 ? 'attacker' : 'defender';
-L1102 | [Const            ] const updatedBattles = activeBattles.map(b => b.id === battleId ? updatedBattle : b);
 
 ================================================================================
 FILE: src\components\GameMap.tsx | Total: 771 | Código: 707 | Vazias: 64
@@ -581,6 +445,55 @@ FILE: src\data\technologies.ts | Total: 492 | Código: 481 | Vazias: 11
 (nenhuma assinatura encontrada - pode ser só lógica solta)
 
 ================================================================================
+FILE: src\engine\combat\continuousBattle.ts | Total: 393 | Código: 333 | Vazias: 60
+================================================================================
+L  10 | [Func             ] export function checkAllProvinceCombats(
+L  30 | [Const            ] const updatedArmies = [...armies];
+L  47 | [Const            ] const existingBattleIndex = updatedBattles.findIndex(b => b.provinceId === province.id);
+L  48 | [Const            ] const existingBattle = existingBattleIndex !== -1 ? updatedBattles[existingBattleIndex] : null;
+L  51 | [Const            ] const armiesInProvince = updatedArmies.filter(a => a.location === province.id && !a.inCombat);
+L  60 | [Const            ] const attackerArmy = updatedArmies.find(a => a.id === existingBattle.attackerArmyId);
+L  61 | [Const            ] const defenderArmy = updatedArmies.find(a => a.id === existingBattle.defenderArmyId);
+L  69 | [Const            ] const attackerCountry = attackerArmy.owner;
+L  70 | [Const            ] const defenderCountry = defenderArmy.owner;
+L  98 | [Const            ] const isAtWarWithDefender = wars.some(
+L 111 | [Const            ] const reinforcementTroops = calculateArmySize(army);
+L 112 | [Const            ] const updatedBattle = addReinforcementsToBattle(existingBattle, army, side, province);
+L 126 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 137 | [Const            ] const battleReinforcements = reinforcementsAdded.filter(r => r.battleId === existingBattle.id);
+L 152 | [Const            ] const armiesByCountry = new Map<string, Army[]>();
+L 165 | [Const            ] const provinceOwner = province.owner;
+L 174 | [Const            ] const isAtWar = wars.some(
+L 188 | [Const            ] const attackerArmies = armiesByCountry.get(attackerCountry) || [];
+L 189 | [Const            ] const defenderArmies = armiesByCountry.get(defenderCountry) || [];
+L 198 | [Const            ] const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+L 199 | [Const            ] const newBattle = startContinuousBattle(attackerArmies, defenderArmies, province, currentDate, battleId);
+L 204 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 210 | [Const            ] const idx = updatedArmies.findIndex(a => a.id === army.id);
+L 229 | [Func             ] export function startContinuousBattle(
+L 237 | [Const            ] const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+L 238 | [Const            ] const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+L 239 | [Const            ] const totalTroops = attackerTroops + defenderTroops;
+L 242 | [Const            ] const battleDays = Math.max(1, Math.ceil(totalTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY));
+L 245 | [Const            ] const participantArmyIds = [
+L 290 | [Func             ] export function addReinforcementsToBattle(
+L 296 | [Const            ] const reinforcementTroops = calculateArmySize(reinforcementArmy);
+L 303 | [Const            ] const updatedBattle = { ...battle };
+L 320 | [Const            ] const totalTroops = updatedBattle.attackerCurrentTroops + updatedBattle.defenderCurrentTroops;
+L 321 | [Const            ] const additionalDays = Math.ceil(reinforcementTroops / COMBAT_BALANCE.TROOPS_PER_BATTLE_DAY);
+L 338 | [Func             ] export function processDailyBattle(
+L 350 | [Const            ] const daysRemaining = battle.daysRemaining - 1;
+L 353 | [Const            ] const dailyAttackerLoss = Math.floor(battle.attackerInitialTroops / battle.daysTotal * 0.5);
+L 354 | [Const            ] const dailyDefenderLoss = Math.floor(battle.defenderInitialTroops / battle.daysTotal * 0.5);
+L 357 | [Const            ] const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
+L 358 | [Const            ] const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
+L 360 | [Const            ] const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
+L 361 | [Const            ] const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
+L 364 | [Const            ] const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
+L 365 | [Const            ] const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
+L 376 | [Const            ] const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
+
+================================================================================
 FILE: src\engine\diplomacy.ts | Total: 330 | Código: 299 | Vazias: 31
 ================================================================================
 L  38 | [Func             ] export function generateWarId(): string {
@@ -739,6 +652,40 @@ L  93 | [Hook/Func        ] const getUnitIcon = (type: string) => {
 L 102 | [Hook/Func        ] const getUnitName = (type: string) => {
 
 ================================================================================
+FILE: src\engine\combat\battleResolver.ts | Total: 228 | Código: 193 | Vazias: 35
+================================================================================
+L  18 | [Func             ] export function resolveBattle(
+L  27 | [Const            ] const attackerOriginal = { ...attacker, regiments: attacker.regiments.map(r => ({ ...r })) };
+L  28 | [Const            ] const defenderOriginal = { ...defender, regiments: defender.regiments.map(r => ({ ...r })) };
+L  31 | [Const            ] const attackerOriginalSize = calculateArmySize(attackerOriginal);
+L  32 | [Const            ] const defenderOriginalSize = calculateArmySize(defenderOriginal);
+L  35 | [Const            ] const battleDays = calculateBattleDuration(attackerOriginalSize, defenderOriginalSize);
+L  38 | [Const            ] const attackerPower = calculateArmyBasePower(attacker, attackerTechBonuses);
+L  43 | [Const            ] const winnerPower = Math.max(attackerPower, defenderPower);
+L  44 | [Const            ] const loserPower = Math.min(attackerPower, defenderPower);
+L  45 | [Const            ] const powerRatio = loserPower > 0 ? winnerPower / loserPower : 999;
+L  89 | [Const            ] const finalAttackerSize = calculateArmySize(finalAttacker);
+L  90 | [Const            ] const finalDefenderSize = calculateArmySize(finalDefender);
+L  92 | [Const            ] const exactAttackerCasualties = Math.floor(attackerOriginalSize - finalAttackerSize);
+L  93 | [Const            ] const exactDefenderCasualties = Math.floor(defenderOriginalSize - finalDefenderSize);
+L 101 | [Const            ] const loser = winner === 'attacker' ? finalDefender : finalAttacker;
+L 102 | [Const            ] const loserOwner = winner === 'attacker' ? defender.owner : attacker.owner;
+L 105 | [Const            ] const hasEscapeRoute = province.neighbors.some(neighborId => {
+L 106 | [Const            ] const neighborProvince = province.neighbors.includes(neighborId);
+L 137 | [Func             ] export function resolveProvinceBattle(
+L 149 | [Const            ] const defenderArmies = armies.filter(
+L 160 | [Const            ] const combinedDefenderRegiments = defenderArmies.flatMap((a) => a.regiments);
+L 174 | [Const            ] const attackerBonuses = techBonusesByCountry?.get(attackerArmy.owner);
+L 175 | [Const            ] const defenderBonuses = techBonusesByCountry?.get(combinedDefender.owner);
+L 177 | [Const            ] const result = resolveBattle(
+L 187 | [Const            ] const totalDefenderSize = calculateArmySize(combinedDefender);
+L 188 | [Const            ] const totalDefenderCasualties = result.defenderCasualties;
+L 194 | [Const            ] const lossPercent = totalDefenderSize > 0 ? totalDefenderCasualties / totalDefenderSize : 0;
+L 200 | [Const            ] const armySize = calculateArmySize(defenderArmy);
+L 201 | [Const            ] const armyCasualties = Math.floor(armySize * lossPercent);
+L 206 | [Const            ] const updatedArmy = distributeLosses(defenderArmy, armyCasualties);
+
+================================================================================
 FILE: src\engine\unrest.ts | Total: 220 | Código: 184 | Vazias: 36
 ================================================================================
 L  14 | [Const            ] export const UNREST_BALANCE = {
@@ -771,6 +718,39 @@ L  68 | [Const            ] const x = baseX + (army.destination ? 0 : offsetX);
 L  69 | [Const            ] const y = baseY + (army.destination ? 0 : offsetY);
 L  72 | [Const            ] const isElevated = isSelected || isHovered;
 L  75 | [Const            ] const formatSize = (n: number): string => {
+
+================================================================================
+FILE: src\engine\combat\combatCalculations.ts | Total: 210 | Código: 184 | Vazias: 26
+================================================================================
+L  20 | [Const            ] export const COMBAT_BALANCE = {
+L  42 | [Func             ] export function calculateArmySize(army: Army): number {
+L  50 | [Func             ] export function calculateArmyMorale(army: Army): number {
+L  52 | [Const            ] const totalMorale = army.regiments.reduce((sum, reg) => sum + reg.morale, 0);
+L  61 | [Func             ] export function calculateArmyBasePower(
+L  85 | [Const            ] const regimentPower = regiment.strength * multiplier;
+L  88 | [Const            ] const moraleBonus = 0.5 + (regiment.morale / 100);
+L  98 | [Func             ] export function calculateDefenderTotalPower(
+L 103 | [Const            ] const basePower = calculateArmyBasePower(army, techBonuses);
+L 116 | [Const            ] const fortificationBonus = 1 + (province.defense * COMBAT_BALANCE.FORTIFICATION_BONUS_PER_LEVEL);
+L 121 | [Const            ] const totalPower = basePower * bonusMultiplier;
+L 131 | [Func             ] export function calculateBattleDuration(attackerSize: number, defenderSize: number): number {
+L 132 | [Const            ] const smaller = Math.min(attackerSize, defenderSize);
+L 141 | [Func             ] export function calculateWinnerLosses(winnerSize: number, loserSize: number, powerRatio: number): number {
+L 142 | [Const            ] const maxLossByEnemy = loserSize; // nunca perde mais que o inimigo tem
+L 149 | [Const            ] const calculatedLoss = Math.floor(winnerSize * lossPercent);
+L 157 | [Func             ] export function calculateLoserLosses(loserSize: number, powerRatio: number): number {
+L 168 | [Func             ] export function distributeLosses(army: Army, totalLoss: number): Army {
+L 169 | [Const            ] const armySize = calculateArmySize(army);
+L 172 | [Const            ] const proportion = reg.strength / armySize;
+L 175 | [Const            ] const sumLosses = losses.reduce((a, b) => a + b, 0);
+L 177 | [Const            ] const updatedRegiments = army.regiments.map((reg, i) => {
+L 178 | [Const            ] const loss = Math.min(Math.floor(reg.strength), losses[i]);
+L 192 | [Func             ] export function applyTroopLoss(army: Army, loss: number): Army {
+L 194 | [Const            ] const armySize = calculateArmySize(army);
+L 197 | [Const            ] const proportion = reg.strength / armySize;
+L 200 | [Const            ] const sumLosses = losses.reduce((a, b) => a + b, 0);
+L 202 | [Const            ] const updatedRegiments = army.regiments.map((reg, i) => {
+L 203 | [Const            ] const regLoss = Math.min(reg.strength, losses[i]);
 
 ================================================================================
 FILE: src\hooks\gameLoop\battleContinuousTick.ts | Total: 199 | Código: 173 | Vazias: 26
@@ -984,6 +964,27 @@ L 105 | [Const            ] const canAfford = playerCountry.resources.gold >= la
 L 106 | [Const            ] const bonuses = renderBonuses(law);
 
 ================================================================================
+FILE: src\engine\combat\combatRetreats.ts | Total: 155 | Código: 133 | Vazias: 22
+================================================================================
+L  10 | [Func             ] export function findRetreatProvince(
+L  16 | [Const            ] const retreatProvinces = battleProvince.neighbors
+L  33 | [Func             ] export function applySiegeAnnihilation(army: Army): Army {
+L  45 | [Func             ] export function retreatArmyManually(
+L  59 | [Const            ] const army = armies.find(a => a.id === armyId);
+L  66 | [Const            ] const battle = activeBattles.find(b => b.id === battleId);
+L  79 | [Const            ] const battleProvince = provinces.find(p => p.id === battle.provinceId);
+L  86 | [Const            ] const isAttackerSide = battle.attackerArmyId === armyId ||
+L  90 | [Const            ] const retreatProvince = findRetreatProvince(army.owner, battleProvince, provinces);
+L 100 | [Const            ] const updatedBattle = {
+L 106 | [Const            ] const armyTroops = calculateArmySize(army);
+L 114 | [Const            ] const updatedArmies = armies.map(a => {
+L 122 | [Const            ] const remainingAttackerArmies = updatedBattle.participantArmyIds.filter(id => {
+L 123 | [Const            ] const participantArmy = updatedArmies.find(a => a.id === id);
+L 132 | [Const            ] const updatedBattles = activeBattles.filter(b => b.id !== battleId);
+L 135 | [Const            ] const winner = updatedBattle.attackerCurrentTroops > 0 ? 'attacker' : 'defender';
+L 147 | [Const            ] const updatedBattles = activeBattles.map(b => b.id === battleId ? updatedBattle : b);
+
+================================================================================
 FILE: src\data\buildings.ts | Total: 149 | Código: 144 | Vazias: 5
 ================================================================================
 L 127 | [Func             ] export function getBuildingCost(type: BuildingType, currentLevel: number): number {
@@ -1018,6 +1019,26 @@ L 131 | [Const            ] const months = Math.floor(remainingDays / 30);
 L 132 | [Const            ] const days = remainingDays % 30;
 L 134 | [Const            ] const parts = [];
 L 145 | [Interface/Type/Enum] interface GameDate {
+
+================================================================================
+FILE: src\engine\combat\battleFinalizer.ts | Total: 148 | Código: 121 | Vazias: 27
+================================================================================
+L  16 | [Func             ] export function finalizeBattle(
+L  29 | [Const            ] const powerRatio = winner === 'attacker'
+L  34 | [Const            ] const attackerBeforeFinalLoss = {
+L  38 | [Const            ] const defenderBeforeFinalLoss = {
+L  52 | [Const            ] const winnerLoss = calculateWinnerLosses(battle.attackerCurrentTroops, battle.defenderCurrentTroops, powerRatio);
+L  53 | [Const            ] const loserLoss = calculateLoserLosses(battle.defenderCurrentTroops, powerRatio);
+L  62 | [Const            ] const winnerLoss = calculateWinnerLosses(battle.defenderCurrentTroops, battle.attackerCurrentTroops, powerRatio);
+L  63 | [Const            ] const loserLoss = calculateLoserLosses(battle.attackerCurrentTroops, powerRatio);
+L  78 | [Const            ] const participantIds = battle.participantArmyIds;
+L  82 | [Const            ] const updatedAllArmies = allArmies.map(army => {
+L  90 | [Const            ] const attackerOriginal = battle.attackerInitialSnapshot
+L  94 | [Const            ] const defenderOriginal = battle.defenderInitialSnapshot
+L  99 | [Const            ] const initialAttackerSize = battle.attackerInitialSnapshot
+L 102 | [Const            ] const initialDefenderSize = battle.defenderInitialSnapshot
+L 114 | [Const            ] const attackerTotalCasualties = initialAttackerSize - calculateArmySize(finalAttacker);
+L 115 | [Const            ] const defenderTotalCasualties = initialDefenderSize - calculateArmySize(finalDefender);
 
 ================================================================================
 FILE: src\components\EndGameModal.tsx | Total: 138 | Código: 125 | Vazias: 13
@@ -1482,5 +1503,10 @@ L   4 | [Interface/Type/Enum] export interface GameDate {
 
 ================================================================================
 FILE: src\main.tsx | Total: 6 | Código: 5 | Vazias: 1
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\engine\combat\index.ts | Total: 6 | Código: 6 | Vazias: 0
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
