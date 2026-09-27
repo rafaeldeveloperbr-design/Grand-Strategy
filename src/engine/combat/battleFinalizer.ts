@@ -7,9 +7,6 @@ import {
   calculateWinnerLosses,
 } from './combatCalculations';
 
-
-
-
 /**
  * Finaliza uma batalha contínua e determina o vencedor
  */
@@ -66,7 +63,7 @@ export function finalizeBattle(
     console.log(`   Vencedor (defensor) perde: ${winnerLoss} tropas`);
     console.log(`   Perdedor (atacante) perde: ${loserLoss} tropas`);
     
-    finalDefender = applyTroopLoss(defender, winnerLoss);
+    finalDefender = applyTroopLoss(defender, loserLoss);
     finalAttacker = applyTroopLoss(attacker, loserLoss);
   }
   
@@ -74,17 +71,40 @@ export function finalizeBattle(
   console.log(`   Atacante: ${calculateArmySize(finalAttacker)} tropas`);
   console.log(`   Defensor: ${calculateArmySize(finalDefender)} tropas`);
   
-  // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES (incluindo reforços)
+  // 🔓 LIBERA TODOS OS EXÉRCITOS PARTICIPANTES E AJUSTA O ESTADO DE MOVIMENTO
   const participantIds = battle.participantArmyIds;
   console.log(`🔓 LIBERADOS: Exércitos ${participantIds.join(', ')} agora estão fora de combate.`);
   
-  // Marca todos os participantes como inCombat = false
-  const updatedAllArmies = allArmies.map(army => {
-    if (participantIds.includes(army.id)) {
-      return { ...army, inCombat: false };
-    }
+
+// Mapeia allArmies atualizando as baixas finais e destravando as flags de combate e movimento
+const updatedAllArmies = allArmies.map(army => {
+  if (!participantIds.includes(army.id)) {
     return army;
-  });
+  }
+
+  // Identifica se é o atacante ou defensor principal que sofreu baixas finais
+  let updatedArmy = army;
+  if (army.id === attacker.id) {
+    updatedArmy = finalAttacker;
+  } else if (army.id === defender.id) {
+    updatedArmy = finalDefender;
+  }
+
+  // Verifica se o exército chegou ao fim da rota planejada
+  const path = updatedArmy.path || [];
+  const hasReachedDestination = path.length === 0;
+
+  return {
+    ...updatedArmy,
+    inCombat: false,
+    // Se concluiu a rota, reseta destino e rota; caso contrário, preserva
+    destination: hasReachedDestination ? null : updatedArmy.destination,
+    targetDestination: hasReachedDestination ? null : updatedArmy.targetDestination,
+    path: hasReachedDestination ? [] : path,
+    // Garante que se o exército parou de andar, sua posição é fixada na província da batalha
+    location: hasReachedDestination ? province.id : updatedArmy.location,
+  };
+});
   
   // Usa snapshots iniciais do ActiveBattle (se disponíveis) ou cria novos
   const attackerOriginal = battle.attackerInitialSnapshot 
@@ -102,20 +122,10 @@ export function finalizeBattle(
   const initialDefenderSize = battle.defenderInitialSnapshot
     ? calculateArmySize(battle.defenderInitialSnapshot)
     : calculateArmySize(defender);
-  
-  console.log(`📊 Snapshot inicial do atacante: ${initialAttackerSize} tropas`);
-  console.log(`📊 Snapshot inicial do defensor: ${initialDefenderSize} tropas`);
-  console.log(`📊 Atacante após baixas diárias: ${calculateArmySize(attacker)} tropas`);
-  console.log(`📊 Defensor após baixas diárias: ${calculateArmySize(defender)} tropas`);
-  console.log(`📊 Atacante após baixas finais: ${calculateArmySize(finalAttacker)} tropas`);
-  console.log(`📊 Defensor após baixas finais: ${calculateArmySize(finalDefender)} tropas`);
 
   // Calcula baixas totais usando os snapshots iniciais
   const attackerTotalCasualties = initialAttackerSize - calculateArmySize(finalAttacker);
   const defenderTotalCasualties = initialDefenderSize - calculateArmySize(finalDefender);
-  
-  console.log(`💀 Baixas totais do atacante: ${attackerTotalCasualties} (inicial: ${initialAttackerSize}, final: ${calculateArmySize(finalAttacker)})`);
-  console.log(`💀 Baixas totais do defensor: ${defenderTotalCasualties} (inicial: ${initialDefenderSize}, final: ${calculateArmySize(finalDefender)})`);
 
   // Cria o resultado da batalha
   const result: CombatResult = {
@@ -135,14 +145,5 @@ export function finalizeBattle(
     date: currentDate,
   };
   
-  console.log(`🏆 Vencedor: ${winner === 'attacker' ? 'Atacante' : 'Defensor'} em ${province.name}`);
-  console.log(`📊 Resultado final:`);
-  console.log(`   Atacante - Inicial: ${initialAttackerSize}, Final: ${calculateArmySize(finalAttacker)}, Baixas: ${attackerTotalCasualties}`);
-  console.log(`   Defensor - Inicial: ${initialDefenderSize}, Final: ${calculateArmySize(finalDefender)}, Baixas: ${defenderTotalCasualties}`);
-  console.log(`   Verificação atacante: ${initialAttackerSize} - ${calculateArmySize(finalAttacker)} = ${initialAttackerSize - calculateArmySize(finalAttacker)} (deve ser ${attackerTotalCasualties})`);
-  console.log(`   Verificação defensor: ${initialDefenderSize} - ${calculateArmySize(finalDefender)} = ${initialDefenderSize - calculateArmySize(finalDefender)} (deve ser ${defenderTotalCasualties})`);
-  
   return { result, updatedArmies: updatedAllArmies };
 }
-
-
