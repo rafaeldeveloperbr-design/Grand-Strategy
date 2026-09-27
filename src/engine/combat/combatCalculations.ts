@@ -135,33 +135,55 @@ export function calculateBattleDuration(attackerSize: number, defenderSize: numb
 
 
 /**
- * Calcula as perdas do vencedor baseado na duração da batalha
- * Vencedor perde entre 10% e 30% das tropas
+ * Calcula as perdas do vencedor com base no tamanho do INIMIGO e na escala de poder.
+ * Impede que exércitos gigantes percam milhares de homens contra tropas minúsculas.
  */
 export function calculateWinnerLosses(winnerSize: number, loserSize: number, powerRatio: number): number {
-  const maxLossByEnemy = loserSize; // nunca perde mais que o inimigo tem
-  let lossPercent: number;
-  if (powerRatio >= 3.0) lossPercent = 0.15;
-  else if (powerRatio >= 2.0) lossPercent = 0.25;
-  else if (powerRatio >= 1.5) lossPercent = 0.35;
-  else if (powerRatio >= 1.2) lossPercent = 0.45;
-  else lossPercent = 0.55;
-  const calculatedLoss = Math.floor(winnerSize * lossPercent);
-  return Math.min(calculatedLoss, maxLossByEnemy);
+  if (winnerSize <= 0 || loserSize <= 0) return 0;
+
+  // Quanto maior a superioridade numérica/poder (powerRatio), menor a fração cobrada do inimigo
+  let enemyLossMultiplier: number;
+
+  if (powerRatio >= 5.0) {
+    enemyLossMultiplier = 0.10; // atropelo completo: perde no máx 10% do tamanho do exército inimigo
+  } else if (powerRatio >= 3.0) {
+    enemyLossMultiplier = 0.20; // superioridade esmagadora: perde no máx 20% do tamanho do inimigo
+  } else if (powerRatio >= 2.0) {
+    enemyLossMultiplier = 0.35; // vantagem clara
+  } else if (powerRatio >= 1.5) {
+    enemyLossMultiplier = 0.50; // vitória moderada
+  } else {
+    enemyLossMultiplier = 0.70; // vitória apertada
+  }
+
+  // O vencedor perde uma fração proporcional às tropas do PERDEDOR (nunca do próprio tamanho total)
+  const baseLosses = loserSize * enemyLossMultiplier;
+
+  // Trava de segurança: o vencedor nunca pode perder mais do que 30% do seu próprio exército em combates normais
+  const maxSelfCap = winnerSize * 0.30;
+
+  return Math.floor(Math.min(baseLosses, maxSelfCap));
 }
 
+
+
 /**
- * Calcula as perdas do perdedor baseado na duração da batalha
- * Perdedor perde entre 30% e 60% das tropas
+ * Calcula as perdas do perdedor baseado na esmagadora diferença de poder
  */
 export function calculateLoserLosses(loserSize: number, powerRatio: number): number {
   let lossPercent: number;
-  if (powerRatio >= 3.0) lossPercent = 0.80;
-  else if (powerRatio >= 2.0) lossPercent = 0.75;
-  else if (powerRatio >= 1.5) lossPercent = 0.70;
-  else lossPercent = 0.60;
+  
+  if (powerRatio >= 5.0) lossPercent = 0.90;      // massacre
+  else if (powerRatio >= 3.0) lossPercent = 0.80;
+  else if (powerRatio >= 2.0) lossPercent = 0.70;
+  else if (powerRatio >= 1.5) lossPercent = 0.60;
+  else lossPercent = 0.50;
+
   return Math.floor(loserSize * lossPercent);
 }
+
+
+
 /**
  * Distribui perdas proporcionalmente entre os regimentos
  */

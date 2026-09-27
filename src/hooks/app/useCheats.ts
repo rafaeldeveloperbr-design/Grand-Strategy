@@ -45,9 +45,9 @@ export function useCheats(params: any) {
       owner: playerCountryTag,
       name: `Exército CHEAT`,
       regiments: [
-        { type: 'infantry', strength: 3000, morale: 100 },
-        { type: 'cavalry', strength: 1000, morale: 100 },
-        { type: 'artillery', strength: 500, morale: 100 },
+        { type: 'infantry', strength: 5000, morale: 100 },
+        { type: 'cavalry', strength: 5000, morale: 100 },
+        { type: 'artillery', strength: 5000, morale: 100 },
       ],
       location: targetProvince,
       destination: null,
