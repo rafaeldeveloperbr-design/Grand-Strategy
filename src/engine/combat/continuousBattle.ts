@@ -290,21 +290,21 @@ export function addReinforcementsToBattle(
   province: Province
 ): ActiveBattle {
   const reinforcementTroops = calculateArmySize(reinforcementArmy);
-  const updatedBattle = {...battle };
+  const updatedBattle = { ...battle, participantArmyIds: [...battle.participantArmyIds] } as any;
 
   if (side === 'attacker') {
     updatedBattle.attackerCurrentTroops += reinforcementTroops;
-    // NÃO aumenta o initial, se aumentar fode a barra proporcional
   } else {
     updatedBattle.defenderCurrentTroops += reinforcementTroops;
   }
 
   if (!updatedBattle.participantArmyIds.includes(reinforcementArmy.id)) {
-    updatedBattle.participantArmyIds = [...updatedBattle.participantArmyIds, reinforcementArmy.id];
+    updatedBattle.participantArmyIds.push(reinforcementArmy.id);
   }
 
-  // CORREÇÃO: NUNCA recalcula dias quando chega reforço
-  // A duração travou no início, baseada no defensor inicial
+  // marca dia que entrou
+  updatedBattle.reinforcementEntryDay = updatedBattle.reinforcementEntryDay || {};
+  updatedBattle.reinforcementEntryDay[reinforcementArmy.id] = battle.daysTotal - battle.daysRemaining;
 
   return updatedBattle;
 }
@@ -317,13 +317,10 @@ export function processDailyBattle(
 ) {
   const daysRemaining = battle.daysRemaining - 1;
 
-  // CORREÇÃO: Perda proporcional + vantagem numérica
   const totalTroops = battle.attackerCurrentTroops + battle.defenderCurrentTroops;
   const attackerRatio = battle.attackerCurrentTroops / Math.max(1, totalTroops);
   const defenderRatio = battle.defenderCurrentTroops / Math.max(1, totalTroops);
 
-  // Perde no máximo 5% do seu tamanho atual por dia, ajustado pela vantagem
-  // Se tem 4x mais tropa, perde 4x menos
   const baseLossRate = 0.06;
   const dailyAttackerLoss = Math.floor(
     battle.attackerCurrentTroops * baseLossRate * (0.5 + defenderRatio)
@@ -332,16 +329,25 @@ export function processDailyBattle(
     battle.defenderCurrentTroops * baseLossRate * (0.5 + attackerRatio)
   );
 
-  const attackerCasualties = battle.attackerCasualties + dailyAttackerLoss;
-  const defenderCasualties = battle.defenderCasualties + dailyDefenderLoss;
+  // CORREÇÃO: se tem reforço, o dano vai mais pro exército velho
+  const hasReinf = (battle as any).reinforcementEntryDay && Object.keys((battle as any).reinforcementEntryDay).length > 0;
+
+  let attackerDailyForMain = dailyAttackerLoss;
+  let defenderDailyForMain = dailyDefenderLoss;
+
+  if (hasReinf) {
+    // 70% do dano fica no exército que já tava lutando, 30% pros reforços (que não estão nesse tick ainda)
+    // então o main toma 70%
+    attackerDailyForMain = Math.floor(dailyAttackerLoss * 0.7);
+    defenderDailyForMain = Math.floor(dailyDefenderLoss * 0.7);
+  }
+
+  const updatedAttacker = applyTroopLoss(attacker, attackerDailyForMain);
+  const updatedDefender = applyTroopLoss(defender, defenderDailyForMain);
 
   const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
   const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
 
-  const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
-  const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
-
-  // CORREÇÃO RECUA: checa 1k mas só recua se não for território dele
   const attackerShouldRetreat = attackerCurrentTroops > 0 && attackerCurrentTroops <= 1000;
   const defenderShouldRetreat = defenderCurrentTroops > 0 && defenderCurrentTroops <= 1000;
 
@@ -354,15 +360,20 @@ export function processDailyBattle(
 
   return {
     battle: {
-     ...battle,
+    ...battle,
       daysRemaining,
-      attackerCasualties,
-      defenderCasualties,
+      attackerCasualties: battle.attackerCasualties + dailyAttackerLoss,
+      defenderCasualties: battle.defenderCasualties + dailyDefenderLoss,
       attackerCurrentTroops,
       defenderCurrentTroops,
       shouldRetreatAttacker: attackerShouldRetreat,
       shouldRetreatDefender: defenderShouldRetreat,
-    },
+      // salva quanto o reforço deve perder depois (30%)
+      pendingReinforcementLoss: hasReinf? {
+        attacker: dailyAttackerLoss - attackerDailyForMain,
+        defender: dailyDefenderLoss - defenderDailyForMain,
+      } : null,
+    } as any,
     attacker: updatedAttacker,
     defender: updatedDefender,
     finished,
