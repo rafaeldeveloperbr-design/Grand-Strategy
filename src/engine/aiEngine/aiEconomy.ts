@@ -1,6 +1,6 @@
 import { Country, Province, BuildingType, UnitType, Recruitment, BuildingConstruction } from '../../types';
 import { CountryTechState } from '../../types/technology';
-import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../../data/technologies';
+import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../../data/technology';
 import { BUILDING_DEFINITIONS, getBuildingCost, getBuildingTime } from '../../data/buildings';
 import { UNIT_DEFINITIONS } from '../../data/units';
 import { getBuildingName, getUnitName } from '../../utils/translations';

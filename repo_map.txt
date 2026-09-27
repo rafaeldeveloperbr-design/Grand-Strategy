@@ -8,6 +8,7 @@ LINHAS   CÓDIGO   ARQUIVO
 330      299      src\engine\diplomacy.ts  <-- QUEBRAR!
 319      283      src\components\TechnologyModal.tsx  <-- QUEBRAR!
 299      262      src\engine\rebellions\rebelAI.ts
+287      284      src\data\researches.ts
 280      248      src\engine\technology.ts
 273      234      src\engine\economy.ts
 256      230      src\components\BattleReportModal.tsx
@@ -19,6 +20,7 @@ LINHAS   CÓDIGO   ARQUIVO
 210      184      src\engine\combat\combatCalculations.ts
 209      182      src\engine\aiEngine\aiEconomy.ts
 199      173      src\hooks\gameLoop\battleContinuousTick.ts
+189      185      src\data\nationalFocuses.ts
 187      182      src\data\provinces.ts
 181      166      src\components\DiplomacyPanel.tsx
 181      170      src\components\TopBar.tsx
@@ -63,7 +65,6 @@ LINHAS   CÓDIGO   ARQUIVO
 92       79       src\engine\military\militaryUtils.ts
 86       79       src\hooks\gameLoop\diplomacyTechTick.ts
 81       77       src\components\ProvincePanel\ProvinceBuildingsTab.tsx
-77       71       src\types\technology.ts
 72       66       src\hooks\app\useEconomyActions.ts
 70       62       src\hooks\gameLoop\unrestTick.ts
 70       65       src\types\diplomacy.ts
@@ -78,6 +79,7 @@ LINHAS   CÓDIGO   ARQUIVO
 52       46       src\components\cheatPanel.tsx
 48       44       src\components\DifficultySelector.tsx
 46       40       src\hooks\app\useDiplomacyActions.ts
+45       41       src\types\researchAndFocus.ts
 43       39       src\types\battle.ts
 42       37       src\components\GameMap\GameMapTooltip.tsx
 42       38       src\types\difficulty.ts
@@ -312,6 +314,11 @@ L 262 | [Const            ] const provId = rebelTag.replace('rebel_', '');
 L 263 | [Const            ] const rebelHome = provinces.find(p => p.id === provId)?.originalOwner;
 L 265 | [Const            ] const stillActive = armies.some(a => a.owner === rebelTag && a.separatistMode === true);
 L 266 | [Const            ] const stillOccupied = rebelHome
+
+================================================================================
+FILE: src\data\researches.ts | Total: 287 | Código: 284 | Vazias: 3
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
 
 ================================================================================
 FILE: src\engine\technology.ts | Total: 280 | Código: 248 | Vazias: 32
@@ -619,6 +626,11 @@ L 144 | [Const            ] const updatedFinalResult = { ...finalResult, territo
 L 146 | [Const            ] const countryName = allCountries.find(c => c.tag === rebelReturnOwner)?.name || rebelReturnOwner;
 L 157 | [Const            ] const updatedFinalResult = { ...finalResult, territoryChanged: false } as any;
 L 167 | [Const            ] const retreatProvince = findRetreatProvince(attacker.owner, province, provinces);
+
+================================================================================
+FILE: src\data\nationalFocuses.ts | Total: 189 | Código: 185 | Vazias: 4
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
 
 ================================================================================
 FILE: src\data\provinces.ts | Total: 187 | Código: 182 | Vazias: 5
@@ -1346,16 +1358,6 @@ L  36 | [Const            ] const canAfford = playerCountry.resources.gold >= co
 L  37 | [Const            ] const cantBuildReason = !canBuild
 
 ================================================================================
-FILE: src\types\technology.ts | Total: 77 | Código: 71 | Vazias: 6
-================================================================================
-L  10 | [Interface/Type/Enum] export type TechnologyCategory = 'MILITARY' | 'ECONOMY' | 'INFRASTRUCTURE';
-L  15 | [Interface/Type/Enum] export type RewardEffectType =
-L  27 | [Interface/Type/Enum] export interface RewardEffect {
-L  36 | [Interface/Type/Enum] export interface NationalFocus {
-L  51 | [Interface/Type/Enum] export interface Technology {
-L  68 | [Interface/Type/Enum] export interface CountryTechState {
-
-================================================================================
 FILE: src\hooks\app\useEconomyActions.ts | Total: 72 | Código: 66 | Vazias: 6
 ================================================================================
 L  13 | [Func             ] export function useEconomyActions(params: any) {
@@ -1522,6 +1524,15 @@ L  35 | [Const            ] const handleMakePeace = useCallback((warId: string) 
 L  36 | [Const            ] const war = wars.find((w: any) => w.id === warId);
 L  38 | [Const            ] const enemy = war.attacker === playerCountryTag ? war.defender : war.attacker;
 L  39 | [Const            ] const result = makePeace(diplomaticRelations, wars, playerCountryTag, enemy);
+
+================================================================================
+FILE: src\types\researchAndFocus.ts | Total: 45 | Código: 41 | Vazias: 4
+================================================================================
+L   1 | [Interface/Type/Enum] export type EffectType =
+L  10 | [Interface/Type/Enum] export interface RewardEffect {
+L  17 | [Interface/Type/Enum] export interface NationalFocus {
+L  30 | [Interface/Type/Enum] export type ResearchCategory = 'MILITARY' | 'ECONOMY' | 'INFRASTRUCTURE';
+L  33 | [Interface/Type/Enum] export interface ResearchItem {
 
 ================================================================================
 FILE: src\types\battle.ts | Total: 43 | Código: 39 | Vazias: 4

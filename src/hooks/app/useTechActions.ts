@@ -3,7 +3,7 @@
  */
 import { useCallback } from 'react';
 import { startNationalFocus, startTechnologyResearch } from '../../engine/technology';
-import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../../data/technologies';
+import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../../data/technology';
 import { LAWS } from '../../constants/laws';
 
 export function useTechActions(params: any) {

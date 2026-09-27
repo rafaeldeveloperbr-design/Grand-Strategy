@@ -7,7 +7,7 @@
 import { Country, Province } from '../types';
 import { NationalFocus, Technology, CountryTechState, RewardEffect } from '../types/technology';
 import { AIDifficulty, DIFFICULTY_SPEED_MULTIPLIERS } from '../types/difficulty';
-import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technologies';
+import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technology';
 
 /**
  * Processa o progresso diário de focos e tecnologias de um país

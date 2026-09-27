@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { Country } from '../types';
 import { CountryTechState } from '../types/technology';
-import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technologies';
+import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technology';
 
 interface TechnologyModalProps {
   playerCountry: Country;
