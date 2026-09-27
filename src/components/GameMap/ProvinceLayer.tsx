@@ -206,45 +206,51 @@ export const ProvinceLayer: React.FC<ProvinceLayerProps> = ({
             )}
 
             {/* Indicador de agitação provincial (unrest) */}
-            {unrest > 0 && (
-              <g pointerEvents="none">
-                {needsPulse && (
+            {unrest > 0 && (() => {
+              // Desloca para o canto superior direito da província
+              const unrestX = province.center.x + 35;
+              const unrestY = province.center.y - 25;
+
+              return (
+                <g pointerEvents="none">
+                  {needsPulse && (
+                    <circle
+                      cx={unrestX}
+                      cy={unrestY}
+                      r={isCritical ? '14' : '12'}
+                      fill={isCritical ? '#ef4444' : '#f97316'}
+                      className="unrest-critical-pulse"
+                      opacity="0.3"
+                    />
+                  )}
                   <circle
-                    cx={province.center.x}
-                    cy={province.center.y + 15}
-                    r={isCritical ? '14' : '12'}
-                    fill={isCritical ? '#ef4444' : '#f97316'}
-                    className="unrest-critical-pulse"
-                    opacity="0.3"
+                    cx={unrestX}
+                    cy={unrestY}
+                    r="5"
+                    fill={getUnrestColor(unrest)}
+                    stroke="rgba(0, 0, 0, 0.5)"
+                    strokeWidth="0.5"
+                    opacity="0.8"
                   />
-                )}
-                <circle
-                  cx={province.center.x}
-                  cy={province.center.y + 15}
-                  r="5"
-                  fill={getUnrestColor(unrest)}
-                  stroke="rgba(0, 0, 0, 0.5)"
-                  strokeWidth="0.5"
-                  opacity="0.8"
-                />
-                <text
-                  x={province.center.x}
-                  y={province.center.y + 15}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize="6"
-                  fill="white"
-                  fontWeight="bold"
-                  pointerEvents="none"
-                >
-                  {Math.round(unrest)}
-                </text>
-                <title>
-                  {`Agitação: ${getUnrestDescription(unrest)} (${Math.round(unrest)}%)\n`}
-                  {unrest >= 80 ? '⚠️ Revolta iminente!' : ''}
-                </title>
-              </g>
-            )}
+                  <text
+                    x={unrestX}
+                    y={unrestY}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="6"
+                    fill="white"
+                    fontWeight="bold"
+                    pointerEvents="none"
+                  >
+                    {Math.round(unrest)}
+                  </text>
+                  <title>
+                    {`Agitação: ${getUnrestDescription(unrest)} (${Math.round(unrest)}%)\n`}
+                    {unrest >= 80 ? '⚠️ Revolta iminente!' : ''}
+                  </title>
+                </g>
+              );
+            })()}
           </g>
         );
       })}
