@@ -2,12 +2,12 @@ RESUMO - ARQUIVOS MAIORES QUE 200 LINHAS (meta: max 300)
 ================================================================================
 LINHAS   CÓDIGO   ARQUIVO
 --------------------------------------------------------------------------------
-687      597      src\engine\military.ts  <-- QUEBRAR!
 633      544      src\engine\aiEngine.ts  <-- QUEBRAR!
 632      557      src\engine\rebellions.ts  <-- QUEBRAR!
 509      481      src\components\ProvincePanel.tsx  <-- QUEBRAR!
 492      481      src\data\technologies.ts  <-- QUEBRAR!
 393      333      src\engine\combat\continuousBattle.ts  <-- QUEBRAR!
+334      276      src\engine\military\movementEngine.ts  <-- QUEBRAR!
 330      299      src\engine\diplomacy.ts  <-- QUEBRAR!
 319      283      src\components\TechnologyModal.tsx  <-- QUEBRAR!
 280      248      src\engine\technology.ts
@@ -41,6 +41,7 @@ LINHAS   CÓDIGO   ARQUIVO
 127      115      src\hooks\app\useArmyActions.ts
 126      120      src\constants\laws.ts
 118      113      src\types\province.ts
+116      100      src\engine\military\recruitmentEngine.ts
 116      102      src\hooks\gameLoop\economyTick.ts
 114      104      src\components\GameMap\BattleMarkersOverlay.tsx
 114      95       src\hooks\useGameLoop.ts
@@ -52,6 +53,7 @@ LINHAS   CÓDIGO   ARQUIVO
 98       88       src\utils\translations.ts
 94       85       src\components\NotificationLogModal.tsx
 94       87       src\hooks\gameLoop\rebelTick.ts
+92       79       src\engine\military\militaryUtils.ts
 86       79       src\hooks\gameLoop\diplomacyTechTick.ts
 77       71       src\types\technology.ts
 72       66       src\hooks\app\useEconomyActions.ts
@@ -83,83 +85,11 @@ LINHAS   CÓDIGO   ARQUIVO
 6        5        src\main.tsx
 6        6        src\engine\combat\index.ts
 3        3        src\components\GameMap\index.ts
+3        3        src\engine\military\index.ts
 
 
 DETALHE POR ARQUIVO
 ================================================================================
-
-================================================================================
-FILE: src\engine\military.ts | Total: 687 | Código: 597 | Vazias: 90
-================================================================================
-L  20 | [Func             ] export function canMoveToProvince(
-L  33 | [Const            ] const relation = diplomacy.find(
-L  50 | [Func             ] export function stopArmyMovement(army: Army): Army {
-L  78 | [Func             ] export function generateArmyId(): string {
-L  86 | [Func             ] export function generateRecruitmentId(): string {
-L  93 | [Func             ] export function createArmy(owner: string, name: string, location: string): Army {
-L 114 | [Func             ] export function createRegiment(type: UnitType): Regiment {
-L 125 | [Func             ] export function calculateArmySpeed(army: Army): number {
-L 130 | [Const            ] const def = UNIT_DEFINITIONS[reg.type];
-L 143 | [Func             ] export function processRecruitments(
-L 152 | [Const            ] const updatedCountries = [...countries];
-L 156 | [Const            ] const province = provinces.find(p => p.id === rec.provinceId);
-L 170 | [Const            ] const def = BUILDING_DEFINITIONS[building.type];
-L 179 | [Const            ] const daysReduction = Math.floor(recruitmentSpeedBonus / 100);
-L 180 | [Const            ] const newDays = rec.daysRemaining - 1 - daysReduction;
-L 190 | [Const            ] const existingArmy = updatedArmies.find(
-L 203 | [Const            ] const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
-L 228 | [Func             ] export function cancelRecruitment(
-L 233 | [Const            ] const rec = recruitments.find(r => r.id === recruitmentId);
-L 238 | [Const            ] const unitDef = UNIT_DEFINITIONS[rec.unitType];
-L 239 | [Const            ] const totalCost = unitDef.cost;
-L 240 | [Const            ] const totalDays = unitDef.trainingTime;
-L 241 | [Const            ] const daysRemaining = rec.daysRemaining;
-L 244 | [Const            ] const progressRatio = daysRemaining / totalDays;
-L 245 | [Const            ] const refundFactor = Math.max(0.10, progressRatio); // Mínimo de 10%
-L 246 | [Const            ] const refundedGold = Math.floor(totalCost * refundFactor);
-L 282 | [Func             ] export function processArmyMovement(
-L 291 | [Const            ] const updatedArmies = armies.map(army => {
-L 303 | [Const            ] const nextProgress = army.movementProgress + army.movementSpeed;
-L 308 | [Const            ] const originProvince = provinces.find(p => p.id === army.location);
-L 309 | [Const            ] const destProvince = provinces.find(p => p.id === army.destination);
-L 327 | [Const            ] const reachedProvinceId = army.destination;
-L 328 | [Const            ] const reachedProvince = provinces.find(p => p.id === reachedProvinceId);
-L 344 | [Const            ] const enemyArmiesInProvince = armies.filter(a =>
-L 366 | [Const            ] const relation = diplomacy.find(
-L 384 | [Const            ] const remainingPath = army.path.slice(1);
-L 417 | [Const            ] const movingArmies = updatedArmies.filter(army => {
-L 418 | [Const            ] const hasArrived = arrivedArmies.some(a => a.id === army.id);
-L 423 | [Const            ] const updatedProvinces = provinces.map(prov => {
-L 424 | [Const            ] const captured = capturedProvinces.find(cp => cp.id === prov.id);
-L 436 | [Func             ] export function moveArmy(
-L 445 | [Const            ] const originProvince = provinces.find(p => p.id === army.location);
-L 448 | [Const            ] const destinationProvince = provinces.find(p => p.id === destinationId);
-L 477 | [Const            ] const path = findPath(army.location, destinationId, provinces, army.owner, diplomacy);
-L 486 | [Const            ] const nextDestination = path[0];
-L 487 | [Const            ] const fullPath = path; // path completo incluindo destino final
-L 502 | [Func             ] export function getArmiesInProvince(armies: Army[], provinceId: string): Army[] {
-L 509 | [Func             ] export function getEnemyArmiesInProvince(
-L 520 | [Func             ] export function getFriendlyArmiesInProvince(
-L 535 | [Func             ] export function mergeArmies(army1: Army, army2: Army): Army {
-L 537 | [Const            ] const mergedRegiments = [...army1.regiments, ...army2.regiments];
-L 555 | [Func             ] export function calculateArmyOffset(
-L 565 | [Const            ] const radius = 18 + (total > 4 ? (total - 4) * 3 : 0);
-L 568 | [Const            ] const angleStep = (2 * Math.PI) / total;
-L 569 | [Const            ] const angle = angleStep * index - Math.PI / 2;
-L 581 | [Func             ] export function findPath(
-L 590 | [Const            ] const adjacencyMap = new Map<string, string[]>();
-L 596 | [Const            ] const visited = new Set<string>([startId]);
-L 597 | [Const            ] const parent = new Map<string, string>();
-L 600 | [Const            ] const current = queue.shift()!;
-L 612 | [Const            ] const neighbors = adjacencyMap.get(current) ?? [];
-L 616 | [Const            ] const neighborProvince = provinces.find(p => p.id === neighbor);
-L 621 | [Const            ] const isAllowed = canMoveToProvince(ownerTag, neighborProvince.owner, diplomacy);
-L 642 | [Func             ] export function splitArmy(
-L 656 | [Const            ] const transferredRegiments = regimentsToTransfer.map(idx => ({ ...sourceArmy.regiments[idx] }));
-L 657 | [Const            ] const remainingRegiments = sourceArmy.regiments.filter((_, idx) => !regimentsToTransfer.includes(idx));
-L 680 | [Func             ] export function splitArmyHalf(sourceArmy: Army, newName: string): Army | null {
-L 683 | [Const            ] const halfIndex = Math.floor(sourceArmy.regiments.length / 2);
-L 684 | [Const            ] const indicesToTransfer = Array.from({ length: halfIndex }, (_, i) => i);
 
 ================================================================================
 FILE: src\engine\aiEngine.ts | Total: 633 | Código: 544 | Vazias: 89
@@ -420,6 +350,47 @@ L 361 | [Const            ] const defenderCurrentTroops = Math.max(0, battle.def
 L 364 | [Const            ] const updatedAttacker = applyTroopLoss(attacker, dailyAttackerLoss);
 L 365 | [Const            ] const updatedDefender = applyTroopLoss(defender, dailyDefenderLoss);
 L 376 | [Const            ] const finished = daysRemaining <= 0 || attackerCurrentTroops <= 0 || defenderCurrentTroops <= 0;
+
+================================================================================
+FILE: src\engine\military\movementEngine.ts | Total: 334 | Código: 276 | Vazias: 58
+================================================================================
+L   5 | [Func             ] export function canMoveToProvince(
+L  18 | [Const            ] const relation = diplomacy.find(
+L  31 | [Func             ] export function stopArmyMovement(army: Army): Army {
+L  53 | [Func             ] export function findPath(
+L  62 | [Const            ] const adjacencyMap = new Map<string, string[]>();
+L  68 | [Const            ] const visited = new Set<string>([startId]);
+L  69 | [Const            ] const parent = new Map<string, string>();
+L  72 | [Const            ] const current = queue.shift()!;
+L  84 | [Const            ] const neighbors = adjacencyMap.get(current) ?? [];
+L  88 | [Const            ] const neighborProvince = provinces.find((p) => p.id === neighbor);
+L  91 | [Const            ] const isAllowed = canMoveToProvince(ownerTag, neighborProvince.owner, diplomacy);
+L 104 | [Func             ] export function moveArmy(
+L 113 | [Const            ] const originProvince = provinces.find((p) => p.id === army.location);
+L 116 | [Const            ] const destinationProvince = provinces.find((p) => p.id === destinationId);
+L 141 | [Const            ] const path = findPath(army.location, destinationId, provinces, army.owner, diplomacy);
+L 148 | [Const            ] const nextDestination = path[0];
+L 160 | [Func             ] export function processArmyMovement(
+L 168 | [Const            ] const updatedArmies = armies.map((army) => {
+L 177 | [Const            ] const nextProgress = army.movementProgress + army.movementSpeed;
+L 180 | [Const            ] const originProvince = provinces.find((p) => p.id === army.location);
+L 181 | [Const            ] const destProvince = provinces.find((p) => p.id === army.destination);
+L 198 | [Const            ] const reachedProvinceId = army.destination;
+L 199 | [Const            ] const reachedProvince = provinces.find((p) => p.id === reachedProvinceId);
+L 213 | [Const            ] const enemyArmiesInProvince = armies.filter(
+L 230 | [Const            ] const relation = diplomacy.find(
+L 245 | [Const            ] const remainingPath = army.path.slice(1);
+L 273 | [Const            ] const movingArmies = updatedArmies.filter((army) => {
+L 274 | [Const            ] const hasArrived = arrivedArmies.some((a) => a.id === army.id);
+L 278 | [Const            ] const updatedProvinces = provinces.map((prov) => {
+L 279 | [Const            ] const captured = capturedProvinces.find((cp) => cp.id === prov.id);
+L 286 | [Func             ] export function mergeArmies(army1: Army, army2: Army): Army {
+L 287 | [Const            ] const mergedRegiments = [...army1.regiments, ...army2.regiments];
+L 296 | [Func             ] export function splitArmy(
+L 308 | [Const            ] const transferredRegiments = regimentsToTransfer.map((idx) => ({ ...sourceArmy.regiments[idx] }));
+L 327 | [Func             ] export function splitArmyHalf(sourceArmy: Army, newName: string): Army | null {
+L 330 | [Const            ] const halfIndex = Math.floor(sourceArmy.regiments.length / 2);
+L 331 | [Const            ] const indicesToTransfer = Array.from({ length: halfIndex }, (_, i) => i);
 
 ================================================================================
 FILE: src\engine\diplomacy.ts | Total: 330 | Código: 299 | Vazias: 31
@@ -1124,6 +1095,27 @@ L  77 | [Interface/Type/Enum] export interface BuildingDefinition {
 L 101 | [Interface/Type/Enum] export interface BuildingBonus {
 
 ================================================================================
+FILE: src\engine\military\recruitmentEngine.ts | Total: 116 | Código: 100 | Vazias: 16
+================================================================================
+L   6 | [Func             ] export function processRecruitments(
+L  15 | [Const            ] const updatedCountries = [...countries];
+L  18 | [Const            ] const province = provinces.find((p) => p.id === rec.provinceId);
+L  29 | [Const            ] const def = BUILDING_DEFINITIONS[building.type];
+L  37 | [Const            ] const daysReduction = Math.floor(recruitmentSpeedBonus / 100);
+L  38 | [Const            ] const newDays = rec.daysRemaining - 1 - daysReduction;
+L  46 | [Const            ] const existingArmy = updatedArmies.find(
+L  57 | [Const            ] const newArmy = createArmy(rec.owner, `Exército ${rec.provinceId}`, rec.provinceId);
+L  76 | [Func             ] export function cancelRecruitment(
+L  81 | [Const            ] const rec = recruitments.find((r) => r.id === recruitmentId);
+L  86 | [Const            ] const unitDef = UNIT_DEFINITIONS[rec.unitType];
+L  87 | [Const            ] const totalCost = unitDef.cost;
+L  88 | [Const            ] const totalDays = unitDef.trainingTime;
+L  89 | [Const            ] const daysRemaining = rec.daysRemaining;
+L  91 | [Const            ] const progressRatio = daysRemaining / totalDays;
+L  92 | [Const            ] const refundFactor = Math.max(0.1, progressRatio);
+L  93 | [Const            ] const refundedGold = Math.floor(totalCost * refundFactor);
+
+================================================================================
 FILE: src\hooks\gameLoop\economyTick.ts | Total: 116 | Código: 102 | Vazias: 14
 ================================================================================
 L  13 | [Interface/Type/Enum] type Params = {
@@ -1273,6 +1265,23 @@ L  69 | [Const            ] const cleanupResult = cleanupSeparatistWars(armies, 
 L  82 | [Const            ] const playerCountryData = countries.find(c => c.tag === playerCountryTag);
 L  84 | [Const            ] const endGameResult = checkEndGameConditions(playerCountryData, provinces);
 L  86 | [Const            ] const stats = calculateGameStats({ year: 1444, month: 11, day: 11 }, dateRef.current, battleHistory, playerCountryTag, provinces);
+
+================================================================================
+FILE: src\engine\military\militaryUtils.ts | Total: 92 | Código: 79 | Vazias: 13
+================================================================================
+L   5 | [Func             ] export function generateArmyId(): string {
+L  10 | [Func             ] export function generateRecruitmentId(): string {
+L  14 | [Func             ] export function createRegiment(type: UnitType): Regiment {
+L  22 | [Func             ] export function createArmy(owner: string, name: string, location: string): Army {
+L  40 | [Func             ] export function calculateArmySpeed(army: Army): number {
+L  45 | [Const            ] const def = UNIT_DEFINITIONS[reg.type];
+L  54 | [Func             ] export function getArmiesInProvince(armies: Army[], provinceId: string): Army[] {
+L  58 | [Func             ] export function getEnemyArmiesInProvince(
+L  66 | [Func             ] export function getFriendlyArmiesInProvince(
+L  76 | [Func             ] export function calculateArmyOffset(
+L  84 | [Const            ] const radius = 18 + (total > 4 ? (total - 4) * 3 : 0);
+L  85 | [Const            ] const angleStep = (2 * Math.PI) / total;
+L  86 | [Const            ] const angle = angleStep * index - Math.PI / 2;
 
 ================================================================================
 FILE: src\hooks\gameLoop\diplomacyTechTick.ts | Total: 86 | Código: 79 | Vazias: 7
@@ -1549,5 +1558,10 @@ FILE: src\engine\combat\index.ts | Total: 6 | Código: 6 | Vazias: 0
 
 ================================================================================
 FILE: src\components\GameMap\index.ts | Total: 3 | Código: 3 | Vazias: 0
+================================================================================
+(nenhuma assinatura encontrada - pode ser só lógica solta)
+
+================================================================================
+FILE: src\engine\military\index.ts | Total: 3 | Código: 3 | Vazias: 0
 ================================================================================
 (nenhuma assinatura encontrada - pode ser só lógica solta)
