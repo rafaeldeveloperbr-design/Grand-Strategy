@@ -90,10 +90,15 @@ export function processBattleContinuous(p: Params) {
     const totalAttackerInitial = fb.attackerInitialTroops + attackerReinfInitial;
     const totalDefenderInitial = fb.defenderInitialTroops + defenderReinfInitial;
 
-    const { result: finalResult, updatedArmies } = finalizeBattle(fb, attacker, defender, province, snapshot.date, armies, provinces, countries);
+     const { result: finalResult, updatedArmies } = finalizeBattle(fb, attacker, defender, province, snapshot.date, armies, provinces, countries);
 
     const allPartIds = (fb as any).participantArmyIds || [fb.attackerArmyId, fb.defenderArmyId];
+
+    // RECALCULA FINAL REAL DEPOIS DO RECUO (1k)
+    let realAttackerFinal = 0;
+    let realDefenderFinal = 0;
     const participantDetails: any[] = [];
+
     allPartIds.forEach((id: string) => {
       const finalArmy = updatedArmies.find(a => a.id === id);
       if (!finalArmy) return;
@@ -108,16 +113,18 @@ export function processBattleContinuous(p: Params) {
         final: finalSize,
         loss: Math.max(0, initial - finalSize)
       });
+      if (finalArmy.owner === attacker.owner) realAttackerFinal += finalSize;
+      else realDefenderFinal += finalSize;
     });
 
     const enrichedResult = {
-     ...finalResult,
+    ...finalResult,
       totalAttackerInitial,
       totalDefenderInitial,
       attackerReinfInitial,
       defenderReinfInitial,
-      attackerCurrentTroops: fb.attackerCurrentTroops,
-      defenderCurrentTroops: fb.defenderCurrentTroops,
+      attackerCurrentTroops: realAttackerFinal, // AGORA 1k
+      defenderCurrentTroops: realDefenderFinal, // AGORA 17.6k real do mapa
       participantDetails,
       reinforcementInitialSize: reinfSizes
     } as any;
