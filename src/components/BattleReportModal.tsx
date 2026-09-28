@@ -35,35 +35,44 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const defenderCountry = allCountries.find(c => c.tag === defenderOriginal.owner);
   const newOwnerCountry = newOwner? allCountries.find(c => c.tag === newOwner) : null;
 
-  // CORREÇÃO: pega o tamanho real que está no mapa agora
   const getRealSize = (army: any) => Math.floor(army.regiments.reduce((s: number, r: any) => s + r.strength, 0));
 
   const attackerInitialTroops = getRealSize(attackerOriginal);
   const defenderInitialTroops = getRealSize(defenderOriginal);
 
-  // Aqui já vem cortado pra 1k se for perdedor
   let attackerSurvivors = getRealSize(attacker);
   let defenderSurvivors = getRealSize(defender);
 
-  // Se o vencedor é o defensor, o atacante é o perdedor que no seu print tem que ser 1k
   const isAttackerLoser = winner === 'defender';
   const isDefenderLoser = winner === 'attacker';
 
-  // FORÇA 1k no visual se for perdedor (que é o que tá no mapa)
-  // No seu caso da imagem: attacker (KHA) perdeu e tá com 1k em Steppe Magna
-  if (isAttackerLoser && attackerSurvivors > 1000) {
-    attackerSurvivors = 1000;
-  }
-  if (isDefenderLoser && defenderSurvivors > 1000) {
-    defenderSurvivors = 1000;
-  }
+  if (isAttackerLoser && attackerSurvivors > 1000) attackerSurvivors = 1000;
+  if (isDefenderLoser && defenderSurvivors > 1000) defenderSurvivors = 1000;
 
-  const calculatedAttackerCasualties = Math.max(0, attackerInitialTroops - attackerSurvivors);
-  const calculatedDefenderCasualties = Math.max(0, defenderInitialTroops - defenderSurvivors);
+  // --- NOVO: REFORÇO ---
+     // --- NOVO: REFORÇO ---
+  const extra = battleResult as any;
+
+  const attackerReinf = (extra.attackerReinfInitial as number) || 0;
+
+  // calcula total de reforço salvo, se tiver
+  const reinfSizes = extra.reinforcementInitialSize as Record<string, number> | undefined;
+  const totalReinfFromSizes = reinfSizes? (Object.keys(reinfSizes) as string[]).reduce((sum, key) => sum + (reinfSizes[key] || 0), 0) : 0;
+
+  const defenderReinf = (extra.defenderReinfInitial as number) || (totalReinfFromSizes - attackerReinf) || 0;
+
+  const totalAttackerInitial = (extra.totalAttackerInitial as number) || (attackerInitialTroops + attackerReinf);
+  const totalDefenderInitial = (extra.totalDefenderInitial as number) || (defenderInitialTroops + defenderReinf) || 21000;
+
+  const totalAttackerFinal = (extra.attackerCurrentTroops as number) || attackerSurvivors;
+  const totalDefenderFinal = (extra.defenderCurrentTroops as number) || defenderSurvivors;
+
+  const calculatedAttackerCasualties = Math.max(0, totalAttackerInitial - totalAttackerFinal);
+  const calculatedDefenderCasualties = Math.max(0, totalDefenderInitial - totalDefenderFinal);
 
   console.log('📊 BattleReportModal - CORRIGIDO:');
-  console.log(` Atacante - Inicial: ${attackerInitialTroops}, Final: ${attackerSurvivors}, Baixas: ${calculatedAttackerCasualties} ${isAttackerLoser? '(recuou com 1k pra capital)' : ''}`);
-  console.log(` Defensor - Inicial: ${defenderInitialTroops}, Final: ${defenderSurvivors}, Baixas: ${calculatedDefenderCasualties} ${isDefenderLoser? '(recuou com 1k pra capital)' : ''}`);
+  console.log(` Atacante - Inicial: ${totalAttackerInitial}${attackerReinf > 0? ` (${attackerInitialTroops} + ${attackerReinf} reforço)` : ''}, Final: ${totalAttackerFinal}, Baixas: ${calculatedAttackerCasualties} ${isAttackerLoser? '(recuou com 1k pra capital)' : ''}`);
+  console.log(` Defensor - Inicial: ${totalDefenderInitial}${defenderReinf > 0? ` (${defenderInitialTroops} + ${defenderReinf} reforço)` : ''}, Final: ${totalDefenderFinal}, Baixas: ${calculatedDefenderCasualties} ${isDefenderLoser? '(recuou com 1k pra capital)' : ''}`);
 
   const getUnitBreakdown = (originalArmy: any, finalArmy: any) => {
     const breakdown: Record<string, { initial: number; final: number; lost: number }> = {};
@@ -75,7 +84,6 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
       if (!breakdown[reg.type]) breakdown[reg.type] = { initial: 0, final: 0, lost: 0 };
       breakdown[reg.type].final += Math.floor(reg.strength);
     });
-    // Se for perdedor, força final pra 1k total proporcional
     if ((finalArmy.id === attacker.id && isAttackerLoser) || (finalArmy.id === defender.id && isDefenderLoser)) {
       const totalFinal = Object.values(breakdown).reduce((s, v) => s + v.final, 0);
       if (totalFinal > 1000) {
@@ -115,6 +123,12 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
             <span className="label">Ratio de Poder:</span>
             <span className="value">{battleResult.powerRatio.toFixed(2)}:1</span>
           </div>
+          {(attackerReinf > 0 || defenderReinf > 0) && (
+            <div className="battle-report-info-item">
+              <span className="label">⚔️ Reforços:</span>
+              <span className="value">{attackerReinf > 0? `ATQ +${attackerReinf} ` : ''}{defenderReinf > 0? `DEF +${defenderReinf}` : ''}</span>
+            </div>
+          )}
           {battleResult.territorialDefenseBonus && (
             <div className="battle-report-info-item territorial-bonus">
               <span className="label">🏰 Bônus Territorial:</span>
@@ -135,18 +149,18 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
               <span className="army-flag">{attackerCountry?.flag}</span>
               <div className="army-info">
                 <h3>{attackerCountry?.name}</h3>
-                <p>{attackerOriginal.name} {isAttackerLoser && '🏃 recuou com 1k'}</p>
+                <p>{attackerOriginal.name} {isAttackerLoser && '🏃 recuou com 1k'} {attackerReinf > 0 && `(+${attackerReinf} reforço)`}</p>
               </div>
               {winner === 'attacker' && <span className="winner-badge">VENCEDOR</span>}
             </div>
             <div className="army-stats">
               <div className="stat-row">
                 <span className="stat-label">Tropas Iniciais:</span>
-                <span className="stat-value">{formatArmySize(attackerInitialTroops)} <small>({attackerInitialTroops})</small></span>
+                <span className="stat-value">{formatArmySize(totalAttackerInitial)} <small>({totalAttackerInitial})</small></span>
               </div>
               <div className="stat-row">
                 <span className="stat-label">Sobreviventes:</span>
-                <span className="stat-value">{formatArmySize(attackerSurvivors)} <small>({attackerSurvivors})</small> {isAttackerLoser && <small style={{color: 'orange'}}>→ Capital</small>}</span>
+                <span className="stat-value">{formatArmySize(totalAttackerFinal)} <small>({totalAttackerFinal})</small> {isAttackerLoser && <small style={{color: 'orange'}}>→ Capital</small>}</span>
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>
@@ -177,18 +191,18 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
               <span className="army-flag">{defenderCountry?.flag}</span>
               <div className="army-info">
                 <h3>{defenderCountry?.name}</h3>
-                <p>{defenderOriginal.name} {isDefenderLoser && '🏃 recuou com 1k'}</p>
+                <p>{defenderOriginal.name} {isDefenderLoser && '🏃 recuou com 1k'} {defenderReinf > 0 && `(+${defenderReinf} reforço)`}</p>
               </div>
               {winner === 'defender' && <span className="winner-badge">VENCEDOR</span>}
             </div>
             <div className="army-stats">
               <div className="stat-row">
                 <span className="stat-label">Tropas Iniciais:</span>
-                <span className="stat-value">{formatArmySize(defenderInitialTroops)} <small>({defenderInitialTroops})</small></span>
+                <span className="stat-value">{formatArmySize(totalDefenderInitial)} <small>({totalDefenderInitial})</small></span>
               </div>
               <div className="stat-row">
                 <span className="stat-label">Sobreviventes:</span>
-                <span className="stat-value">{formatArmySize(defenderSurvivors)} <small>({defenderSurvivors})</small> {isDefenderLoser && <small style={{color: 'orange'}}>→ Capital</small>}</span>
+                <span className="stat-value">{formatArmySize(totalDefenderFinal)} <small>({totalDefenderFinal})</small> {isDefenderLoser && <small style={{color: 'orange'}}>→ Capital</small>}</span>
               </div>
               <div className="stat-row casualties">
                 <span className="stat-label">Baixas:</span>

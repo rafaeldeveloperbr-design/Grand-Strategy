@@ -302,9 +302,12 @@ export function addReinforcementsToBattle(
     updatedBattle.participantArmyIds.push(reinforcementArmy.id);
   }
 
-  // marca dia que entrou
   updatedBattle.reinforcementEntryDay = updatedBattle.reinforcementEntryDay || {};
   updatedBattle.reinforcementEntryDay[reinforcementArmy.id] = battle.daysTotal - battle.daysRemaining;
+
+  // ESSA LINHA QUE FALTAVA:
+  updatedBattle.reinforcementInitialSize = updatedBattle.reinforcementInitialSize || {};
+  updatedBattle.reinforcementInitialSize[reinforcementArmy.id] = reinforcementTroops;
 
   return updatedBattle;
 }

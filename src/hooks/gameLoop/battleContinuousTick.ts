@@ -44,22 +44,23 @@ export function processBattleContinuous(p: Params) {
     const attacker = armies.find(a => a.id === battle.attackerArmyId);
     const defender = armies.find(a => a.id === battle.defenderArmyId);
 
-    if (!province || !attacker || !defender) {
-      stillActiveBattles.push(battle); // não apaga se não achar
+    if (!province ||!attacker ||!defender) {
+      stillActiveBattles.push(battle);
       continue;
     }
 
     const result = processDailyBattle(battle, attacker, defender, province);
 
-    // CORREÇÃO: Atualiza todos os participantes com baixa proporcional
-    // O processDailyBattle já atualizou attacker/defender principais
-    // Reforços perdem proporcional também
+    // CORREÇÃO REFORÇO: reforço fresco perde 70% menos
     armies = armies.map(a => {
       if (a.id === attacker.id) return result.attacker;
       if (a.id === defender.id) return result.defender;
       if (battle.participantArmyIds.includes(a.id)) {
-        // Reforço perde 6% também por dia
-        const dailyLoss = Math.floor(calculateArmySize(a) * 0.06);
+        const entryDay = (battle as any).reinforcementEntryDay?.[a.id];
+        const daysSinceEntry = entryDay!== undefined? (battle.daysTotal - battle.daysRemaining - entryDay) : 10;
+        const isFresh = daysSinceEntry < 2;
+        const lossRate = isFresh? 0.02 : 0.04; // 2% se acabou de chegar, 4% depois
+        const dailyLoss = Math.floor(calculateArmySize(a) * lossRate);
         return applyTroopLoss(a, dailyLoss);
       }
       return a;
@@ -72,7 +73,6 @@ export function processBattleContinuous(p: Params) {
     }
   }
 
-  // Atualiza batalhas ativas antes de finalizar
   currentActiveBattles = stillActiveBattles;
   activeBattlesRef.current = currentActiveBattles;
   setActiveBattles(currentActiveBattles);
@@ -82,39 +82,65 @@ export function processBattleContinuous(p: Params) {
     const attacker = armies.find(a => a.id === finishedBattle.attackerArmyId);
     const defender = armies.find(a => a.id === finishedBattle.defenderArmyId);
 
-    if (!province || !attacker || !defender) continue;
+    if (!province ||!attacker ||!defender) continue;
 
-    // finalizeBattle já libera TODO MUNDO, inclusive o 15k
+    // CALCULA TOTAL INICIAL COM REFORÇO
+    const reinfSizes = (finishedBattle as any).reinforcementInitialSize || {};
+    let attackerReinfInitial = 0;
+    let defenderReinfInitial = 0;
+
+    Object.keys(reinfSizes).forEach((id: string) => {
+      const size = reinfSizes[id];
+      const army = armies.find(a => a.id === id) || { owner: '' } as any;
+      // tenta achar owner original do exército de reforço pela lista de todos
+      const originalArmy = p.armies.find(a => a.id === id);
+      const owner = originalArmy?.owner || army.owner;
+      if (owner === attacker.owner) attackerReinfInitial += size;
+      else if (owner === defender.owner) defenderReinfInitial += size;
+    });
+
+    const totalAttackerInitial = finishedBattle.attackerInitialTroops + attackerReinfInitial;
+    const totalDefenderInitial = finishedBattle.defenderInitialTroops + defenderReinfInitial;
+
     const { result: finalResult, updatedArmies } = finalizeBattle(finishedBattle, attacker, defender, province, snapshot.date, armies, provinces, countries)
 
-    // USA O updatedArmies QUE VEM DO FINALIZER, não cria outro
+    // INJETA TOTAIS NO RESULTADO PRO MODAL
+    const enrichedResult = {
+     ...finalResult,
+      totalAttackerInitial,
+      totalDefenderInitial,
+      attackerReinfInitial,
+      defenderReinfInitial,
+      attackerCurrentTroops: finishedBattle.attackerCurrentTroops,
+      defenderCurrentTroops: finishedBattle.defenderCurrentTroops,
+    } as any;
+
     armies = updatedArmies;
 
-    // Conquista de território só se não tem mais defensores
-    const remainingDefenders = armies.filter(a => 
-      a.location === province.id && 
-      a.owner === defender.owner && 
-      !a.inCombat &&
+    const remainingDefenders = armies.filter(a =>
+      a.location === province.id &&
+      a.owner === defender.owner &&
+     !a.inCombat &&
       calculateArmySize(a) > 0
     );
 
-    if (finalResult.winner === 'attacker' && remainingDefenders.length === 0) {
+    if (enrichedResult.winner === 'attacker' && remainingDefenders.length === 0) {
       const oldOwner = province.owner;
       const rebelReturnOwner = checkRebelTerritoryReturn(attacker);
       const newProvinceOwner = rebelReturnOwner || attacker.owner;
 
       provinces = provinces.map(pr => {
         if (pr.id === province.id) {
-          const isLiberation = !!rebelReturnOwner;
-          const conqueredProvince = isLiberation ? { ...pr, owner: newProvinceOwner, unrest: 0 } : applyConquestUnrest({ ...pr, owner: newProvinceOwner }, snapshot.date);
-          return { ...conqueredProvince, originalOwner: conqueredProvince.originalOwner || oldOwner };
+          const isLiberation =!!rebelReturnOwner;
+          const conqueredProvince = isLiberation? {...pr, owner: newProvinceOwner, unrest: 0 } : applyConquestUnrest({...pr, owner: newProvinceOwner }, snapshot.date);
+          return {...conqueredProvince, originalOwner: conqueredProvince.originalOwner || oldOwner };
         }
         return pr;
       });
 
       countries = countries.map(c => {
-        if (c.tag === newProvinceOwner) return { ...c, provinces: [...c.provinces, province.id] };
-        if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+        if (c.tag === newProvinceOwner) return {...c, provinces: [...c.provinces, province.id] };
+        if (c.tag === oldOwner) return {...c, provinces: c.provinces.filter(pid => pid!== province.id) };
         return c;
       });
 
@@ -123,29 +149,28 @@ export function processBattleContinuous(p: Params) {
       buildingConstructions = cancelResult.constructions;
       provinces = cancelResult.provinces;
 
-      const updatedFinalResult = { ...finalResult, territoryChanged: true, newOwner: newProvinceOwner } as any;
+      const updatedFinalResult = {...enrichedResult, territoryChanged: true, newOwner: newProvinceOwner } as any;
       addLog(`⚔️ ${attacker.owner} conquistou ${province.name} de ${oldOwner}!`);
-      setBattleHistory((prev: any) => [updatedFinalResult, ...prev]);
+      setBattleHistory((prev: any) => [updatedFinalResult,...prev]);
       if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
         setBattleReport(updatedFinalResult);
         setIsPaused(true);
       }
     } else {
-      if (finalResult.winner === 'defender') {
+      if (enrichedResult.winner === 'defender') {
         addLog(`🛡️ ${defender.owner} defendeu ${province.name}!`);
       } else {
         addLog(`🛡️ ${attacker.owner} venceu, mas ${defender.owner} ainda tem tropas em ${province.name}!`);
       }
-      setBattleHistory((prev: any) => [finalResult, ...prev]);
+      setBattleHistory((prev: any) => [enrichedResult,...prev]);
       if (attacker.owner === playerCountryTag || defender.owner === playerCountryTag) {
-        setBattleReport(finalResult);
+        setBattleReport(enrichedResult);
         setIsPaused(true);
       }
     }
 
-    // Estabilidade
-    const winnerCountry = finalResult.winner === 'attacker' ? finalResult.attacker.owner : finalResult.defender.owner;
-    const loserCountry = finalResult.winner === 'attacker' ? finalResult.defender.owner : finalResult.attacker.owner;
+    const winnerCountry = enrichedResult.winner === 'attacker'? enrichedResult.attacker.owner : enrichedResult.defender.owner;
+    const loserCountry = enrichedResult.winner === 'attacker'? enrichedResult.defender.owner : enrichedResult.attacker.owner;
     countries = countries.map(c => {
       if (c.tag === winnerCountry) return applyStabilityPrestigeChanges(c, 0, 2);
       if (c.tag === loserCountry) return applyStabilityPrestigeChanges(c, 0, -3);
