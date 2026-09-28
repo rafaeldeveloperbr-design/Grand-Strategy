@@ -1,4 +1,4 @@
-import { NationalFocus } from '../../types/technology';
+import { NationalFocus } from '../../../types/technology';
 
 export const ECONOMIC_FOCUSES: NationalFocus[] = [
   {
