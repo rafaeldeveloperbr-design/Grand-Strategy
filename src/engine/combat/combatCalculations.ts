@@ -39,8 +39,9 @@ export const COMBAT_BALANCE = {
 /**
  * Calcula o tamanho total de um exército (número de homens)
  */
-export function calculateArmySize(army: Army): number {
-  return Math.floor(army.regiments.reduce((sum, reg) => sum + reg.strength, 0));
+export function calculateArmySize(army: Army) {
+  if (!army.regiments || army.regiments.length === 0) return 0;
+  return army.regiments.reduce((s,r) => s + (r.strength || 0), 0);
 }
 
 

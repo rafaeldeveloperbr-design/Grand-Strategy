@@ -90,20 +90,27 @@ export function processBattleContinuous(p: Params) {
     const totalAttackerInitial = fb.attackerInitialTroops + attackerReinfInitial;
     const totalDefenderInitial = fb.defenderInitialTroops + defenderReinfInitial;
 
-     const { result: finalResult, updatedArmies } = finalizeBattle(fb, attacker, defender, province, snapshot.date, armies, provinces, countries);
+      const { result: finalResult, updatedArmies: rawUpdatedArmies } = finalizeBattle(fb, attacker, defender, province, snapshot.date, armies, provinces, countries);
 
     const allPartIds = (fb as any).participantArmyIds || [fb.attackerArmyId, fb.defenderArmyId];
+    const isStackwipe = (finalResult as any).isStackwipe;
 
-    // RECALCULA FINAL REAL DEPOIS DO RECUO (1k)
     let realAttackerFinal = 0;
     let realDefenderFinal = 0;
     const participantDetails: any[] = [];
 
     allPartIds.forEach((id: string) => {
-      const finalArmy = updatedArmies.find(a => a.id === id);
+      const finalArmy = rawUpdatedArmies.find(a => a.id === id);
       if (!finalArmy) return;
       const initial = (reinfSizes as any)[id] || (id === fb.attackerArmyId? fb.attackerInitialTroops : id === fb.defenderArmyId? fb.defenderInitialTroops : 0);
-      const finalSize = calculateArmySize(finalArmy);
+
+      // SE DEU STACKWIPE, FORÇA 0 NO PERDEDOR
+      let finalSize = calculateArmySize(finalArmy);
+      const isLoserArmy = finalArmy.owner === ((finalResult as any).winner === 'attacker'? defender.owner : attacker.owner);
+      if (isStackwipe && isLoserArmy) {
+        finalSize = 0;
+      }
+
       participantDetails.push({
         id,
         name: finalArmy.name,
@@ -118,16 +125,23 @@ export function processBattleContinuous(p: Params) {
     });
 
     const enrichedResult = {
-    ...finalResult,
+   ...finalResult,
       totalAttackerInitial,
       totalDefenderInitial,
       attackerReinfInitial,
       defenderReinfInitial,
-      attackerCurrentTroops: realAttackerFinal, // AGORA 1k
-      defenderCurrentTroops: realDefenderFinal, // AGORA 17.6k real do mapa
+      attackerCurrentTroops: realAttackerFinal,
+      defenderCurrentTroops: realDefenderFinal,
       participantDetails,
       reinforcementInitialSize: reinfSizes
     } as any;
+
+    // LIMPA EXÉRCITOS ANIQUILADOS DO MAPA
+    let updatedArmies = rawUpdatedArmies.filter(a => {
+      if (!allPartIds.includes(a.id)) return true;
+      const detail = participantDetails.find(d => d.id === a.id);
+      return detail? detail.final > 0 : calculateArmySize(a) > 0;
+    });
 
     armies = updatedArmies;
 
