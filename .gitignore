@@ -3,3 +3,9 @@ node_modules/
 dist/
 build/
 *.log
+
+# AI context mapper output
+repo_ai_context.txt
+tools/__pycache__/
+*.pyc
+__pycache__/

@@ -21,6 +21,11 @@ PATTERNS = {
     "Function / Logic": re.compile(r'^\s*(export\s+)?(async\s+)?function\s+([a-z][a-zA-Z0-9_]*)'),
     "Arrow Func / Var": re.compile(r'^\s*(export\s+)?(const|let|var)\s+([a-zA-Z0-9_]+)\s*=\s*(async\s*)?\(.*?\)\s*=>'),
     "Interface / Type": re.compile(r'^\s*(export\s+)?(interface|type|enum)\s+([A-Z][a-zA-Z0-9_]*)'),
+    # PATTERNS DO SEU JOGO - pra pegar os fixes novos
+    "Unit Definitions": re.compile(r'^\s*(export\s+)?(const)\s+(UNIT_DEFINITIONS|BUILDING_DEFINITIONS|provincesData|countries)'),
+    "Battle / Combat": re.compile(r'.*(calculateArmySize|finalizeBattle|battleContinuousTick|stackwipe|participantDetails|CombatResult|ActiveBattle|battleReport)'),
+    "Game Actions": re.compile(r'.*(handlePause|setIsPaused|setBattleReport|setGameSpeed|handleSpeedChange|handleStopMovement|handleRetreat)'),
+    "Army Panel": re.compile(r'.*(army-info-panel|regiments|UNIT_DEFINITIONS\[|getUnitIcon|getUnitLabel)'),
 }
 
 # Regex para capturar bibliotecas externas usadas no arquivo
