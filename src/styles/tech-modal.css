@@ -257,6 +257,16 @@
     cursor: not-allowed
 }
 
+.tree-btn.cancel-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+}
+.tree-btn.cancel-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
 /* PESQUISA - 3 COLUNAS */
 .research-columns {
     display: grid;

@@ -98,6 +98,25 @@ const [showResearchModal, setShowResearchModal] = useState(false);
   const armyActions = useArmyActions({ selectedArmy: selection.selectedArmy, setSelectedArmy: selection.setSelectedArmy, setSelectedProvince: selection.setSelectedProvince, setIsPanelOpen: selection.setIsPanelOpen, provincesRef, armiesRef, diplomaticRelationsRef, playerCountryTag, setArmies, addLog, addToast, splitSelection: selection.splitSelection, setSplitSelection: selection.setSplitSelection, setShowSplitModal: selection.setShowSplitModal });
   const diplomacy = useDiplomacyActions({ diplomacyTarget: modals.diplomacyTarget, setDiplomacyTarget: modals.setDiplomacyTarget, playerCountry, playerCountryTag, allCountries, setAllCountries, diplomaticRelations, setDiplomaticRelations, wars, setWars, date, addLog });
   const tech = useTechActions({ playerCountry, playerCountryTag, playerTechState, setPlayerTechState, allCountries, setAllCountries, addLog, addToast, playerTechStateRef, setAiDifficulty, setEndGameType, setGameStats, setGameSpeed, setIsPaused: modals.setIsPaused });
+  const handleCancelResearch = useCallback(() => {
+    setPlayerTechState(prev => ({
+      ...prev,
+      activeResearchId: null,
+      researchProgressDays: 0
+    }));
+    addToast('🔬 Pesquisa cancelada', 'info');
+    addLog('Pesquisa cancelada pelo jogador');
+  }, [addToast, addLog]);
+
+  const handleCancelFocus = useCallback(() => {
+    setPlayerTechState(prev => ({
+      ...prev,
+      activeFocusId: null,
+      focusProgressDays: 0
+    } as any));
+    addToast('🎯 Foco cancelado', 'info');
+    addLog('Foco nacional cancelado');
+  }, [addToast, addLog]);
   const cheats = useCheats({
     playerCountryTag, setAllCountries, setRecruitments, setBuildingConstructions,
     setArmies, provincesRef, armiesRef, addLog, addToast, setGameSpeed, setDate,
@@ -157,16 +176,18 @@ const [showResearchModal, setShowResearchModal] = useState(false);
 {showFocusModal && 
   <FocusModal 
     techState={playerTechState} 
-    onStartFocus={tech.handleStartFocus} 
+    onStartFocus={tech.handleStartFocus}
+    onCancelFocus={handleCancelFocus}
     onClose={() => setShowFocusModal(false)} 
   />}
+
 {showResearchModal && 
   <ResearchModal 
     playerCountry={playerCountry} 
     techState={playerTechState} 
-    onStartResearch={tech.handleStartResearch} 
+    onStartResearch={tech.handleStartResearch}
+    onCancelResearch={handleCancelResearch}
     onClose={() => setShowResearchModal(false)} 
-  
   />}        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
         <NotificationLogModal isOpen={modals.showNotificationModal} onClose={() => modals.setShowNotificationModal(false)} />
         <SettingsModal isOpen={modals.showSettingsModal} onClose={() => modals.setShowSettingsModal(false)} aiDifficulty={aiDifficulty} onDifficultyChange={tech.handleDifficultyChange} />
