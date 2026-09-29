@@ -40,7 +40,7 @@ export function processDailyTechProgress(
   const speedMultiplier = isPlayer ? 1.0 : DIFFICULTY_SPEED_MULTIPLIERS[aiDifficulty];
   
   // Cria uma cópia profunda do estado para evitar mutações
-  let updatedTechState = {
+  const updatedTechState = {
     ...techState,
     completedFocuses: [...(techState.completedFocuses || [])],
     completedTechnologies: [...(techState.completedTechnologies || [])],

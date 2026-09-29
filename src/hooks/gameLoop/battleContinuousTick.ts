@@ -137,7 +137,7 @@ export function processBattleContinuous(p: Params) {
     } as any;
 
     // LIMPA EXÉRCITOS ANIQUILADOS DO MAPA
-    let updatedArmies = rawUpdatedArmies.filter(a => {
+    const updatedArmies = rawUpdatedArmies.filter(a => {
       if (!allPartIds.includes(a.id)) return true;
       const detail = participantDetails.find(d => d.id === a.id);
       return detail? detail.final > 0 : calculateArmySize(a) > 0;

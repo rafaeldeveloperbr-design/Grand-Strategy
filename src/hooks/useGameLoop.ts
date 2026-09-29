@@ -102,6 +102,7 @@ export function useGameLoop(props: Props) {
     warsRef.current = wars; diplomaticRelationsRef.current = relations; recruitmentsRef.current = recruitments;
     activeBattlesRef.current = currentActiveBattles; buildingConstructionsRef.current = buildingConstructions;
     playerTechStateRef.current = currentPlayerTechState; botTechStatesRef.current = currentBotTechStates;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addLog, playerCountryTag]);
 
   useEffect(() => {
@@ -110,5 +111,6 @@ export function useGameLoop(props: Props) {
       gameLoopRef.current = window.setInterval(processTick, SPEED_INTERVALS[gameSpeed]);
     }
     return () => { if (gameLoopRef.current) clearInterval(gameLoopRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameSpeed, processTick, isPaused]);
 }

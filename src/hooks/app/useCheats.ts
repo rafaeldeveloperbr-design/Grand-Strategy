@@ -67,7 +67,7 @@ export function useCheats(params: any) {
     if (!selectedProvince) return;
     setArmies((prev: any) => prev.filter((a: any) => !(a.location === selectedProvince && a.owner !== playerCountryTag)));
     addToast(`💀 Inimigos em ${selectedProvince} eliminados! (CHEAT)`, 'success', 'Cheat');
-  }, [selectedProvince, setArmies, addToast]);
+  }, [selectedProvince, setArmies, addToast, playerCountryTag]);
 
   const winBattles = useCallback(() => {
     // Força vitória instantânea limpando batalhas ativas
