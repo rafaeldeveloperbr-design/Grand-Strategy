@@ -76,7 +76,7 @@ const App: React.FC = () => {
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
   const [showCheatPanel, setShowCheatPanel] = useState(false);
   const [showFocusModal, setShowFocusModal] = useState(false);
-const [showResearchModal, setShowResearchModal] = useState(false);
+  const [showResearchModal, setShowResearchModal] = useState(false);
 
   const addLog = useCallback((msg: string) => console.log(msg), []);
   const formatGameDate = useCallback((d: GameDate) => `${d.day} de ${d.month}, ${d.year}`, []);
@@ -130,16 +130,16 @@ const [showResearchModal, setShowResearchModal] = useState(false);
 
   return (
     <div className="game">
-<TopBar 
-  playerCountry={playerCountry} 
-  date={date} 
-  gameSpeed={gameSpeed} 
-  onSpeedChange={tech.handleSpeedChange}
-  onResearchClick={() => setShowResearchModal(true)}
-  onFocusClick={() => setShowFocusModal(true)}
-  onSettingsClick={() => modals.setShowSettingsModal(true)} 
-  onGovernmentClick={() => modals.setShowGovernmentModal(true)}
-/>      <div className="game__main">
+      <TopBar
+        playerCountry={playerCountry}
+        date={date}
+        gameSpeed={gameSpeed}
+        onSpeedChange={tech.handleSpeedChange}
+        onResearchClick={() => setShowResearchModal(true)}
+        onFocusClick={() => setShowFocusModal(true)}
+        onSettingsClick={() => modals.setShowSettingsModal(true)}
+        onGovernmentClick={() => modals.setShowGovernmentModal(true)}
+      />      <div className="game__main">
         <GameMap provinces={provinces} countries={allCountries} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} activeBattles={activeBattles} selectedProvince={selection.selectedProvince} hoveredProvince={selection.hoveredProvince} selectedArmy={selection.selectedArmy} onProvinceHover={selection.handleProvinceHover} onProvinceClick={selection.handleProvinceClick} onArmyClick={selection.handleArmyClick} onProvinceRightClick={armyActions.handleProvinceRightClick} />
         {selection.isPanelOpen && selectedProvinceData && <ProvincePanel province={selectedProvinceData} countries={allCountries} playerCountry={playerCountry} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} onClose={selection.handleClosePanel} onProvinceClick={selection.handleProvinceClick} onBuild={economy.handleBuild} onRecruit={economy.handleRecruit} onCancelRecruitment={economy.handleCancelRecruitment} onCancelBuilding={economy.handleCancelBuilding} />}
         {selectedArmyData && (
@@ -150,22 +150,19 @@ const [showResearchModal, setShowResearchModal] = useState(false);
               <div className="army-info-panel__stat"><span>Local:</span><span>{provinces.find(p => p.id === selectedArmyData.location)?.name ?? 'Em movimento'}</span></div>
               {selectedArmyData.destination && <div className="army-info-panel__stat"><span>Destino:</span><span>{provinces.find(p => p.id === selectedArmyData.destination)?.name} ({Math.round(selectedArmyData.movementProgress * 100)}%)</span></div>}
               {selectedArmyData.path.length > 0 && <div className="army-info-panel__stat"><span>Rota:</span><span className="army-info-panel__path">{selectedArmyData.path.map(pid => provinces.find(p => p.id === pid)?.name).join(' → ')}</span></div>}
-<div className="army-info-panel__regiments">
-  <strong>Regimentos:</strong>
-  {selectedArmyData.regiments.map((reg: any, i: number) => {
-    const def = (UNIT_DEFINITIONS as any)[reg.type] || { icon: '❓', name: reg.type };
-    return (
-      <div key={i} className="army-info-panel__regiment">
-        <span>{def.icon} {def.name}</span>
-        <span>{Math.floor(reg.strength)}</span>
-        <span>❤️ {Math.round(reg.morale)}%</span>
-      </div>
-    );
-  })}
-</div>              {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && <div className="army-info-panel__actions-section"><button className="army-info-panel__action-btn army-info-panel__action-btn--stop" onClick={() => armyActions.handleStopMovement(selectedArmyData.id)}>🛑 Parar Marcha</button></div>}
-              {selectedArmyData.location && !selectedArmyData.destination && selectedArmyData.regiments.length >= 2 && <div className="army-info-panel__actions-section"><strong>✂️ Dividir:</strong><div className="army-info-panel__actions-row"><button className="army-info-panel__action-btn" onClick={armyActions.handleSplitHalf}>⚖️ Meio</button><button className="army-info-panel__action-btn" onClick={() => { selection.setSplitSelection(new Set()); selection.setShowSplitModal(true); }}>📋 Custom</button></div></div>}
-              {selectedArmyData.inCombat && selectedArmyData.owner === playerCountryTag && (() => { const battle = activeBattles.find(b => b.provinceId === selectedArmyData.location && b.participantArmyIds.includes(selectedArmyData.id)); if (!battle) return null; return <div className="army-info-panel__actions-section"><button className="army-info-panel__action-btn army-info-panel__action-btn--retreat" onClick={() => armyActions.handleRetreatArmy(selectedArmyData.id, battle.id)}>🏃 Recuar</button></div>; })()}
-              {selectedArmyData.location && !selectedArmyData.destination && (() => { const friends = getFriendlyArmiesInProvince(armies, selectedArmyData.location!, playerCountryTag).filter((a: any) => a.id !== selectedArmyData.id); if (friends.length === 0) return null; return <div className="army-info-panel__actions-section"><strong>🤝 Fundir:</strong>{friends.map((fa: any) => <button key={fa.id} className="army-info-panel__action-btn" onClick={() => armyActions.handleMergeArmies(fa.id)}>{fa.name}</button>)}</div>; })()}
+              <div className="army-info-panel__regiments">
+                <strong>Regimentos:</strong>
+                {selectedArmyData.regiments.map((reg: any, i: number) => {
+                  const def = (UNIT_DEFINITIONS as any)[reg.type] || { icon: '❓', name: reg.type };
+                  return (
+                    <div key={i} className="army-info-panel__regiment">
+                      <span>{def.icon} {def.name}</span>
+                      <span>{Math.floor(reg.strength)}</span>
+                      <span>❤️ {Math.round(reg.morale)}%</span>
+                    </div>
+                  );
+                })}
+              </div>     {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && <div className="army-info-panel__actions-section"><button className="army-info-panel__action-btn army-info-panel__action-btn--stop" onClick={() => armyActions.handleStopMovement(selectedArmyData.id)}>🛑 Parar Marcha</button></div>}              {selectedArmyData.location && !selectedArmyData.destination && (() => { const friends = getFriendlyArmiesInProvince(armies, selectedArmyData.location!, playerCountryTag).filter((a: any) => a.id !== selectedArmyData.id); if (friends.length === 0) return null; return <div className="army-info-panel__actions-section"><strong>🤝 Fundir:</strong>{friends.map((fa: any) => <button key={fa.id} className="army-info-panel__action-btn" onClick={() => armyActions.handleMergeArmies(fa.id)}>{fa.name}</button>)}</div>; })()}
             </div>
           </div>
         )}
@@ -173,22 +170,22 @@ const [showResearchModal, setShowResearchModal] = useState(false);
         {modals.showWarPanel && <WarPanel wars={wars} playerCountry={playerCountry} allCountries={allCountries} onClose={() => modals.setShowWarPanel(false)} onMakePeace={diplomacy.handleMakePeace} />}
         {modals.battleReport && <BattleReportModal battleResult={modals.battleReport} playerCountry={playerCountry} allCountries={allCountries} onClose={() => { modals.setBattleReport(null); modals.setIsPaused(false); }} />}
         {modals.showBattleHistory && <BattleHistoryModal battleHistory={battleHistory} allCountries={allCountries} onClose={() => modals.setShowBattleHistory(false)} onViewBattle={(b) => { modals.setShowBattleHistory(false); modals.setBattleReport(b); modals.setIsPaused(true); }} />}
-{showFocusModal && 
-  <FocusModal 
-    techState={playerTechState} 
-    onStartFocus={tech.handleStartFocus}
-    onCancelFocus={handleCancelFocus}
-    onClose={() => setShowFocusModal(false)} 
-  />}
+        {showFocusModal &&
+          <FocusModal
+            techState={playerTechState}
+            onStartFocus={tech.handleStartFocus}
+            onCancelFocus={handleCancelFocus}
+            onClose={() => setShowFocusModal(false)}
+          />}
 
-{showResearchModal && 
-  <ResearchModal 
-    playerCountry={playerCountry} 
-    techState={playerTechState} 
-    onStartResearch={tech.handleStartResearch}
-    onCancelResearch={handleCancelResearch}
-    onClose={() => setShowResearchModal(false)} 
-  />}        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
+        {showResearchModal &&
+          <ResearchModal
+            playerCountry={playerCountry}
+            techState={playerTechState}
+            onStartResearch={tech.handleStartResearch}
+            onCancelResearch={handleCancelResearch}
+            onClose={() => setShowResearchModal(false)}
+          />}        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
         <NotificationLogModal isOpen={modals.showNotificationModal} onClose={() => modals.setShowNotificationModal(false)} />
         <SettingsModal isOpen={modals.showSettingsModal} onClose={() => modals.setShowSettingsModal(false)} aiDifficulty={aiDifficulty} onDifficultyChange={tech.handleDifficultyChange} />
         <AILogModal isOpen={modals.showAILogModal} onClose={() => modals.setShowAILogModal(false)} />
