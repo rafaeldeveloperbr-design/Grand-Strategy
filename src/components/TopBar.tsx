@@ -10,15 +10,20 @@
  * - Controles de velocidade
  */
 
-import React from 'react';
-import { Country, GameDate } from '../types';
-import { getStabilityDescription, getStabilityColor } from '../engine/stability';
+import React from "react";
+import { Country, GameDate } from "../types";
+import {
+  getStabilityDescription,
+  getStabilityColor,
+} from "../engine/stability";
 
 interface TopBarProps {
   playerCountry: Country;
   date: GameDate;
   gameSpeed: number;
   onSpeedChange: (speed: number) => void;
+  onResearchClick: () => void; // NOVO
+  onFocusClick: () => void; // NOVO
   onTechClick?: () => void;
   onSettingsClick?: () => void;
   onGovernmentClick?: () => void;
@@ -29,8 +34,18 @@ interface TopBarProps {
  */
 function formatDate(date: GameDate): string {
   const months = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
   ];
   return `${date.day} de ${months[date.month - 1]}, ${date.year}`;
 }
@@ -51,7 +66,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   date,
   gameSpeed,
   onSpeedChange,
-  onTechClick,
+  onResearchClick,
+  onFocusClick,
   onSettingsClick,
   onGovernmentClick,
 }) => {
@@ -61,7 +77,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <div className="top-bar">
       {/* === Seção: País do Jogador === */}
-      <div 
+      <div
         className="top-bar__country top-bar__country--clickable"
         onClick={onGovernmentClick}
         title="Clique para gerenciar leis e governo"
@@ -71,6 +87,24 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="top-bar__country-name">{playerCountry.name}</span>
           <span className="top-bar__country-tag">[{playerCountry.tag}]</span>
         </div>
+      </div>
+
+          {/* === Botões de Tecnologia === */}
+      <div className="top-bar__tech-group">
+        <button
+          className="topbar__icon-btn"
+          onClick={onResearchClick}
+          title="Pesquisas"
+        >
+          🔬
+        </button>
+        <button
+          className="topbar__icon-btn"
+          onClick={onFocusClick}
+          title="Focos Nacionais"
+        >
+          🎯
+        </button>
       </div>
 
       {/* === Seção: Recursos com Taxas === */}
@@ -90,7 +124,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                 -{economy.goldExpense.toFixed(1)}
               </span>
             </div>
-            <span className={`top-bar__resource-balance ${goldBalance >= 0 ? 'top-bar__resource-balance--positive' : 'top-bar__resource-balance--negative'}`}>
+            <span
+              className={`top-bar__resource-balance ${goldBalance >= 0 ? "top-bar__resource-balance--positive" : "top-bar__resource-balance--negative"}`}
+            >
               {formatRate(goldBalance)}/dia
             </span>
           </div>
@@ -101,7 +137,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="top-bar__resource-icon">👥</span>
           <div className="top-bar__resource-data">
             <span className="top-bar__resource-value">
-              {resources.manpower.toLocaleString()} / {resources.maxManpower.toLocaleString()}
+              {resources.manpower.toLocaleString()} /{" "}
+              {resources.maxManpower.toLocaleString()}
             </span>
             <span className="top-bar__resource-rate top-bar__resource-rate--income">
               +{economy.manpowerGain}/dia
@@ -111,19 +148,27 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Estabilidade */}
-        <div className="top-bar__resource" title={`Estabilidade: ${getStabilityDescription(resources.stability)}`}>
+        <div
+          className="top-bar__resource"
+          title={`Estabilidade: ${getStabilityDescription(resources.stability)}`}
+        >
           <span className="top-bar__resource-icon">⚖️</span>
           <div className="top-bar__resource-data">
-            <span className="top-bar__resource-value" style={{ color: getStabilityColor(resources.stability) }}>
+            <span
+              className="top-bar__resource-value"
+              style={{ color: getStabilityColor(resources.stability) }}
+            >
               {Math.round(resources.stability)}%
             </span>
-            <span className="top-bar__resource-label">{getStabilityDescription(resources.stability)}</span>
+            <span className="top-bar__resource-label">
+              {getStabilityDescription(resources.stability)}
+            </span>
             <div className="top-bar__stability-bar">
-              <div 
+              <div
                 className="top-bar__stability-fill"
-                style={{ 
+                style={{
                   width: `${resources.stability}%`,
-                  backgroundColor: getStabilityColor(resources.stability)
+                  backgroundColor: getStabilityColor(resources.stability),
                 }}
               />
             </div>
@@ -134,7 +179,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="top-bar__resource" title="Prestígio">
           <span className="top-bar__resource-icon">🏆</span>
           <div className="top-bar__resource-data">
-            <span className="top-bar__resource-value">{resources.prestige}</span>
+            <span className="top-bar__resource-value">
+              {resources.prestige}
+            </span>
             <span className="top-bar__resource-label">Prestígio</span>
           </div>
         </div>
@@ -148,24 +195,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               key={speed}
               className={`top-bar__speed-btn ${
-                gameSpeed === speed ? 'top-bar__speed-btn--active' : ''
+                gameSpeed === speed ? "top-bar__speed-btn--active" : ""
               }`}
               onClick={() => onSpeedChange(speed)}
-              title={speed === 0 ? 'Pausar' : `Velocidade ${speed}`}
+              title={speed === 0 ? "Pausar" : `Velocidade ${speed}`}
             >
-              {speed === 0 ? '⏸' : `▶${speed}`}
+              {speed === 0 ? "⏸" : `▶${speed}`}
             </button>
           ))}
         </div>
-        {onTechClick && (
-          <button
-            className="top-bar__tech-btn"
-            onClick={onTechClick}
-            title="Tecnologias e Focos Nacionais"
-          >
-            🔬 Tecnologias
-          </button>
-        )}
+
+
+        
         {onSettingsClick && (
           <button
             className="top-bar__settings-btn"

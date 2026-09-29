@@ -9,27 +9,26 @@ import { Country } from '../types';
 import { CountryTechState } from '../types/technology';
 import { NATIONAL_FOCUSES, TECHNOLOGIES } from '../data/technology';
 
+type TabType = 'focuses' | 'technologies';
+
 interface TechnologyModalProps {
   playerCountry: Country;
   techState: CountryTechState;
   onStartFocus: (focusId: string) => void;
   onStartResearch: (techId: string) => void;
   onClose: () => void;
+  initialTab?: TabType; // <- NOVO
 }
 
-type TabType = 'focuses' | 'technologies';
-
-/**
- * Modal de Tecnologias e Focos Nacionais
- */
 export const TechnologyModal: React.FC<TechnologyModalProps> = ({
   playerCountry,
   techState,
   onStartFocus,
   onStartResearch,
-  onClose
+  onClose,
+  initialTab = 'focuses'
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('focuses');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   const canStartFocus = (focusId: string): boolean => {
     // Validação de segurança

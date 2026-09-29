@@ -47,7 +47,7 @@ function createInitialArmies(): Army[] {
     { id: 'army_init_2', owner: 'REP', name: 'Legião Valoriana', regiments: [{ type: 'infantry', strength: 2500, morale: 88 } as any, { type: 'cavalry', strength: 800, morale: 82 } as any], location: 'p6', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
     { id: 'army_init_3', owner: 'RNO', name: 'Guarda Nordiana', regiments: [{ type: 'infantry', strength: 2000, morale: 92 } as any, { type: 'artillery', strength: 500, morale: 85 } as any], location: 'p10', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 0.5, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
     { id: 'army_init_4', owner: 'KHA', name: 'Horda Dourada', regiments: [{ type: 'cavalry', strength: 4000, morale: 95 } as any, { type: 'cavalry', strength: 2000, morale: 90 } as any], location: 'p14', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.5, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_5', owner: 'THC', name: 'Guardiões de Solara', regiments: [{ type: 'infantry', strength: 1800, morale: 80 } as any, { type: 'artillery', strength: 300, morale: 75 } as any], location: 'p18', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
+    { id: 'army_init_5', owner: 'THC', name: 'Guardiões de Solara', regiments: [{ type: 'infantry', strength: 1800, morale: 80 } as any, { type: 'artillery', strength: 300, morale: 75 } as any], location: 'p17', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
     { id: 'army_init_6', owner: 'LIG', name: 'Mercenários de Portus', regiments: [{ type: 'infantry', strength: 1500, morale: 75 } as any, { type: 'cavalry', strength: 500, morale: 70 } as any], location: 'p20', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
   ];
 }
@@ -74,6 +74,7 @@ const App: React.FC = () => {
   const [battleHistory, setBattleHistory] = useState<CombatResult[]>([]);
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
   const [showCheatPanel, setShowCheatPanel] = useState(false);
+  const [techInitialTab, setTechInitialTab] = useState<'focuses' | 'technologies'>('focuses');
 
   const addLog = useCallback((msg: string) => console.log(msg), []);
   const formatGameDate = useCallback((d: GameDate) => `${d.day} de ${d.month}, ${d.year}`, []);
@@ -108,8 +109,17 @@ const App: React.FC = () => {
 
   return (
     <div className="game">
-      <TopBar playerCountry={playerCountry} date={date} gameSpeed={gameSpeed} onSpeedChange={tech.handleSpeedChange} onTechClick={() => modals.setShowTechModal(true)} onSettingsClick={() => modals.setShowSettingsModal(true)} onGovernmentClick={() => modals.setShowGovernmentModal(true)} />
-      <div className="game__main">
+<TopBar 
+  playerCountry={playerCountry} 
+  date={date} 
+  gameSpeed={gameSpeed} 
+  onSpeedChange={tech.handleSpeedChange}
+  onTechClick={() => {}} // pode remover
+  onResearchClick={() => { setTechInitialTab('technologies'); modals.setShowTechModal(true); }}
+  onFocusClick={() => { setTechInitialTab('focuses'); modals.setShowTechModal(true); }}
+  onSettingsClick={() => modals.setShowSettingsModal(true)} 
+  onGovernmentClick={() => modals.setShowGovernmentModal(true)} 
+/>      <div className="game__main">
         <GameMap provinces={provinces} countries={allCountries} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} activeBattles={activeBattles} selectedProvince={selection.selectedProvince} hoveredProvince={selection.hoveredProvince} selectedArmy={selection.selectedArmy} onProvinceHover={selection.handleProvinceHover} onProvinceClick={selection.handleProvinceClick} onArmyClick={selection.handleArmyClick} onProvinceRightClick={armyActions.handleProvinceRightClick} />
         {selection.isPanelOpen && selectedProvinceData && <ProvincePanel province={selectedProvinceData} countries={allCountries} playerCountry={playerCountry} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} onClose={selection.handleClosePanel} onProvinceClick={selection.handleProvinceClick} onBuild={economy.handleBuild} onRecruit={economy.handleRecruit} onCancelRecruitment={economy.handleCancelRecruitment} onCancelBuilding={economy.handleCancelBuilding} />}
         {selectedArmyData && (
@@ -143,8 +153,15 @@ const App: React.FC = () => {
         {modals.showWarPanel && <WarPanel wars={wars} playerCountry={playerCountry} allCountries={allCountries} onClose={() => modals.setShowWarPanel(false)} onMakePeace={diplomacy.handleMakePeace} />}
         {modals.battleReport && <BattleReportModal battleResult={modals.battleReport} playerCountry={playerCountry} allCountries={allCountries} onClose={() => { modals.setBattleReport(null); modals.setIsPaused(false); }} />}
         {modals.showBattleHistory && <BattleHistoryModal battleHistory={battleHistory} allCountries={allCountries} onClose={() => modals.setShowBattleHistory(false)} onViewBattle={(b) => { modals.setShowBattleHistory(false); modals.setBattleReport(b); modals.setIsPaused(true); }} />}
-        {modals.showTechModal && <TechnologyModal playerCountry={playerCountry} techState={playerTechState} onStartFocus={tech.handleStartFocus} onStartResearch={tech.handleStartResearch} onClose={() => modals.setShowTechModal(false)} />}
-        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
+{modals.showTechModal && 
+  <TechnologyModal 
+    playerCountry={playerCountry} 
+    techState={playerTechState} 
+    initialTab={techInitialTab} // <- passa a aba
+    onStartFocus={tech.handleStartFocus} 
+    onStartResearch={tech.handleStartResearch} 
+    onClose={() => modals.setShowTechModal(false)} 
+  />}        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
         <NotificationLogModal isOpen={modals.showNotificationModal} onClose={() => modals.setShowNotificationModal(false)} />
         <SettingsModal isOpen={modals.showSettingsModal} onClose={() => modals.setShowSettingsModal(false)} aiDifficulty={aiDifficulty} onDifficultyChange={tech.handleDifficultyChange} />
         <AILogModal isOpen={modals.showAILogModal} onClose={() => modals.setShowAILogModal(false)} />
@@ -160,7 +177,7 @@ const App: React.FC = () => {
         <div className="game__bottom-info"><span className="game__bottom-label">Guerras:</span><button className="game__bottom-war-btn" onClick={() => modals.setShowWarPanel(true)}>{wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length > 0 ? `⚔️ ${wars.filter(w => w.attacker === playerCountryTag || w.defender === playerCountryTag).length}` : '🕊️ Paz'}</button></div>
         <div className="game__bottom-info"><span className="game__bottom-label">Velocidade:</span><span className="game__bottom-value game__bottom-value--highlight">{gameSpeed === 0 ? '⏸ Pausado' : `▶ x${gameSpeed}`}</span></div>
       </div>
-      <button onClick={() => setShowCheatPanel(!showCheatPanel)} style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 9998, background: '#f39c12', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🎮 CHEAT</button>
+      <button onClick={() => setShowCheatPanel(!showCheatPanel)} style={{ position: 'fixed', top: '100px', right: '1600px', zIndex: 9998, background: '#f39c12', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🎮 CHEAT</button>
       <CheatPanel cheats={cheats} isOpen={showCheatPanel} onClose={() => setShowCheatPanel(false)} />
       <ToastContainer />
     </div>

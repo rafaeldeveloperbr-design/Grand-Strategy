@@ -192,6 +192,39 @@ html, body, #root {
   border-radius: 2px;
 }
 
+.top-bar__tech-group {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.topbar__icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: #2a3441;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.topbar__icon-btn:hover {
+  background: #3a4a5f;
+  border-color: rgba(255,255,255,0.4);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.topbar__icon-btn:active {
+  transform: scale(0.95);
+}
+
 /* === Taxas Econômicas (Módulo 2) === */
 .top-bar__resource-rates {
   display: flex;
@@ -311,6 +344,8 @@ html, body, #root {
   border-color: var(--border-light);
   transform: translateY(-1px);
 }
+
+
 
 /* ============================================================
  * MAPA - Container e SVG

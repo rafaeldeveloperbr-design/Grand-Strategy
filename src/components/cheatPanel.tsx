@@ -15,7 +15,7 @@ export const CheatPanel: React.FC<CheatPanelProps> = ({ cheats, isOpen, onClose 
 
   return (
     <div style={{
-      position: 'fixed', top: '60px', right: '10px', width: '280px',
+      position: 'fixed', top: '100px', right: '1400px', width: '280px',
       background: 'rgba(20,20,20,0.95)', border: '2px solid #f39c12', borderRadius: '8px',
       padding: '12px', zIndex: 9999, color: 'white', fontFamily: 'monospace', fontSize: '12px'
     }}>
