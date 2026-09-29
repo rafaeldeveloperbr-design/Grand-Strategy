@@ -12,7 +12,8 @@ import { DiplomacyPanel } from './components/DiplomacyPanel';
 import { WarPanel } from './components/WarPanel';
 import { BattleReportModal } from './components/BattleReportModal';
 import { BattleHistoryModal } from './components/BattleHistoryModal';
-import { TechnologyModal } from './components/TechnologyModal';
+import { FocusModal } from './components/FocusModal';
+import { ResearchModal } from './components/ResearchModal';
 import { EndGameModal } from './components/EndGameModal';
 import { SettingsModal } from './components/SettingsModal';
 import { provincesData } from './data/provinces';
@@ -74,7 +75,8 @@ const App: React.FC = () => {
   const [battleHistory, setBattleHistory] = useState<CombatResult[]>([]);
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('medium');
   const [showCheatPanel, setShowCheatPanel] = useState(false);
-  const [techInitialTab, setTechInitialTab] = useState<'focuses' | 'technologies'>('focuses');
+  const [showFocusModal, setShowFocusModal] = useState(false);
+const [showResearchModal, setShowResearchModal] = useState(false);
 
   const addLog = useCallback((msg: string) => console.log(msg), []);
   const formatGameDate = useCallback((d: GameDate) => `${d.day} de ${d.month}, ${d.year}`, []);
@@ -114,11 +116,10 @@ const App: React.FC = () => {
   date={date} 
   gameSpeed={gameSpeed} 
   onSpeedChange={tech.handleSpeedChange}
-  onTechClick={() => {}} // pode remover
-  onResearchClick={() => { setTechInitialTab('technologies'); modals.setShowTechModal(true); }}
-  onFocusClick={() => { setTechInitialTab('focuses'); modals.setShowTechModal(true); }}
+  onResearchClick={() => setShowResearchModal(true)}
+  onFocusClick={() => setShowFocusModal(true)}
   onSettingsClick={() => modals.setShowSettingsModal(true)} 
-  onGovernmentClick={() => modals.setShowGovernmentModal(true)} 
+  onGovernmentClick={() => modals.setShowGovernmentModal(true)}
 />      <div className="game__main">
         <GameMap provinces={provinces} countries={allCountries} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} activeBattles={activeBattles} selectedProvince={selection.selectedProvince} hoveredProvince={selection.hoveredProvince} selectedArmy={selection.selectedArmy} onProvinceHover={selection.handleProvinceHover} onProvinceClick={selection.handleProvinceClick} onArmyClick={selection.handleArmyClick} onProvinceRightClick={armyActions.handleProvinceRightClick} />
         {selection.isPanelOpen && selectedProvinceData && <ProvincePanel province={selectedProvinceData} countries={allCountries} playerCountry={playerCountry} armies={armies} recruitments={recruitments} buildingConstructions={buildingConstructions} onClose={selection.handleClosePanel} onProvinceClick={selection.handleProvinceClick} onBuild={economy.handleBuild} onRecruit={economy.handleRecruit} onCancelRecruitment={economy.handleCancelRecruitment} onCancelBuilding={economy.handleCancelBuilding} />}
@@ -153,14 +154,19 @@ const App: React.FC = () => {
         {modals.showWarPanel && <WarPanel wars={wars} playerCountry={playerCountry} allCountries={allCountries} onClose={() => modals.setShowWarPanel(false)} onMakePeace={diplomacy.handleMakePeace} />}
         {modals.battleReport && <BattleReportModal battleResult={modals.battleReport} playerCountry={playerCountry} allCountries={allCountries} onClose={() => { modals.setBattleReport(null); modals.setIsPaused(false); }} />}
         {modals.showBattleHistory && <BattleHistoryModal battleHistory={battleHistory} allCountries={allCountries} onClose={() => modals.setShowBattleHistory(false)} onViewBattle={(b) => { modals.setShowBattleHistory(false); modals.setBattleReport(b); modals.setIsPaused(true); }} />}
-{modals.showTechModal && 
-  <TechnologyModal 
+{showFocusModal && 
+  <FocusModal 
+    techState={playerTechState} 
+    onStartFocus={tech.handleStartFocus} 
+    onClose={() => setShowFocusModal(false)} 
+  />}
+{showResearchModal && 
+  <ResearchModal 
     playerCountry={playerCountry} 
     techState={playerTechState} 
-    initialTab={techInitialTab} // <- passa a aba
-    onStartFocus={tech.handleStartFocus} 
     onStartResearch={tech.handleStartResearch} 
-    onClose={() => modals.setShowTechModal(false)} 
+    onClose={() => setShowResearchModal(false)} 
+  
   />}        {endGameType && gameStats && <EndGameModal endGameType={endGameType} stats={gameStats} onContinue={tech.handleEndGameContinue} onRestart={tech.handleEndGameRestart} />}
         <NotificationLogModal isOpen={modals.showNotificationModal} onClose={() => modals.setShowNotificationModal(false)} />
         <SettingsModal isOpen={modals.showSettingsModal} onClose={() => modals.setShowSettingsModal(false)} aiDifficulty={aiDifficulty} onDifficultyChange={tech.handleDifficultyChange} />
