@@ -23,8 +23,6 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
     winner,
     provinceName,
     duration,
-    territoryChanged,
-    newOwner,
   } = battleResult;
 
   const playerWon =
@@ -46,11 +44,9 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
 
   const isStackwipe = extra.isStackwipe as boolean;
   
-  // AGORA O TOTAL VEM DO DETALHE (que já tem 0 quando aniquila)
   const totalAttackerInitial = (extra.totalAttackerInitial as number) || getRealSize(attackerOriginal);
   const totalDefenderInitial = (extra.totalDefenderInitial as number) || getRealSize(defenderOriginal);
   
-  // SE TEM DETALHE, USA ELE. SENÃO FALLBACK
   const totalAttackerFinal = attackerDetails.length > 0
     ? attackerDetails.reduce((s, d) => s + d.final, 0)
     : (extra.attackerCurrentTroops as number) || getRealSize(attacker);
@@ -68,12 +64,21 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const attackerAnnihilated = isAttackerLoser && totalAttackerFinal === 0;
   const defenderAnnihilated = isDefenderLoser && totalDefenderFinal === 0;
 
+  // --- CALCULO DO BONUS ---
+  const prov = extra.province || extra.provinceData || {};
+  const fortLevel = prov.fortLevel ?? prov.fort_level ?? extra.fortLevel ?? 0;
+  const terrain = prov.terrain ?? prov.terrainType ?? extra.terrain ?? 'plains';
+  const baseBonus = 5;
+  const fortBonus = fortLevel * 5;
+  const terrainBonus = terrain === 'mountain' ? 15 : terrain === 'hill' ? 10 : terrain === 'forest' ? 5 : 0;
+  const totalBonus = Math.min(50, baseBonus + fortBonus + terrainBonus);
+  const perDayLoss = Math.floor((totalDefenderInitial * (1 + totalBonus/100)) / Math.max(1, duration));
+
  useEffect(() => {
     console.log('📊 BattleReportModal - CORRIGIDO:');
     console.log(` Atacante - Inicial: ${totalAttackerInitial}, Final: ${totalAttackerFinal}, Baixas: ${calculatedAttackerCasualties} ${attackerAnnihilated? 'ANIQ' : ''}`);
-    console.log(` Defensor - Inicial: ${totalDefenderInitial}, Final: ${totalDefenderFinal}, Baixas: ${calculatedDefenderCasualties} ${defenderAnnihilated? 'ANIQ' : ''}`);
-  }, [battleResult]); // só loga quando muda a batalha, não a cada render
-
+    console.log(` Defensor - Inicial: ${totalDefenderInitial}, Final: ${totalDefenderFinal}, Baixas: ${calculatedDefenderCasualties} ${defenderAnnihilated? 'ANIQ' : ''} | Bonus: ${totalBonus}%`);
+  }, [battleResult]);
 
   return (
     <div className="battle-report-overlay">
@@ -85,7 +90,7 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
         </div>
 
         <div className="battle-report-info">
-          <div className="battle-report-info-item"><span className="label">Duração:</span><span className="value">{duration} {duration === 1? 'dia' : 'dias'}</span></div>
+          <div className="battle-report-info-item"><span className="label">Duração:</span><span className="value">{duration} {duration === 1? 'dia' : 'dias'} (menor exército)</span></div>
           <div className="battle-report-info-item"><span className="label">Ratio:</span><span className="value">{battleResult.powerRatio.toFixed(2)}:1</span></div>
           {isStackwipe && <div className="battle-report-info-item"><span className="label" style={{color:'#ff4444'}}>💀 STACKWIPE!</span></div>}
         </div>
@@ -109,6 +114,21 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
 
           <div className={`battle-report-army ${winner === 'defender'? 'winner' : 'loser'}`}>
             <div className="army-header"><span className="army-flag">{defenderCountry?.flag}</span><div className="army-info"><h3>{defenderCountry?.name}</h3><p>{defenderOriginal.name} {isDefenderLoser && (defenderAnnihilated ? '💀 ANIQUILADO' : '🏃 recuou com 1k')}</p></div>{winner === 'defender' && <span className="winner-badge">VENCEDOR</span>}</div>
+            
+            {/* BÔNUS DENTRO DO DEFENSOR */}
+            <div style={{background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:'6px', padding:'8px', margin:'8px 0'}}>
+              <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.85em'}}>
+                <span>🛡️ Bônus Defesa:</span>
+                <span style={{color:'#4ade80', fontWeight:'bold'}}>{totalBonus}%</span>
+              </div>
+              <div style={{fontSize:'0.75em', color:'#9ca3af', marginTop:'2px'}}>
+                {baseBonus}% base + {fortBonus}% fort + {terrainBonus}% {terrain}
+              </div>
+              <div style={{fontSize:'0.75em', color:'#fb7185', marginTop:'4px', borderTop:'1px solid rgba(255,255,255,0.1)', paddingTop:'4px'}}>
+                ⚔️ Lógica seca: {formatArmySize(totalDefenderInitial)} × {(1+totalBonus/100).toFixed(2)} ÷ {duration} = <b>{formatArmySize(perDayLoss)}/dia</b>
+              </div>
+            </div>
+
             <div className="army-stats">
               <div className="stat-row"><span className="stat-label">Tropas Iniciais:</span><span className="stat-value">{formatArmySize(totalDefenderInitial)} <small>({totalDefenderInitial})</small></span></div>
               {defenderDetails.length > 0 && (
