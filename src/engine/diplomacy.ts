@@ -67,39 +67,14 @@ export function getOrCreateRelation(
 /**
  * Verifica se dois países estão em guerra
  */
-export function areAtWar(
-  relations: DiplomaticRelation[],
-  countryA: string,
-  countryB: string
-): boolean {
-  const relation = getOrCreateRelation(relations, countryA, countryB);
-  return relation.status === 'war';
-}
 
 /**
  * Verifica se uma guerra tem tempo mínimo para fazer paz (30 dias)
  */
-export function canMakePeace(war: War, currentDate: { year: number; month: number; day: number }): boolean {
-  // Calcula dias desde o início da guerra
-  const startDays = war.startDate.year * 365 + war.startDate.month * 30 + war.startDate.day;
-  const currentDays = currentDate.year * 365 + currentDate.month * 30 + currentDate.day;
-  const daysSinceStart = currentDays - startDays;
-  
-  // Tempo mínimo de guerra: 30 dias
-  return daysSinceStart >= 30;
-}
 
 /**
  * Verifica se dois países têm pacto de não agressão
  */
-export function hasNonAggressionPact(
-  relations: DiplomaticRelation[],
-  countryA: string,
-  countryB: string
-): boolean {
-  const relation = getOrCreateRelation(relations, countryA, countryB);
-  return relation.status === 'non_aggression_pact' && relation.pactDaysRemaining > 0;
-}
 
 /**
  * Declara guerra entre dois países
@@ -276,35 +251,6 @@ export function improveRelations(
 /**
  * Atualiza pontuação de guerra baseado em províncias ocupadas
  */
-export function updateWarScore(
-  wars: War[],
-  attackerProvinces: string[],
-  defenderProvinces: string[],
-  originalAttackerProvinces: string[],
-  originalDefenderProvinces: string[]
-): War[] {
-  return wars.map(war => {
-    // Calcula províncias ocupadas
-    const occupiedByAttacker = originalDefenderProvinces.filter(
-      p => !defenderProvinces.includes(p)
-    );
-    const occupiedByDefender = originalAttackerProvinces.filter(
-      p => !attackerProvinces.includes(p)
-    );
-
-    // Calcula war score (cada província vale pontos)
-    const attackerScore = occupiedByAttacker.length * 10;
-    const defenderScore = occupiedByDefender.length * 10;
-    const warScore = attackerScore - defenderScore;
-
-    return {
-      ...war,
-      occupiedByAttacker,
-      occupiedByDefender,
-      warScore
-    };
-  });
-}
 
 /**
  * Processa tick diário de diplomacia (pactos expiram, etc)

@@ -173,15 +173,7 @@ export const provincesData: Province[] = [
 /**
  * Cria um mapa de províncias indexado por ID para acesso rápido
  */
-export function createProvinceMap(): Map<string, Province> {
-  const map = new Map<string, Province>();
-  provincesData.forEach((p) => map.set(p.id, p));
-  return map;
-}
 
 /**
  * Obtém todas as províncias de um país
  */
-export function getProvincesByCountry(countryTag: string): Province[] {
-  return provincesData.filter((p) => p.owner === countryTag);
-}

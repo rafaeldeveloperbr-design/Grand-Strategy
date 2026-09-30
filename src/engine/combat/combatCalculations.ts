@@ -48,11 +48,6 @@ export function calculateArmySize(army: Army) {
 /**
  * Calcula a moral média de um exército
  */
-export function calculateArmyMorale(army: Army): number {
-  if (army.regiments.length === 0) return 0;
-  const totalMorale = army.regiments.reduce((sum, reg) => sum + reg.morale, 0);
-  return totalMorale / army.regiments.length;
-}
 
 /**
  * Calcula o poder base de um exército

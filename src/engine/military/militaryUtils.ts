@@ -51,17 +51,7 @@ export function calculateArmySpeed(army: Army): number {
   return minSpeed === Infinity ? 1.0 : minSpeed;
 }
 
-export function getArmiesInProvince(armies: Army[], provinceId: string): Army[] {
-  return armies.filter((a) => a.location === provinceId);
-}
 
-export function getEnemyArmiesInProvince(
-  armies: Army[],
-  provinceId: string,
-  ownerTag: string
-): Army[] {
-  return armies.filter((a) => a.location === provinceId && a.owner !== ownerTag);
-}
 
 export function getFriendlyArmiesInProvince(
   armies: Army[],

@@ -94,7 +94,3 @@ export function getCountryByTag(tag: string): Country | undefined {
 /**
  * Obtém a cor de um país pela tag
  */
-export function getCountryColor(tag: string): string {
-  const country = getCountryByTag(tag);
-  return country?.color ?? '#555555';
-}

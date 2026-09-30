@@ -62,27 +62,6 @@ export interface StabilityPrestigeEvent {
 /**
  * Calcula mudanças de estabilidade e prestígio baseado em eventos
  */
-export function calculateEventImpact(event: StabilityPrestigeEvent): {
-  stabilityChange: number;
-  prestigeChange: number;
-} {
-  switch (event.type) {
-    case 'battle_won':
-      return { stabilityChange: 0, prestigeChange: 2 };
-    
-    case 'battle_lost':
-      return { stabilityChange: 0, prestigeChange: -3 };
-    
-    case 'province_conquered':
-      return { stabilityChange: 2, prestigeChange: 5 };
-    
-    case 'province_lost':
-      return { stabilityChange: -5, prestigeChange: -5 };
-    
-    default:
-      return { stabilityChange: 0, prestigeChange: 0 };
-  }
-}
 
 /**
  * Aplica mudanças de estabilidade e prestígio a um país

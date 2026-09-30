@@ -87,21 +87,6 @@ export function calculateProvinceManpowerGain(province: Province): number {
 /**
  * Calcula a defesa total de uma província
  */
-export function calculateProvinceDefense(province: Province): number {
-  let defense = province.defense;
-
-  // Adiciona bônus de fortificações
-  for (const building of province.buildings) {
-    if (building.daysRemaining <= 0 && building.type === 'fortification') {
-      const def = BUILDING_DEFINITIONS[building.type];
-      if (def.bonusPerLevel.defense) {
-        defense += def.bonusPerLevel.defense * building.level;
-      }
-    }
-  }
-
-  return defense;
-}
 
 /**
  * Calcula o crescimento populacional de uma província

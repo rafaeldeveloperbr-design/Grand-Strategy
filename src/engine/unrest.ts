@@ -57,32 +57,6 @@ export function calculateRebelArmySize(province: Province): number {
 /**
  * Cria um exército rebelde na província
  */
-export function createRebelArmy(province: Province): Army {
-  const rebelSize = calculateRebelArmySize(province);
-  
-  const rebelArmy: Army = {
-    id: `rebel_${province.id}_${Date.now()}`,
-    owner: 'REB', // Tag especial para rebeldes
-    name: `Rebeldes de ${province.name}`,
-    regiments: [
-      {
-        type: 'infantry',
-        strength: rebelSize,
-        morale: 80, // Rebeldes têm moral alta
-      }
-    ],
-    location: province.id,
-    destination: null,
-    targetDestination: null,
-    movementProgress: 0,
-    movementSpeed: 1.0,
-    position: null,
-    path: [],
-  };
-  
-  console.log(`⚔️ Exército rebelde criado em ${province.name}: ${rebelArmy.name} (${rebelSize} tropas)`);
-  return rebelArmy;
-}
 
 /**
  * Processa crescimento diário de unrest em todas as províncias

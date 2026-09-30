@@ -144,21 +144,8 @@ export function cancelBuilding(
 /**
  * Verifica se uma construção é a ativa (primeira da fila) em sua província
  */
-export function isActiveConstruction(
-  construction: BuildingConstruction,
-  constructions: BuildingConstruction[]
-): boolean {
-  const priorConstructionsInSameProvince = constructions
-    .filter(c => c.provinceId === construction.provinceId)
-    .findIndex(c => c.id === construction.id);
-  
-  return priorConstructionsInSameProvince === 0;
-}
 
 /**
  * Gera um ID único para construções
  */
 let constructionIdCounter = 0;
-export function generateConstructionId(): string {
-  return `const_${++constructionIdCounter}`;
-}

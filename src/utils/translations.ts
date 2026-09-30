@@ -78,13 +78,7 @@ export function getUnitName(type: string): string {
   return UNIT_NAMES[type.toLowerCase()] || type;
 }
 
-export function getTechName(id: string): string {
-  return TECH_NAMES[id] || id;
-}
 
-export function getFocusName(id: string): string {
-  return FOCUS_NAMES[id] || id;
-}
 
 export const DIFFICULTY_NAMES: Record<string, string> = {
   easy: 'Fácil (10% Velocidade IA)',
