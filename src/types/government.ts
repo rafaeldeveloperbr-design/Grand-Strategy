@@ -4,7 +4,7 @@
  * ============================================================
  */
 
-export type LawCategory = 'conscription' | 'taxation' | 'governance';
+export type LawCategory = 'conscription' | 'taxation' | 'governance' | 'economy' | 'intelligence';
 
 export interface Law {
   id: string;
@@ -18,6 +18,10 @@ export interface Law {
     popGrowthMultiplier?: number;
     buildTimeMultiplier?: number;
     armyCostMultiplier?: number;
+    civilianBuildTimeMultiplier?: number;
+    militaryFactoryCostMultiplier?: number;
+    researchSpeedMultiplier?: number;
+    focusTimeMultiplier?: number;
   };
 }
 
@@ -25,4 +29,6 @@ export interface ActiveLaws {
   conscription: string;
   taxation: string;
   governance: string;
+  economy: string;
+  intelligence: string;
 }

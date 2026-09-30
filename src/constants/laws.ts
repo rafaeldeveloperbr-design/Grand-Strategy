@@ -7,7 +7,7 @@
 import { Law } from '../types/government';
 
 export const LAWS: Record<string, Law> = {
-  // === CONScription (Recrutamento) ===
+  // === CONSCRIPTION (Recrutamento) ===
   'conscription_peacetime': {
     id: 'conscription_peacetime',
     category: 'conscription',
@@ -111,16 +111,90 @@ export const LAWS: Record<string, Law> = {
       goldMultiplier: 1.15,
     },
   },
+
+  // === WAR ECONOMY (Economia de Guerra) - NOVO ===
+  'economy_civilian': {
+    id: 'economy_civilian',
+    category: 'economy',
+    name: 'Economia Civil',
+    description: 'Foco na construção civil. Mais barata e rápida para edifícios civis.',
+    costGold: 0,
+    bonuses: {
+      civilianBuildTimeMultiplier: 0.8,
+      militaryFactoryCostMultiplier: 1.2,
+    },
+  },
+  'economy_war_early': {
+    id: 'economy_war_early',
+    category: 'economy',
+    name: 'Economia de Guerra Inicial',
+    description: 'Início da mobilização industrial para produção militar.',
+    costGold: 3500,
+    bonuses: {
+      militaryFactoryCostMultiplier: 0.9,
+      armyCostMultiplier: 0.95,
+    },
+  },
+  'economy_war_total': {
+    id: 'economy_war_total',
+    category: 'economy',
+    name: 'Economia de Guerra Total',
+    description: 'Mobilização total da indústria. Produção militar máxima, economia civil penalizada.',
+    costGold: 6000,
+    bonuses: {
+      militaryFactoryCostMultiplier: 0.75,
+      civilianBuildTimeMultiplier: 1.4,
+      goldMultiplier: 1.1,
+    },
+  },
+
+  // === INTELLIGENCE (Doutrina) - NOVO ===
+  'intel_disorganized': {
+    id: 'intel_disorganized',
+    category: 'intelligence',
+    name: 'Serviço Secreto Desorganizado',
+    description: 'Inteligência básica. Sem bônus.',
+    costGold: 0,
+    bonuses: {
+      researchSpeedMultiplier: 1.0,
+    },
+  },
+  'intel_agency': {
+    id: 'intel_agency',
+    category: 'intelligence',
+    name: 'Agência de Inteligência',
+    description: 'Agência centralizada. Melhora pesquisa militar e eficiência de focos.',
+    costGold: 2500,
+    bonuses: {
+      researchSpeedMultiplier: 1.15,
+      focusTimeMultiplier: 0.9,
+    },
+  },
+  'intel_total': {
+    id: 'intel_total',
+    category: 'intelligence',
+    name: 'Inteligência Total',
+    description: 'Rede global de espionagem. Pesquisa e focos muito mais rápidos.',
+    costGold: 7000,
+    bonuses: {
+      researchSpeedMultiplier: 1.3,
+      focusTimeMultiplier: 0.8,
+    },
+  },
 };
 
 export const LAWS_BY_CATEGORY = {
   conscription: ['conscription_peacetime', 'conscription_limited', 'conscription_total'],
   taxation: ['taxation_low', 'taxation_normal', 'taxation_high'],
   governance: ['governance_decentralized', 'governance_balanced', 'governance_centralized'],
+  economy: ['economy_civilian', 'economy_war_early', 'economy_war_total'],
+  intelligence: ['intel_disorganized', 'intel_agency', 'intel_total'],
 };
 
 export const DEFAULT_LAWS = {
   conscription: 'conscription_peacetime',
   taxation: 'taxation_normal',
   governance: 'governance_balanced',
+  economy: 'economy_civilian',
+  intelligence: 'intel_disorganized',
 };

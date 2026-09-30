@@ -15,7 +15,7 @@ interface GovernmentModalProps {
   onClose: () => void;
 }
 
-const CATEGORY_INFO = {
+const CATEGORY_INFO: Record<LawCategory, { icon: string; name: string; description: string }> = {
   conscription: {
     icon: '🎖️',
     name: 'Recrutamento',
@@ -31,6 +31,16 @@ const CATEGORY_INFO = {
     name: 'Governança',
     description: 'Estrutura administrativa do estado',
   },
+  economy: {
+    icon: '🏭',
+    name: 'Economia de Guerra',
+    description: 'Mobilização industrial e produção',
+  },
+  intelligence: {
+    icon: '🕵️',
+    name: 'Inteligência',
+    description: 'Pesquisa, focos e espionagem',
+  },
 };
 
 export const GovernmentModal: React.FC<GovernmentModalProps> = ({
@@ -38,39 +48,33 @@ export const GovernmentModal: React.FC<GovernmentModalProps> = ({
   onEnactLaw,
   onClose,
 }) => {
-  const activeLaws = playerCountry.activeLaws || {
+  const activeLaws: ActiveLaws = playerCountry.activeLaws || {
     conscription: 'conscription_peacetime',
     taxation: 'taxation_normal',
     governance: 'governance_balanced',
+    economy: 'economy_civilian',
+    intelligence: 'intel_disorganized',
   };
 
   const renderBonuses = (law: typeof LAWS[string]) => {
-    const bonuses = [];
-    if (law.bonuses.goldMultiplier !== undefined) {
-      const value = Number(law.bonuses.goldMultiplier);
-      const percent = ((value - 1) * 100).toFixed(0);
-      bonuses.push(`💰 Ouro: ${Number(percent) > 0 ? '+' : ''}${percent}%`);
-    }
-    if (law.bonuses.manpowerMultiplier !== undefined) {
-      const value = Number(law.bonuses.manpowerMultiplier);
-      const percent = ((value - 1) * 100).toFixed(0);
-      bonuses.push(`👥 Manpower: ${Number(percent) > 0 ? '+' : ''}${percent}%`);
-    }
-    if (law.bonuses.popGrowthMultiplier !== undefined) {
-      const value = Number(law.bonuses.popGrowthMultiplier);
-      const percent = ((value - 1) * 100).toFixed(0);
-      bonuses.push(`📈 População: ${Number(percent) > 0 ? '+' : ''}${percent}%`);
-    }
-    if (law.bonuses.buildTimeMultiplier !== undefined) {
-      const value = Number(law.bonuses.buildTimeMultiplier);
-      const percent = ((value - 1) * 100).toFixed(0);
-      bonuses.push(`🏗️ Construção: ${Number(percent) > 0 ? '+' : ''}${percent}%`);
-    }
-    if (law.bonuses.armyCostMultiplier !== undefined) {
-      const value = Number(law.bonuses.armyCostMultiplier);
-      const percent = ((value - 1) * 100).toFixed(0);
-      bonuses.push(`⚔️ Custo Exército: ${Number(percent) > 0 ? '+' : ''}${percent}%`);
-    }
+    const bonuses: string[] = [];
+    const fmt = (v: number) => {
+      const p = ((v - 1) * 100).toFixed(0);
+      return `${Number(p) > 0? '+' : ''}${p}%`;
+    };
+
+    if (law.bonuses.goldMultiplier!== undefined) bonuses.push(`💰 Ouro: ${fmt(law.bonuses.goldMultiplier)}`);
+    if (law.bonuses.manpowerMultiplier!== undefined) bonuses.push(`👥 Manpower: ${fmt(law.bonuses.manpowerMultiplier)}`);
+    if (law.bonuses.popGrowthMultiplier!== undefined) bonuses.push(`📈 População: ${fmt(law.bonuses.popGrowthMultiplier)}`);
+    if (law.bonuses.buildTimeMultiplier!== undefined) bonuses.push(`🏗️ Construção: ${fmt(law.bonuses.buildTimeMultiplier)}`);
+    if (law.bonuses.armyCostMultiplier!== undefined) bonuses.push(`⚔️ Custo Exército: ${fmt(law.bonuses.armyCostMultiplier)}`);
+
+    // NOVOS
+    if (law.bonuses.civilianBuildTimeMultiplier!== undefined) bonuses.push(`🏠 Civil: ${fmt(law.bonuses.civilianBuildTimeMultiplier)}`);
+    if (law.bonuses.militaryFactoryCostMultiplier!== undefined) bonuses.push(`🏭 Fab. Militar: ${fmt(law.bonuses.militaryFactoryCostMultiplier)}`);
+    if (law.bonuses.researchSpeedMultiplier!== undefined) bonuses.push(`🔬 Pesquisa: ${fmt(law.bonuses.researchSpeedMultiplier)}`);
+    if (law.bonuses.focusTimeMultiplier!== undefined) bonuses.push(`🎯 Focos: ${fmt(law.bonuses.focusTimeMultiplier)}`);
+
     return bonuses;
   };
 
@@ -108,15 +112,15 @@ export const GovernmentModal: React.FC<GovernmentModalProps> = ({
                     return (
                       <div
                         key={lawId}
-                        className={`government-modal__law-card ${isActive ? 'active' : ''}`}
+                        className={`government-modal__law-card ${isActive? 'active' : ''}`}
                       >
                         <div className="government-modal__law-header">
                           <h4>{law.name}</h4>
                           {isActive && <span className="government-modal__law-badge">ATIVA</span>}
                         </div>
-                        
+
                         <p className="government-modal__law-description">{law.description}</p>
-                        
+
                         {bonuses.length > 0 && (
                           <div className="government-modal__law-bonuses">
                             {bonuses.map((bonus, idx) => (
@@ -137,7 +141,7 @@ export const GovernmentModal: React.FC<GovernmentModalProps> = ({
                               disabled={!canAfford}
                               onClick={() => onEnactLaw(category, lawId)}
                             >
-                              {canAfford ? 'Promulgar Lei' : 'Ouro Insuficiente'}
+                              {canAfford? 'Promulgar Lei' : 'Ouro Insuficiente'}
                             </button>
                           </div>
                         )}

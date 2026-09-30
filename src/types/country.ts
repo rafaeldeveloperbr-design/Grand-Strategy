@@ -25,6 +25,8 @@ export interface Country {
     conscription: string;
     taxation: string;
     governance: string;
+    economy: string;
+    intelligence: string;
   };
   /** Indica se o país já foi totalmente anexado (para evitar processamento repetido) */
   isAnnexed?: boolean;
