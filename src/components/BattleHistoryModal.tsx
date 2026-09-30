@@ -8,9 +8,6 @@ interface BattleHistoryModalProps {
   onViewBattle: (battle: CombatResult) => void;
 }
 
-/**
- * Modal de Histórico de Batalhas
- */
 export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
   battleHistory,
   allCountries,
@@ -22,19 +19,21 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
   };
 
   const formatDate = (date: { year: number; month: number; day: number }): string => {
+    if (!date) return '---';
     return `${date.day}/${date.month}/${date.year}`;
   };
+
+  const safeNum = (v: any) => (v ?? 0).toLocaleString();
+  const safeRatio = (v: any) => (v ?? 1).toFixed(2);
 
   return (
     <div className="battle-history-overlay">
       <div className="battle-history-modal">
-        {/* Cabeçalho */}
         <div className="battle-history-header">
           <h2>📜 Histórico de Batalhas</h2>
           <button className="battle-history-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* Lista de Batalhas */}
         <div className="battle-history-content">
           {battleHistory.length === 0 ? (
             <div className="battle-history-empty">
@@ -45,12 +44,14 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
             </div>
           ) : (
             <div className="battle-history-list">
-              {battleHistory.map((battle, index) => {
-                const attackerCountry = getCountryByTag(battle.attackerOriginal.owner);
-                const defenderCountry = getCountryByTag(battle.defenderOriginal.owner);
+              {battleHistory.map((battle: any, index) => {
+                const attackerCountry = getCountryByTag(battle.attackerOriginal?.owner || battle.attacker?.owner);
+                const defenderCountry = getCountryByTag(battle.defenderOriginal?.owner || battle.defender?.owner);
                 const playerWon = 
-                  (battle.winner === 'attacker' && battle.attackerOriginal.owner === 'IMP') ||
-                  (battle.winner === 'defender' && battle.defenderOriginal.owner === 'IMP');
+                  (battle.winner === 'attacker' && (battle.attackerOriginal?.owner === 'IMP' || battle.attacker?.owner === 'IMP')) ||
+                  (battle.winner === 'defender' && (battle.defenderOriginal?.owner === 'IMP' || battle.defender?.owner === 'IMP'));
+
+                const retreatInfo = battle.retreatInfo;
 
                 return (
                   <div
@@ -58,23 +59,26 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
                     className={`battle-history-item ${playerWon ? 'victory' : 'defeat'}`}
                     onClick={() => onViewBattle(battle)}
                   >
-                    {/* Data e Local */}
                     <div className="battle-history-item-header">
                       <span className="battle-history-date">
                         📅 {formatDate(battle.date)}
                       </span>
                       <span className="battle-history-location">
-                        📍 {battle.provinceName}
+                        📍 {battle.provinceName || (battle as any).province?.name || '---'}
                       </span>
+                      {retreatInfo?.retreated && (
+                        <span className="battle-history-retreat" style={{ marginLeft: 8, color: '#fbbf24', fontSize: '0.8em' }}>
+                          🏃 {retreatInfo.troops} → {retreatInfo.toName}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Atacante vs Defensor */}
                     <div className="battle-history-item-body">
                       <div className="battle-history-army">
                         <span className="battle-history-flag">{attackerCountry?.flag}</span>
-                        <span className="battle-history-name">{attackerCountry?.name}</span>
+                        <span className="battle-history-name">{attackerCountry?.name || battle.attackerOriginal?.owner}</span>
                         <span className="battle-history-casualties">
-                          -{battle.attackerCasualties.toLocaleString()}
+                          -{safeNum(battle.attackerCasualties)}
                         </span>
                       </div>
 
@@ -82,20 +86,20 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
 
                       <div className="battle-history-army">
                         <span className="battle-history-flag">{defenderCountry?.flag}</span>
-                        <span className="battle-history-name">{defenderCountry?.name}</span>
+                        <span className="battle-history-name">{defenderCountry?.name || battle.defenderOriginal?.owner}</span>
                         <span className="battle-history-casualties">
-                          -{battle.defenderCasualties.toLocaleString()}
+                          -{safeNum(battle.defenderCasualties)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Resultado */}
                     <div className="battle-history-item-footer">
                       <span className={`battle-history-result ${playerWon ? 'victory' : 'defeat'}`}>
                         {playerWon ? '🏆 Vitória' : '💀 Derrota'}
                       </span>
                       <span className="battle-history-ratio">
-                        Ratio: {battle.powerRatio.toFixed(2)}:1
+                        Ratio: {safeRatio(battle.powerRatio)}:1
+                        {retreatInfo?.retreated ? ` | 🏃 Recuo` : ''}
                       </span>
                     </div>
                   </div>
