@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import { CombatResult, Country } from '../types';
 import { formatArmySize } from '../utils/formatters';
 
@@ -68,9 +68,12 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const attackerAnnihilated = isAttackerLoser && totalAttackerFinal === 0;
   const defenderAnnihilated = isDefenderLoser && totalDefenderFinal === 0;
 
-  console.log('📊 BattleReportModal - CORRIGIDO:');
-  console.log(` Atacante - Inicial: ${totalAttackerInitial}, Final: ${totalAttackerFinal}, Baixas: ${calculatedAttackerCasualties} ${attackerAnnihilated ? 'ANIQ' : ''}`);
-  console.log(` Defensor - Inicial: ${totalDefenderInitial}, Final: ${totalDefenderFinal}, Baixas: ${calculatedDefenderCasualties} ${defenderAnnihilated ? 'ANIQ' : ''}`);
+ useEffect(() => {
+    console.log('📊 BattleReportModal - CORRIGIDO:');
+    console.log(` Atacante - Inicial: ${totalAttackerInitial}, Final: ${totalAttackerFinal}, Baixas: ${calculatedAttackerCasualties} ${attackerAnnihilated? 'ANIQ' : ''}`);
+    console.log(` Defensor - Inicial: ${totalDefenderInitial}, Final: ${totalDefenderFinal}, Baixas: ${calculatedDefenderCasualties} ${defenderAnnihilated? 'ANIQ' : ''}`);
+  }, [battleResult]); // só loga quando muda a batalha, não a cada render
+
 
   return (
     <div className="battle-report-overlay">

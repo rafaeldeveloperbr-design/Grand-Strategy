@@ -222,10 +222,28 @@ export function checkAllProvinceCombats(
   return { armies: updatedArmies, newBattles, updatedBattles, reinforcementsAdded };
 }
 
+function getDefenseBonus(province: Province): number {
+  const p = province as any;
+  let bonus = 0.05; // 5% base mesmo pelado
+
+  bonus += (p.fortLevel ?? p.fort_level ?? p.fort ?? 0) * 0.05;
+  
+  const terrain = p.terrain ?? p.terrainType ?? '';
+  if (terrain === 'mountain') bonus += 0.15;
+  if (terrain === 'hill') bonus += 0.10;
+  if (terrain === 'forest') bonus += 0.05;
+
+  bonus += (p.buildings?.barracks ?? p.barracks ?? 0) * 0.03;
+  bonus += (p.buildings?.walls ?? p.walls ?? 0) * 0.04;
+
+  return Math.min(0.5, bonus);
+}
 
 /**
  * Inicia uma nova batalha contínua com duração proporcional ao menor exército (1000 tropas = 1 dia)
  */
+// Em continuousBattle.ts
+
 export function startContinuousBattle(
   attackerArmies: Army[],
   defenderArmies: Army[],
@@ -233,40 +251,36 @@ export function startContinuousBattle(
   currentDate: GameDate,
   battleId: string
 ): ActiveBattle {
-  // Calcula tropas totais de cada lado no início
-  const attackerTroops = attackerArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
-  const defenderTroops = defenderArmies.reduce((sum, army) => sum + calculateArmySize(army), 0);
+  const attackerTroops = attackerArmies.reduce((s, a) => s + calculateArmySize(a), 0);
+  const defenderTroops = defenderArmies.reduce((s, a) => s + calculateArmySize(a), 0);
 
-  // 1. Duração baseada no MENOR exército (1000 tropas = 1 dia de batalha)
   const smallerArmyTroops = Math.min(attackerTroops, defenderTroops);
-  const battleDays = Math.max(1, Math.floor(smallerArmyTroops / 1000));
 
-  // Coleta todos os IDs de exércitos participantes
+  // CORREÇÃO: se for 1k, luta até morrer em 1 batalha só
+  let battleDays: number;
+  if (smallerArmyTroops <= 1000) {
+    battleDays = 5; // 5 dias pra aniquilar 1k em uma batalha só
+  } else if (smallerArmyTroops <= 2500) {
+    battleDays = 3;
+  } else {
+    battleDays = Math.max(2, Math.floor(smallerArmyTroops / 1500));
+  }
+
   const participantArmyIds = [
-    ...attackerArmies.map(a => a.id),
-    ...defenderArmies.map(a => a.id)
+   ...attackerArmies.map(a => a.id),
+   ...defenderArmies.map(a => a.id)
   ];
 
   console.log(`⚔️ Iniciando batalha contínua em ${province.name}: ${battleDays} dias`);
-  console.log(`   Atacantes: ${attackerArmies.length} exércitos, ${attackerTroops} tropas`);
-  console.log(`   Defensores: ${defenderArmies.length} exércitos, ${defenderTroops} tropas`);
-
-  const attackerInitialSnapshot: Army = {
-    ...attackerArmies[0],
-    regiments: attackerArmies[0].regiments.map(r => ({ ...r }))
-  };
-  
-  const defenderInitialSnapshot: Army = {
-    ...defenderArmies[0],
-    regiments: defenderArmies[0].regiments.map(r => ({ ...r }))
-  };
+  console.log(` Atacantes: ${attackerTroops} tropas`);
+  console.log(` Defensores: ${defenderTroops} tropas`);
 
   return {
     id: battleId,
     provinceId: province.id,
     attackerArmyId: attackerArmies[0].id,
     defenderArmyId: defenderArmies[0].id,
-    participantArmyIds: participantArmyIds,
+    participantArmyIds,
     daysTotal: battleDays,
     daysRemaining: battleDays,
     attackerInitialTroops: attackerTroops,
@@ -276,8 +290,8 @@ export function startContinuousBattle(
     attackerCasualties: 0,
     defenderCasualties: 0,
     startDate: currentDate,
-    attackerInitialSnapshot,
-    defenderInitialSnapshot,
+    attackerInitialSnapshot: {...attackerArmies[0], regiments: attackerArmies[0].regiments.map(r => ({...r})) },
+    defenderInitialSnapshot: {...defenderArmies[0], regiments: defenderArmies[0].regiments.map(r => ({...r})) },
   };
 }
 
@@ -319,67 +333,49 @@ export function processDailyBattle(
   province: Province
 ) {
   const daysRemaining = battle.daysRemaining - 1;
+  const p = province as any;
+  let bonus = 0.05;
+  bonus += (p.fortLevel ?? 0) * 0.05;
+  const terrain = p.terrain ?? '';
+  if (terrain === 'mountain') bonus += 0.15;
+  if (terrain === 'hill') bonus += 0.10;
+  if (terrain === 'forest') bonus += 0.05;
+  bonus = Math.min(0.5, bonus);
 
-  const totalTroops = battle.attackerCurrentTroops + battle.defenderCurrentTroops;
-  const attackerRatio = battle.attackerCurrentTroops / Math.max(1, totalTroops);
-  const defenderRatio = battle.defenderCurrentTroops / Math.max(1, totalTroops);
+  const daysTotal = Math.max(1, battle.daysTotal);
+  
+  // Usa o INICIAL pra ser proporcional, não o current
+  const attInitial = battle.attackerInitialTroops;
+  const defInitial = battle.defenderInitialTroops;
 
-  const baseLossRate = 0.06;
-  const dailyAttackerLoss = Math.floor(
-    battle.attackerCurrentTroops * baseLossRate * (0.5 + defenderRatio)
+  // Defensor perde 33% por dia se durar 3 dias (3k / 3 = 1k por dia)
+  // Mas sofre mais se atacante for maior: multiplica pelo ratio do atacante
+  const defenderLoss = Math.min(
+    battle.defenderCurrentTroops,
+    Math.floor((defInitial / daysTotal) * (1 + (attInitial / Math.max(1, defInitial)) * 0.1))
   );
-  const dailyDefenderLoss = Math.floor(
-    battle.defenderCurrentTroops * baseLossRate * (0.5 + attackerRatio)
+
+  // Atacante perde o tamanho do defensor + bonus, dividido pelos dias
+  const attackerLoss = Math.min(
+    battle.attackerCurrentTroops,
+    Math.floor((defInitial * (1 + bonus)) / daysTotal)
   );
 
-  // CORREÇÃO: se tem reforço, o dano vai mais pro exército velho
-  const hasReinf = (battle as any).reinforcementEntryDay && Object.keys((battle as any).reinforcementEntryDay).length > 0;
-
-  let attackerDailyForMain = dailyAttackerLoss;
-  let defenderDailyForMain = dailyDefenderLoss;
-
-  if (hasReinf) {
-    // 70% do dano fica no exército que já tava lutando, 30% pros reforços (que não estão nesse tick ainda)
-    // então o main toma 70%
-    attackerDailyForMain = Math.floor(dailyAttackerLoss * 0.7);
-    defenderDailyForMain = Math.floor(dailyDefenderLoss * 0.7);
-  }
-
-  const updatedAttacker = applyTroopLoss(attacker, attackerDailyForMain);
-  const updatedDefender = applyTroopLoss(defender, defenderDailyForMain);
-
-  const attackerCurrentTroops = Math.max(0, battle.attackerCurrentTroops - dailyAttackerLoss);
-  const defenderCurrentTroops = Math.max(0, battle.defenderCurrentTroops - dailyDefenderLoss);
-
-  const attackerShouldRetreat = attackerCurrentTroops > 0 && attackerCurrentTroops <= 1000;
-  const defenderShouldRetreat = defenderCurrentTroops > 0 && defenderCurrentTroops <= 1000;
-
-  const finished =
-    daysRemaining <= 0 ||
-    attackerCurrentTroops <= 0 ||
-    defenderCurrentTroops <= 0 ||
-    attackerShouldRetreat ||
-    defenderShouldRetreat;
+  const updatedAttacker = applyTroopLoss(attacker, attackerLoss);
+  const updatedDefender = applyTroopLoss(defender, defenderLoss);
 
   return {
     battle: {
-    ...battle,
+      ...battle,
       daysRemaining,
-      attackerCasualties: battle.attackerCasualties + dailyAttackerLoss,
-      defenderCasualties: battle.defenderCasualties + dailyDefenderLoss,
-      attackerCurrentTroops,
-      defenderCurrentTroops,
-      shouldRetreatAttacker: attackerShouldRetreat,
-      shouldRetreatDefender: defenderShouldRetreat,
-      // salva quanto o reforço deve perder depois (30%)
-      pendingReinforcementLoss: hasReinf? {
-        attacker: dailyAttackerLoss - attackerDailyForMain,
-        defender: dailyDefenderLoss - defenderDailyForMain,
-      } : null,
+      attackerCasualties: battle.attackerCasualties + attackerLoss,
+      defenderCasualties: battle.defenderCasualties + defenderLoss,
+      attackerCurrentTroops: Math.max(0, battle.attackerCurrentTroops - attackerLoss),
+      defenderCurrentTroops: Math.max(0, battle.defenderCurrentTroops - defenderLoss),
     } as any,
     attacker: updatedAttacker,
     defender: updatedDefender,
-    finished,
+    finished: daysRemaining <= 0 || battle.attackerCurrentTroops - attackerLoss <= 50 || battle.defenderCurrentTroops - defenderLoss <= 50,
   };
 }
 
