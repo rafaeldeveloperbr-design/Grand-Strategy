@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { CombatResult, Country } from '../types';
 import { formatArmySize } from '../utils/formatters';
 
@@ -19,18 +19,38 @@ export const BattleReportModal: React.FC<BattleReportModalProps> = ({
   const playerWon = (winner === 'attacker' && attackerOriginal.owner === playerCountry.tag) || (winner === 'defender' && defenderOriginal.owner === playerCountry.tag);
   const attackerCountry = allCountries.find(c => c.tag === attackerOriginal.owner);
   const defenderCountry = allCountries.find(c => c.tag === defenderOriginal.owner);
-  const getRealSize = (army: any) => army.regiments?.reduce((s: number, r: any) => s + r.strength, 0) || 0;
-  
-  const extra = battleResult as any;
-const retreatInfo = (extra.retreatInfo || extra.battle?.retreatInfo || (battleResult as any).retreatInfo) as { retreated: boolean, toName: string, troops: number, owner: string } | undefined;  const participantDetails = (extra.participantDetails as any[]) || [];
-  const defenderDetails = participantDetails.filter(p => p.side === 'defender');
-  const attackerDetails = participantDetails.filter(p => p.side === 'attacker');
-  const isStackwipe = extra.isStackwipe as boolean;
-  const totalAttackerInitial = (extra.totalAttackerInitial as number) || getRealSize(attackerOriginal);
-  const totalDefenderInitial = (extra.totalDefenderInitial as number) || getRealSize(defenderOriginal);
-  let totalAttackerFinal = attackerDetails.length > 0 ? attackerDetails.reduce((s, d) => s + d.final, 0) : (extra.attackerCurrentTroops as number) || getRealSize(attacker);
-  let totalDefenderFinal = defenderDetails.length > 0 ? defenderDetails.reduce((s, d) => s + d.final, 0) : (extra.defenderCurrentTroops as number) || getRealSize(defender);
-    // Força final = 127 se teve recuo
+  const getRealSize = (army: typeof attackerOriginal): number =>
+    army.regiments.reduce((sum, regiment) => sum + regiment.strength, 0);
+
+  const retreatInfo = battleResult.retreatInfo;
+  const participantDetails = battleResult.participantDetails ?? [];
+
+  const defenderDetails = participantDetails.filter(
+    p => p.side === 'defender'
+  );
+
+  const attackerDetails = participantDetails.filter(
+    p => p.side === 'attacker'
+  );
+
+  const isStackwipe = battleResult.isStackwipe ?? false;
+  const totalAttackerInitial =
+    battleResult.totalAttackerInitial ??
+    getRealSize(attackerOriginal);
+
+  const totalDefenderInitial =
+    battleResult.totalDefenderInitial ??
+    getRealSize(defenderOriginal);
+  let totalAttackerFinal =
+    attackerDetails.length > 0
+      ? attackerDetails.reduce((sum, detail) => sum + detail.final, 0)
+      : battleResult.attackerCurrentTroops ?? getRealSize(attacker);
+
+  let totalDefenderFinal =
+    defenderDetails.length > 0
+      ? defenderDetails.reduce((sum, detail) => sum + detail.final, 0)
+      : battleResult.defenderCurrentTroops ?? getRealSize(defender);
+  // Força final = 127 se teve recuo
   if (retreatInfo?.retreated) {
     console.log(`🏃 Modal recebeu recuo: ${retreatInfo.troops} para ${retreatInfo.toName}`);
     if (retreatInfo.owner === defenderOriginal.owner) {
@@ -45,18 +65,18 @@ const retreatInfo = (extra.retreatInfo || extra.battle?.retreatInfo || (battleRe
   const isDefenderLoser = winner === 'attacker';
   const attackerAnnihilated = isAttackerLoser && totalAttackerFinal === 0 && !retreatInfo?.retreated;
   const defenderAnnihilated = isDefenderLoser && totalDefenderFinal === 0 && !retreatInfo?.retreated;
-  const prov = extra.province || {};
-  const fortLevel = prov.fortLevel ?? 0;
-  const terrain = prov.terrain ?? 'plains';
+  const prov = battleResult.province;
+  const fortLevel = prov?.fortLevel ?? 0;
+  const terrain = prov?.terrain ?? 'plains';
   const totalBonus = Math.min(50, 5 + fortLevel * 5 + (terrain === 'mountain' ? 15 : terrain === 'hill' ? 10 : terrain === 'forest' ? 5 : 0));
-  const perDayLoss = Math.floor((totalDefenderInitial * (1 + totalBonus/100)) / Math.max(1, duration));
+  const perDayLoss = Math.floor((totalDefenderInitial * (1 + totalBonus / 100)) / Math.max(1, duration));
 
-  useEffect(() => {
+ 
     console.log('📊 BattleReportModal - CORRIGIDO:');
     if (retreatInfo?.retreated) console.log(`🏃 RECUO: ${retreatInfo.owner} com ${retreatInfo.troops} para ${retreatInfo.toName}`);
     console.log(` Atacante - Inicial: ${totalAttackerInitial}, Final: ${totalAttackerFinal}`);
     console.log(` Defensor - Inicial: ${totalDefenderInitial}, Final: ${totalDefenderFinal}`);
-  }, [battleResult]);
+  
 
   return (
     <div className="battle-report-overlay">
@@ -70,7 +90,7 @@ const retreatInfo = (extra.retreatInfo || extra.battle?.retreatInfo || (battleRe
           <div className="battle-report-info-item"><span className="label">Duração:</span><span className="value">{duration} dias</span></div>
           <div className="battle-report-info-item"><span className="label">Ratio:</span><span className="value">{battleResult.powerRatio.toFixed(2)}:1</span></div>
           {isStackwipe && <div className="battle-report-info-item"><span className="label" style={{ color: '#ff4444' }}>💀 STACKWIPE!</span></div>}
-          {retreatInfo?.retreated && <div className="battle-report-info-item"><span className="label" style={{color:'#4ade80'}}>🏃 RECUO para {retreatInfo.toName} com {retreatInfo.troops}</span></div>}
+          {retreatInfo?.retreated && <div className="battle-report-info-item"><span className="label" style={{ color: '#4ade80' }}>🏃 RECUO para {retreatInfo.toName} com {retreatInfo.troops}</span></div>}
         </div>
         <div className="battle-report-armies">
           <div className={`battle-report-army ${winner === 'attacker' ? 'winner' : 'loser'}`}>

@@ -107,6 +107,16 @@ export interface RetreatInfo {
   owner: string;
 }
 
+export interface BattleParticipantDetail {
+  side: 'attacker' | 'defender';
+  final: number;
+}
+
+export interface BattleProvinceInfo {
+  fortLevel?: number;
+  terrain?: string;
+}
+
 /**
  * Resultado de um combate
  */
@@ -126,7 +136,12 @@ export interface CombatResult {
   territorialDefenseBonus: boolean;
   powerRatio: number;
   date: GameDate;
-
   isStackwipe?: boolean;
   retreatInfo?: RetreatInfo | null;
+  participantDetails?: BattleParticipantDetail[];
+  totalAttackerInitial?: number;
+  totalDefenderInitial?: number;
+  attackerCurrentTroops?: number;
+  defenderCurrentTroops?: number;
+  province?: BattleProvinceInfo;
 }
