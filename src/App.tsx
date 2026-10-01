@@ -41,7 +41,7 @@ import { useTechActions } from './hooks/app/useTechActions';
 import { useCheats } from './hooks/app/useCheats';
 import { CheatPanel } from './components/CheatPanel';
 import { UNIT_DEFINITIONS } from './data/units';
-import { loadGame, clearSave, saveGame, isAutoSaveEnabled, setAutoSaveEnabled } from './engine/saveSystem';
+import { loadGame, saveGame, isAutoSaveEnabled, setAutoSaveEnabled, listSaves, deleteSave, clearAllSaves } from './engine/saveSystem';
 
 function createInitialArmies(): Army[] {
   return [
@@ -84,37 +84,27 @@ const App: React.FC = () => {
   const formatGameDate = useCallback((d: GameDate) => `${d.day} de ${d.month}, ${d.year}`, []);
 
   const { gameLoopRef, provincesRef, countriesRef, armiesRef, recruitmentsRef, warsRef, diplomaticRelationsRef, dateRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, aiDifficultyRef, activeBattlesRef, ceilingLogRef } = useGameRefs({ provinces, allCountries, armies, recruitments, wars, diplomaticRelations, date, buildingConstructions, playerTechState, botTechStates, aiDifficulty, activeBattles });
-   const [autoSaveEnabled, setAutoSaveEnabledState] = useState(() => isAutoSaveEnabled());
 
-  const handleManualSave = useCallback(() => {
-    saveGame({ provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef });
-    addToast('💾 Jogo salvo!', 'success');
-  }, [addToast, provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef]);
 
-  const handleToggleAutoSave = useCallback((v: boolean) => {
-    setAutoSaveEnabled(v);
-    setAutoSaveEnabledState(v);
-    addToast(v? 'Autosave ligado' : 'Autosave desligado', 'info');
-  }, [addToast]);
 
-  const handleNewGameReset = useCallback(() => {
-    clearSave();
-    window.location.reload(); // jeito mais garantido de resetar tudo
-  }, []);
+  const modals = useGameModals();
+  const selection = useGameSelection(playerCountryTag, provincesRef, armiesRef, modals.handleOpenDiplomacy);
 
+  // ===== SAVE SYSTEM - CORRIGIDO =====
+  const [autoSaveEnabled, setAutoSaveEnabledState] = useState(() => isAutoSaveEnabled());
+  const [saves, setSaves] = useState(() => listSaves());
+  const refreshSaves = useCallback(() => setSaves(listSaves()), []);
+
+  // LOAD NA INICIALIZAÇÃO - só autosave
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isNewGame = urlParams.get('newgame') === '1';
-    
     if (isNewGame) {
-      clearSave();
-      window.history.replaceState({}, '', window.location.pathname); // limpa a url
+      window.history.replaceState({}, '', window.location.pathname);
       return;
     }
-
-      // LOAD - só carrega se NÃO tiver acabado de reiniciar
-    const saved = loadGame();
-    if (saved && !hasTriggeredEndGame) {
+    const saved = loadGame('autosave');
+    if (saved) {
       setProvinces(saved.provinces);
       setAllCountries(saved.countries);
       setArmies(saved.armies);
@@ -126,14 +116,52 @@ const App: React.FC = () => {
       setBotTechStates(saved.botTechs);
       setActiveBattles(saved.activeBattles);
       setDate(saved.date);
-      addToast('💾 Save carregado!', 'success');
+      addToast('💾 Autosave carregado!', 'success');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleManualSave = useCallback((slot = Date.now().toString()) => {
+    saveGame({ provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef }, slot);
+    refreshSaves();
+    addToast(`💾 Save ${slot} criado!`, 'success');
+  }, [addToast, refreshSaves, provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef]);
 
-  const modals = useGameModals();
-  const selection = useGameSelection(playerCountryTag, provincesRef, armiesRef, modals.handleOpenDiplomacy);
+  const handleLoad = useCallback((slotId: string) => {
+    const saved = loadGame(slotId);
+    if (!saved) {
+      addToast('Save não encontrado', 'error');
+      return;
+    }
+    setProvinces(saved.provinces);
+    setAllCountries(saved.countries);
+    setArmies(saved.armies);
+    setWars(saved.wars);
+    setDiplomaticRelations(saved.relations);
+    setRecruitments(saved.recruitments);
+    setBuildingConstructions(saved.constructions);
+    setPlayerTechState(saved.playerTech);
+    setBotTechStates(saved.botTechs);
+    setActiveBattles(saved.activeBattles);
+    setDate(saved.date);
+    addToast(`📂 Save ${slotId} carregado!`, 'success');
+    modals.setShowSettingsModal(false);
+  }, [addToast, modals]);
+
+  const handleDelete = useCallback((slotId: string) => {
+    if (!confirm(`Apagar ${slotId}?`)) return;
+    deleteSave(slotId);
+    refreshSaves();
+    addToast('🗑️ Save apagado', 'info');
+  }, [refreshSaves, addToast]);
+
+  const handleToggleAutoSave = useCallback((v: boolean) => {
+    setAutoSaveEnabled(v);
+    setAutoSaveEnabledState(v);
+    addToast(v? 'Autosave ligado' : 'Autosave desligado', 'info');
+  }, [addToast]);
+  
+  
 
   const playerCountry = useMemo(() => allCountries.find(c => c.tag === playerCountryTag)!, [allCountries, playerCountryTag]);
   const selectedProvinceData = useMemo(() => provinces.find(p => p.id === selection.selectedProvince) ?? null, [provinces, selection.selectedProvince]);
@@ -148,20 +176,18 @@ const App: React.FC = () => {
   const diplomacy = useDiplomacyActions({ diplomacyTarget: modals.diplomacyTarget, setDiplomacyTarget: modals.setDiplomacyTarget, playerCountry, playerCountryTag, allCountries, setAllCountries, diplomaticRelations, setDiplomaticRelations, wars, setWars, date, addLog });
   const tech = useTechActions({ playerCountry, playerCountryTag, playerTechState, setPlayerTechState, allCountries, setAllCountries, addLog, addToast, playerTechStateRef, setAiDifficulty, setEndGameType, setGameStats, setGameSpeed, setIsPaused: modals.setIsPaused });
 
-    const handleEndGameRestart = useCallback(() => {
-    clearSave();
+  const handleEndGameRestart = useCallback(() => {
     // força novo jogo via URL pra não carregar save no reload
     window.location.href = window.location.pathname + '?newgame=1';
   }, []);
 
   const handleEndGameContinue = useCallback(() => {
-    setEndGameType(null); 
+    setEndGameType(null);
     // IMPORTANTE: mantém hasTriggeredEndGame = true pra não disparar de novo
     // mas despausa
     modals.setIsPaused(false);
     setGameSpeed(1);
     // limpa o save do momento da derrota pra não voltar pra ela
-    clearSave(); 
     addToast('Continuando mesmo assim...', 'info');
   }, [addToast, modals]);
 
@@ -252,12 +278,12 @@ const App: React.FC = () => {
             onStartResearch={tech.handleStartResearch}
             onCancelResearch={handleCancelResearch}
             onClose={() => setShowResearchModal(false)}
-          />}        {endGameType && gameStats && <EndGameModal 
-  endGameType={endGameType} 
-  stats={gameStats} 
-  onContinue={handleEndGameContinue} 
-  onRestart={handleEndGameRestart} 
-/>}
+          />}        {endGameType && gameStats && <EndGameModal
+            endGameType={endGameType}
+            stats={gameStats}
+            onContinue={handleEndGameContinue}
+            onRestart={handleEndGameRestart}
+          />}
         <NotificationLogModal isOpen={modals.showNotificationModal} onClose={() => modals.setShowNotificationModal(false)} />
         <AILogModal isOpen={modals.showAILogModal} onClose={() => modals.setShowAILogModal(false)} />
         <SettingsModal
@@ -265,10 +291,12 @@ const App: React.FC = () => {
           onClose={() => modals.setShowSettingsModal(false)}
           aiDifficulty={aiDifficulty}
           onDifficultyChange={tech.handleDifficultyChange}
-          onManualSave={handleManualSave}
+          saves={saves}
           autoSaveEnabled={autoSaveEnabled}
           onToggleAutoSave={handleToggleAutoSave}
-          onNewGame={handleNewGameReset}
+          onSaveNew={() => handleManualSave(Date.now().toString())}
+          onLoad={handleLoad}
+          onDelete={handleDelete}
         />
         {modals.showGovernmentModal && <GovernmentModal playerCountry={playerCountry} onEnactLaw={tech.handleEnactLaw} onClose={() => modals.setShowGovernmentModal(false)} />}
       </div>
