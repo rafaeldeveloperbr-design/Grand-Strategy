@@ -118,14 +118,15 @@ const App: React.FC = () => {
       setDate(saved.date);
       addToast('💾 Autosave carregado!', 'success');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleManualSave = useCallback((slot = Date.now().toString()) => {
-    saveGame({ provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef }, slot);
+  const handleManualSave = useCallback((customName: string) => {
+    const slot = Date.now().toString();
+    saveGame({ provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef }, slot, customName);
     refreshSaves();
-    addToast(`💾 Save ${slot} criado!`, 'success');
-  }, [addToast, refreshSaves, provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef]);
+    addToast(`💾 Save "${customName}" criado!`, 'success');
+  },[addToast, refreshSaves, provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef]);
 
   const handleLoad = useCallback((slotId: string) => {
     const saved = loadGame(slotId);
@@ -158,10 +159,10 @@ const App: React.FC = () => {
   const handleToggleAutoSave = useCallback((v: boolean) => {
     setAutoSaveEnabled(v);
     setAutoSaveEnabledState(v);
-    addToast(v? 'Autosave ligado' : 'Autosave desligado', 'info');
+    addToast(v ? 'Autosave ligado' : 'Autosave desligado', 'info');
   }, [addToast]);
-  
-  
+
+
 
   const playerCountry = useMemo(() => allCountries.find(c => c.tag === playerCountryTag)!, [allCountries, playerCountryTag]);
   const selectedProvinceData = useMemo(() => provinces.find(p => p.id === selection.selectedProvince) ?? null, [provinces, selection.selectedProvince]);
@@ -294,7 +295,7 @@ const App: React.FC = () => {
           saves={saves}
           autoSaveEnabled={autoSaveEnabled}
           onToggleAutoSave={handleToggleAutoSave}
-          onSaveNew={() => handleManualSave(Date.now().toString())}
+          onSaveNew={handleManualSave}
           onLoad={handleLoad}
           onDelete={handleDelete}
         />

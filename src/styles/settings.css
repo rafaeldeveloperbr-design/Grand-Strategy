@@ -185,3 +185,47 @@
   margin-bottom: 10px;
   opacity: 0.8;
 }
+
+.settings-modal__save-create {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+  width: 100%;
+}
+
+.settings-modal__input {
+  flex: 1;
+  padding: 10px 14px;
+  background: #1a2332;
+  border: 1px solid #2a3a52;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  outline: none;
+  min-width: 0; /* pra não esconder */
+}
+
+.settings-modal__input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.settings-modal__input::placeholder {
+  color: #64748b;
+}
+
+.settings-modal__btn--primary {
+  white-space: nowrap;
+  padding: 10px 18px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-modal__btn--primary:hover {
+  background: #059669;
+}

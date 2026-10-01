@@ -13,7 +13,7 @@ export interface SaveMeta {
   playerTag: string;
 }
 
-function makePayload(refs: any) {
+function makePayload(refs: any, customName?: string) {
   return {
     v: 2,
     ts: Date.now(),
@@ -30,14 +30,17 @@ function makePayload(refs: any) {
     activeBattles: refs.activeBattlesRef.current,
     meta: {
       year: refs.dateRef.current.year,
+      month: refs.dateRef.current.month,
+      day: refs.dateRef.current.day,
+      saveName: customName || `Save ${new Date().toLocaleString('pt-BR')}`,
       playerTag: refs.countriesRef?.current?.find?.((c: any) => c.tag === 'IMP')?.tag || 'IMP'
     }
   }
 }
 
-export function saveGame(refs: any, slotId: string = 'autosave') {
+export function saveGame(refs: any, slotId: string = 'autosave', customName?: string) {
   const key = slotId === 'autosave' ? AUTO_KEY : `${MANUAL_PREFIX}${slotId}`
-  const payload = makePayload(refs)
+  const payload = makePayload(refs, customName)
   localStorage.setItem(key, JSON.stringify(payload))
   return payload
 }
@@ -61,15 +64,14 @@ export function listSaves(): SaveMeta[] {
         const data = JSON.parse(raw)
         saves.push({
           id: k === AUTO_KEY ? 'autosave' : k.replace(MANUAL_PREFIX, ''),
-          name: k === AUTO_KEY ? 'Autosave' : `Save ${k.replace(MANUAL_PREFIX, '')}`,
+          name: data.meta?.saveName || (k === AUTO_KEY ? 'Autosave' : `Save ${k.replace(MANUAL_PREFIX,'')}`),
           date: data.date,
           ts: data.ts,
-          year: data.date?.year || 0,
-          month: data.date?.month || 1,
-          day: data.date?.day || 1,
+          year: data.date?.year || data.meta?.year || 0,
+          month: data.date?.month || data.meta?.month || 1,
+          day: data.date?.day || data.meta?.day || 1,
           playerTag: data.meta?.playerTag || 'IMP'
         })
-
       } catch (e) {
         console.warn('Falha ao ler save:', e);
       }
@@ -87,7 +89,6 @@ export function clearAllSaves() {
   listSaves().forEach(s => deleteSave(s.id))
 }
 
-// settings
 export function isAutoSaveEnabled() {
   const raw = localStorage.getItem(SETTINGS_KEY)
   if (!raw) return true
