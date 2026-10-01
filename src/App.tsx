@@ -27,7 +27,16 @@ import { ToastContainer } from './components/ToastContainer';
 import { NotificationLogModal } from './components/NotificationLogModal';
 import { AILogModal } from './components/AILogModal';
 import { GovernmentModal } from './components/GovernmentModal';
-import type { Province, Country, GameDate, Army, Recruitment, BuildingConstruction, ActiveBattle, CombatResult } from './types';
+import type {
+  Province,
+  Country,
+  GameDate,
+  Army,
+  Recruitment,
+  BuildingConstruction,
+  ActiveBattle,
+  CombatResult,
+} from './types';
 import type { CountryTechState } from './types/technology';
 import type { DiplomaticRelation, War } from './types/diplomacy';
 import type { AIDifficulty } from './types/difficulty';
@@ -44,90 +53,111 @@ import { UNIT_DEFINITIONS } from './data/units';
 import { loadGame, saveGame, isAutoSaveEnabled, setAutoSaveEnabled, listSaves, deleteSave, clearAllSaves } from './engine/saveSystem';
 import { useSaveSystem } from './hooks/app/useSaveSystem';
 
-type InitialRegiment = {
-  type: 'infantry' | 'cavalry' | 'artillery';
-  strength: number;
-  morale: number;
-};
 
 const createInitialArmies = (): Army[] => {
   const base = {
-    destination: null as string | null,
-    targetDestination: null as string | null,
+    destination: null,
+    targetDestination: null,
     movementProgress: 0,
     movementSpeed: 1.0,
-    position: null as any,
+    position: null,
     path: [] as string[],
-    targetArmyId: null as string | null,
-    targetProvinceId: null as string | null,
+    targetArmyId: null,
+    targetProvinceId: null,
   };
 
-  return [
+  const armies: Army[] = [
     {
       ...base,
-      id: 'army_init_1', owner: 'IMP', name: '1º Exército Imperial',
-      location: 'p1', movementSpeed: 1.0,
+      id: 'army_init_1',
+      owner: 'IMP',
+      name: '1º Exército Imperial',
+      location: 'p1',
+      movementSpeed: 1.0,
       regiments: [
         { type: 'infantry', strength: 3000, morale: 90 },
         { type: 'infantry', strength: 2000, morale: 85 },
         { type: 'cavalry', strength: 1000, morale: 80 },
-      ] as InitialRegiment[] as any, // só 1 as any por exército agora, não 4
+      ],
     },
     {
       ...base,
-      id: 'army_init_2', owner: 'REP', name: 'Legião Valoriana',
-      location: 'p6', movementSpeed: 1.0,
+      id: 'army_init_2',
+      owner: 'REP',
+      name: 'Legião Valoriana',
+      location: 'p6',
+      movementSpeed: 1.0,
       regiments: [
         { type: 'infantry', strength: 2500, morale: 88 },
         { type: 'cavalry', strength: 800, morale: 82 },
-      ] as InitialRegiment[] as any,
+      ],
     },
     {
       ...base,
-      id: 'army_init_3', owner: 'RNO', name: 'Guarda Nordiana',
-      location: 'p10', movementSpeed: 0.5,
+      id: 'army_init_3',
+      owner: 'RNO',
+      name: 'Guarda Nordiana',
+      location: 'p10',
+      movementSpeed: 0.5,
       regiments: [
         { type: 'infantry', strength: 2000, morale: 92 },
         { type: 'artillery', strength: 500, morale: 85 },
-      ] as InitialRegiment[] as any,
+      ],
     },
     {
       ...base,
-      id: 'army_init_4', owner: 'KHA', name: 'Horda Dourada',
-      location: 'p14', movementSpeed: 1.5,
+      id: 'army_init_4',
+      owner: 'KHA',
+      name: 'Horda Dourada',
+      location: 'p14',
+      movementSpeed: 1.5,
       regiments: [
         { type: 'cavalry', strength: 4000, morale: 95 },
         { type: 'cavalry', strength: 2000, morale: 90 },
-      ] as InitialRegiment[] as any,
+      ],
     },
     {
       ...base,
-      id: 'army_init_5', owner: 'THC', name: 'Guardiões de Solara',
-      location: 'p17', movementSpeed: 1.0,
+      id: 'army_init_5',
+      owner: 'THC',
+      name: 'Guardiões de Solara',
+      location: 'p17',
+      movementSpeed: 1.0,
       regiments: [
         { type: 'infantry', strength: 1800, morale: 80 },
         { type: 'artillery', strength: 300, morale: 75 },
-      ] as InitialRegiment[] as any,
+      ],
     },
     {
       ...base,
-      id: 'army_init_6', owner: 'LIG', name: 'Mercenários de Portus',
-      location: 'p20', movementSpeed: 1.0,
+      id: 'army_init_6',
+      owner: 'LIG',
+      name: 'Mercenários de Portus',
+      location: 'p20',
+      movementSpeed: 1.0,
       regiments: [
         { type: 'infantry', strength: 1500, morale: 75 },
         { type: 'cavalry', strength: 500, morale: 70 },
-      ] as InitialRegiment[] as any,
+      ],
     },
-  ] as Army[];
-};
+  ];
 
+  return armies;
+};
 const App: React.FC = () => {
   const { addToast, notificationHistory, unreadCount, markAllAsRead } = useToast();
   const { addAILog } = useAILog();
   const [playerCountryTag] = useState('IMP');
   const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
   const [gameSpeed, setGameSpeed] = useState(0);
-const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p => ({...p, buildings: [...p.buildings], unrest: 0, originalOwner: p.owner } as Province)));  const [allCountries, setAllCountries] = useState<Country[]>(() => initialCountries.map(c => ({ ...c, resources: { ...c.resources }, economy: { ...c.economy } } as any)));
+  const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p => ({ ...p, buildings: [...p.buildings], unrest: 0, originalOwner: p.owner } as Province)));
+  const [allCountries, setAllCountries] = useState<Country[]>(() =>
+    initialCountries.map((c): Country => ({
+      ...c,
+      resources: { ...c.resources },
+      economy: { ...c.economy },
+    }))
+  );
   const [armies, setArmies] = useState<Army[]>(createInitialArmies);
   const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
   const [buildingConstructions, setBuildingConstructions] = useState<BuildingConstruction[]>([]);
@@ -205,11 +235,13 @@ const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p
     setPlayerTechState(prev => ({
       ...prev,
       activeFocusId: null,
-      focusProgressDays: 0
-    } as any));
+      focusProgressDays: 0,
+    }));
+
     addToast('🎯 Foco cancelado', 'info');
     addLog('Foco nacional cancelado');
   }, [addToast, addLog]);
+
   const cheats = useCheats({
     playerCountryTag, setAllCountries, setRecruitments, setBuildingConstructions,
     setArmies, provincesRef, armiesRef, addLog, addToast, setGameSpeed, setDate,
@@ -217,8 +249,12 @@ const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p
   });
 
   useEffect(() => {
-    (window as any).cheatPanelOpen = showCheatPanel;
-    (window as any).cheats = { ...cheats, togglePanel: () => setShowCheatPanel(p => !p) };
+    window.cheatPanelOpen = showCheatPanel;
+
+    window.cheats = {
+      ...cheats,
+      togglePanel: () => setShowCheatPanel(p => !p),
+    };
   }, [showCheatPanel, cheats]);
 
   return (
@@ -245,17 +281,50 @@ const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p
               {selectedArmyData.path.length > 0 && <div className="army-info-panel__stat"><span>Rota:</span><span className="army-info-panel__path">{selectedArmyData.path.map(pid => provinces.find(p => p.id === pid)?.name).join(' → ')}</span></div>}
               <div className="army-info-panel__regiments">
                 <strong>Regimentos:</strong>
-                {selectedArmyData.regiments.map((reg: any, i: number) => {
-                  const def = (UNIT_DEFINITIONS as any)[reg.type] || { icon: '❓', name: reg.type };
+
+                {selectedArmyData.regiments.map((reg, i) => {
+                  const def = UNIT_DEFINITIONS[reg.type];
                   return (
                     <div key={i} className="army-info-panel__regiment">
-                      <span>{def.icon} {def.name}</span>
+                      <span>
+                        {def.icon} {def.name}
+                      </span>
+
                       <span>{Math.floor(reg.strength)}</span>
+
                       <span>❤️ {Math.round(reg.morale)}%</span>
                     </div>
                   );
                 })}
-              </div>     {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && <div className="army-info-panel__actions-section"><button className="army-info-panel__action-btn army-info-panel__action-btn--stop" onClick={() => armyActions.handleStopMovement(selectedArmyData.id)}>🛑 Parar Marcha</button></div>}              {selectedArmyData.location && !selectedArmyData.destination && (() => { const friends = getFriendlyArmiesInProvince(armies, selectedArmyData.location!, playerCountryTag).filter((a: any) => a.id !== selectedArmyData.id); if (friends.length === 0) return null; return <div className="army-info-panel__actions-section"><strong>🤝 Fundir:</strong>{friends.map((fa: any) => <button key={fa.id} className="army-info-panel__action-btn" onClick={() => armyActions.handleMergeArmies(fa.id)}>{fa.name}</button>)}</div>; })()}
+              </div>    {selectedArmyData.destination && selectedArmyData.owner === playerCountryTag && !selectedArmyData.inCombat && <div className="army-info-panel__actions-section">
+                <button className="army-info-panel__action-btn army-info-panel__action-btn--stop" onClick={() => armyActions.handleStopMovement(selectedArmyData.id)}>🛑 Parar Marcha</button></div>}
+              {selectedArmyData.location &&
+                !selectedArmyData.destination &&
+                (() => {
+                  const friends = getFriendlyArmiesInProvince(
+                    armies,
+                    selectedArmyData.location!,
+                    playerCountryTag
+                  ).filter(a => a.id !== selectedArmyData.id);
+
+                  if (friends.length === 0) return null;
+
+                  return (
+                    <div className="army-info-panel__actions-section">
+                      <strong>🤝 Fundir:</strong>
+
+                      {friends.map(fa => (
+                        <button
+                          key={fa.id}
+                          className="army-info-panel__action-btn"
+                          onClick={() => armyActions.handleMergeArmies(fa.id)}
+                        >
+                          {fa.name}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
             </div>
           </div>
         )}
