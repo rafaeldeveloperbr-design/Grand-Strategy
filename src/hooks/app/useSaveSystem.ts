@@ -1,40 +1,48 @@
 import { useState, useCallback, useEffect } from 'react';
 import { loadGame, saveGame, isAutoSaveEnabled, setAutoSaveEnabled, listSaves, deleteSave } from '../../engine/saveSystem';
+import type { Province, Country, GameDate, Army, Recruitment, BuildingConstruction, ActiveBattle } from '../../types';
+import type { CountryTechState } from '../../types/technology';
+import type { DiplomaticRelation, War } from '../../types/diplomacy';
 
 interface SaveRefs {
-  provincesRef: any;
-  countriesRef: any;
-  armiesRef: any;
-  warsRef: any;
-  diplomaticRelationsRef: any;
-  recruitmentsRef: any;
-  buildingConstructionsRef: any;
-  playerTechStateRef: any;
-  botTechStatesRef: any;
-  activeBattlesRef: any;
-  dateRef: any;
+  provincesRef: { current: Province[] };
+  countriesRef: { current: Country[] };
+  armiesRef: { current: Army[] };
+  warsRef: { current: War[] };
+  diplomaticRelationsRef: { current: DiplomaticRelation[] };
+  recruitmentsRef: { current: Recruitment[] };
+  buildingConstructionsRef: { current: BuildingConstruction[] };
+  playerTechStateRef: { current: CountryTechState };
+  botTechStatesRef: { current: Map<string, CountryTechState> };
+  activeBattlesRef: { current: ActiveBattle[] };
+  dateRef: { current: GameDate };
 }
 
 interface SaveSetters {
-  setProvinces: (v: any) => void;
-  setAllCountries: (v: any) => void;
-  setArmies: (v: any) => void;
-  setWars: (v: any) => void;
-  setDiplomaticRelations: (v: any) => void;
-  setRecruitments: (v: any) => void;
-  setBuildingConstructions: (v: any) => void;
-  setPlayerTechState: (v: any) => void;
-  setBotTechStates: (v: any) => void;
-  setActiveBattles: (v: any) => void;
-  setDate: (v: any) => void;
+  setProvinces: (v: Province[]) => void;
+  setAllCountries: (v: Country[]) => void;
+  setArmies: (v: Army[]) => void;
+  setWars: (v: War[]) => void;
+  setDiplomaticRelations: (v: DiplomaticRelation[]) => void;
+  setRecruitments: (v: Recruitment[]) => void;
+  setBuildingConstructions: (v: BuildingConstruction[]) => void;
+  setPlayerTechState: (v: CountryTechState) => void;
+  setBotTechStates: (v: Map<string, CountryTechState>) => void;
+  setActiveBattles: (v: ActiveBattle[]) => void;
+  setDate: (v: GameDate) => void;
 }
 
-export function useSaveSystem(refs: SaveRefs, setters: SaveSetters, addToast: any, setShowSettingsModal?: (v: boolean) => void) {
+export function useSaveSystem(
+  refs: SaveRefs,
+  setters: SaveSetters,
+  addToast: (msg: string, type: 'success' | 'error' | 'info') => void,
+  setShowSettingsModal?: (v: boolean) => void
+) {
   const [autoSaveEnabled, setAutoSaveEnabledState] = useState(() => isAutoSaveEnabled());
   const [saves, setSaves] = useState(() => listSaves());
   const refreshSaves = useCallback(() => setSaves(listSaves()), []);
 
-  // Load autosave ao iniciar
+  // Load autosave - já usando V2
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('newgame') === '1') {
@@ -43,18 +51,19 @@ export function useSaveSystem(refs: SaveRefs, setters: SaveSetters, addToast: an
     }
     const saved = loadGame('autosave');
     if (saved) {
-      setters.setProvinces(saved.provinces);
-      setters.setAllCountries(saved.countries);
-      setters.setArmies(saved.armies);
-      setters.setWars(saved.wars);
-      setters.setDiplomaticRelations(saved.relations);
-      setters.setRecruitments(saved.recruitments);
-      setters.setBuildingConstructions(saved.constructions);
-      setters.setPlayerTechState(saved.playerTech);
-      setters.setBotTechStates(saved.botTechs);
-      setters.setActiveBattles(saved.activeBattles);
+      // V2 PURO - agrupado por domínio
+      setters.setProvinces(saved.world.provinces);
+      setters.setAllCountries(saved.world.countries);
+      setters.setArmies(saved.military.armies);
+      setters.setWars(saved.military.wars);
+      setters.setActiveBattles(saved.military.activeBattles);
+      setters.setRecruitments(saved.military.recruitments);
+      setters.setDiplomaticRelations(saved.diplomacy.relations);
+      setters.setBuildingConstructions(saved.economy.constructions);
+      setters.setPlayerTechState(saved.technology.player);
+      setters.setBotTechStates(saved.technology.bots);
       setters.setDate(saved.date);
-      addToast('💾 Autosave carregado!', 'success');
+      addToast('💾 Autosave V2 carregado!', 'success');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -72,23 +81,25 @@ export function useSaveSystem(refs: SaveRefs, setters: SaveSetters, addToast: an
       addToast('Save não encontrado', 'error');
       return;
     }
-    setters.setProvinces(saved.provinces);
-    setters.setAllCountries(saved.countries);
-    setters.setArmies(saved.armies);
-    setters.setWars(saved.wars);
-    setters.setDiplomaticRelations(saved.relations);
-    setters.setRecruitments(saved.recruitments);
-    setters.setBuildingConstructions(saved.constructions);
-    setters.setPlayerTechState(saved.playerTech);
-    setters.setBotTechStates(saved.botTechs);
-    setters.setActiveBattles(saved.activeBattles);
+    // V2 PURO
+    setters.setProvinces(saved.world.provinces);
+    setters.setAllCountries(saved.world.countries);
+    setters.setArmies(saved.military.armies);
+    setters.setWars(saved.military.wars);
+    setters.setActiveBattles(saved.military.activeBattles);
+    setters.setRecruitments(saved.military.recruitments);
+    setters.setDiplomaticRelations(saved.diplomacy.relations);
+    setters.setBuildingConstructions(saved.economy.constructions);
+    setters.setPlayerTechState(saved.technology.player);
+    setters.setBotTechStates(saved.technology.bots);
     setters.setDate(saved.date);
-    addToast(`📂 Save carregado!`, 'success');
+
+    addToast(`📂 Save V${saved.version} carregado!`, 'success');
     setShowSettingsModal?.(false);
   }, [setters, addToast, setShowSettingsModal]);
 
   const handleDelete = useCallback((slotId: string) => {
-    if (!confirm(`Apagar ${slotId}?`)) return;
+    if (!confirm(`Apagar save?`)) return;
     deleteSave(slotId);
     refreshSaves();
     addToast('🗑️ Save apagado', 'info');
