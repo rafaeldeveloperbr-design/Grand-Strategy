@@ -34,6 +34,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
     setNewName('');
   };
 
+  const getDate = (s: SaveMeta) => s.date || { day: s.day!, month: s.month!, year: s.year! };
+  const getTs = (s: SaveMeta) => s.timestamp ?? s.ts ?? Date.now();
+
   return (
     <div className="settings-modal-overlay" onClick={props.onClose}>
       <div className="settings-modal" onClick={e => e.stopPropagation()}>
@@ -68,24 +71,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             <div className="settings-modal__save-list">
               <h4>Seus Saves ({props.saves.length})</h4>
               {props.saves.length === 0 && <p className="settings-modal__empty">Nenhum save ainda.</p>}
-              {props.saves.map(s => (
-                <div key={s.id} className="settings-modal__save-item">
-                  <div className="settings-modal__save-info">
-                    <strong>{s.id === 'autosave' ? '🔄 Autosave' : `💾 ${s.name}`}</strong>
-                    <span>{formatGameDatePt(s.day, s.month, s.year)} | {formatTs(s.ts)}</span>
+              {props.saves.map(s => {
+                const d = getDate(s);
+                return (
+                  <div key={s.id} className="settings-modal__save-item">
+                    <div className="settings-modal__save-info">
+                      <strong>{s.id === 'autosave' ? '🔄 Autosave' : `💾 ${s.name}`}</strong>
+                      <span>{formatGameDatePt(d.day, d.month, d.year)} | {formatTs(getTs(s))}</span>
+                    </div>
+                    <div className="settings-modal__save-btns">
+                      <button className="settings-modal__btn--small" onClick={() => props.onLoad(s.id)}>📂 Carregar</button>
+                      <button className="settings-modal__btn--small settings-modal__btn--danger" onClick={() => props.onDelete(s.id)}>🗑️</button>
+                    </div>
                   </div>
-                  <div className="settings-modal__save-btns">
-                    <button className="settings-modal__btn--small" onClick={() => props.onLoad(s.id)}>📂 Carregar</button>
-                    <button className="settings-modal__btn--small settings-modal__btn--danger" onClick={() => props.onDelete(s.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-         
-        </div>
+          </div>
 
-        <div className="settings-modal__section settings-modal__danger-zone">
-            <h4>Zona de Perigo</h4>
+          <div className="settings-modal__section settings-modal__danger-zone">
+            <h4>Começar Novo Jogo</h4>
             <p className="settings-modal__hint">Reiniciar começa um novo jogo sem apagar seus saves manuais. Seus saves continuam aqui.</p>
             <button className="settings-modal__btn settings-modal__btn--danger" onClick={() => {
               if(confirm('Começar novo jogo? Seus saves manuais NÃO serão apagados, apenas o autosave será ignorado.')) {
@@ -96,7 +101,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             </button>
           </div>
         </div>
-
 
         <div className="settings-modal__footer">
           <button className="settings-modal__btn" onClick={props.onClose}>Fechar</button>

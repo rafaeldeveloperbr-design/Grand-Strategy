@@ -4,6 +4,22 @@ import type { Province, Country, GameDate, Army, Recruitment, BuildingConstructi
 import type { CountryTechState } from '../types/technology';
 import type { DiplomaticRelation, War } from '../types/diplomacy';
 
+// ============ META ============
+export type SaveMeta = {
+  id: string;
+  name: string;
+  timestamp: number;
+  date: GameDate;
+  version: number;
+  // compat com código antigo que usava flat
+  day?: number;
+  month?: number;
+  year?: number;
+  ts?: number;
+};
+
+export type SaveListItem = SaveMeta;
+
 // ============ TIPOS V1 (legado - pra migração) ============
 export type SaveGameV1 = {
   version?: 1;
@@ -30,38 +46,33 @@ export type SaveGameV2 = {
   name: string;
   timestamp: number;
   date: GameDate;
-
   world: {
     provinces: Province[];
     countries: Country[];
   };
-
   military: {
     armies: Army[];
     wars: War[];
     activeBattles: ActiveBattle[];
     recruitments: Recruitment[];
   };
-
   diplomacy: {
     relations: DiplomaticRelation[];
   };
-
   economy: {
     constructions: BuildingConstruction[];
   };
-
   technology: {
     player: CountryTechState;
-    bots: Map<string, CountryTechState>; // Mantido como Map em memória, serializado como array
+    bots: Map<string, CountryTechState>;
   };
 };
 
-// Payload serializado (como vai pro localStorage - Map virado em array)
+// Payload serializado (Map virado em array)
 type SerializedSaveGameV2 = Omit<SaveGameV2, 'technology'> & {
   technology: {
     player: CountryTechState;
-    bots: [string, CountryTechState][]; // Map serializado
+    bots: [string, CountryTechState][];
   };
 };
 
@@ -96,8 +107,8 @@ function deserializeV2(raw: SerializedSaveGameV2): SaveGameV2 {
 
 // ============ MIGRAÇÃO V1 -> V2 ============
 function migrateV1ToV2(v1: SaveGameV1): SaveGameV2 {
-  const botTechsMap = v1.botTechs instanceof Map 
-    ? v1.botTechs 
+  const botTechsMap = v1.botTechs instanceof Map
+    ? v1.botTechs
     : new Map(Object.entries(v1.botTechs as Record<string, CountryTechState>));
 
   return {
@@ -133,16 +144,12 @@ function migrateV1ToV2(v1: SaveGameV1): SaveGameV2 {
 function parseRawSave(rawString: string): SaveGameV2 | null {
   try {
     const raw = JSON.parse(rawString);
-    
-    // Sem versão = V1
     if (!raw.version || raw.version === 1) {
       return migrateV1ToV2(raw as SaveGameV1);
     }
-
     if (raw.version === 2) {
       return deserializeV2(raw as SerializedSaveGameV2);
     }
-
     console.warn(`Save com versão desconhecida: ${raw.version}`);
     return null;
   } catch (e) {
@@ -166,13 +173,12 @@ type SaveGameRefs = {
   dateRef: { current: GameDate };
 };
 
-export function saveGame(refs: SaveGameRefs, slotId: string, customName?: string) {
+export function saveGame(refs: SaveGameRefs, slotId: string = AUTO_SAVE_KEY, customName?: string) {
   const now = Date.now();
-  
   const save: SaveGameV2 = {
     version: CURRENT_VERSION,
     id: slotId,
-    name: customName || `Save ${new Date(now).toLocaleString('pt-BR')}`,
+    name: customName || (slotId === AUTO_SAVE_KEY ? 'Autosave' : `Save ${new Date(now).toLocaleString('pt-BR')}`),
     timestamp: now,
     date: refs.dateRef.current,
     world: {
@@ -199,55 +205,40 @@ export function saveGame(refs: SaveGameRefs, slotId: string, customName?: string
 
   const serialized = serializeV2(save);
   localStorage.setItem(SAVE_PREFIX + slotId, JSON.stringify(serialized));
-  
-  // Se for autosave, atualiza lista também
-  if (slotId === AUTO_SAVE_KEY) {
-    localStorage.setItem(SAVE_PREFIX + AUTO_SAVE_KEY, JSON.stringify(serialized));
-  }
 }
 
-// Retorna sempre no formato V2 (já migrado) mas mantém compatibilidade com seu App.tsx
-// Seu useSaveSystem espera .provinces, .countries etc? Vamos retornar híbrido por enquanto
 export function loadGame(slotId: string): SaveGameV2 | null {
   const rawString = localStorage.getItem(SAVE_PREFIX + slotId);
   if (!rawString) return null;
+  return parseRawSave(rawString);
+}
 
-  const v2 = parseRawSave(rawString);
-  if (!v2) return null;
-
-  return v2; // já é V2 puro, migrado se precisou
-} 
-    
-  
-
-export type SaveListItem = {
-  id: string;
-  name: string;
-  timestamp: number;
-  date: GameDate;
-  version: number;
-};
-
-export function listSaves(): SaveListItem[] {
-  const saves: SaveListItem[] = [];
+export function listSaves(): SaveMeta[] {
+  const saves: SaveMeta[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key?.startsWith(SAVE_PREFIX)) continue;
-    if (key === SAVE_PREFIX + AUTO_SAVE_KEY) continue; // não lista autosave na lista manual
     if (key === AUTO_SAVE_ENABLED_KEY) continue;
 
     try {
       const raw = localStorage.getItem(key)!;
       const parsed = JSON.parse(raw);
+      if (!parsed?.date) continue;
+
       saves.push({
         id: parsed.id || key.replace(SAVE_PREFIX, ''),
         name: parsed.name || key,
         timestamp: parsed.timestamp || 0,
         date: parsed.date,
         version: parsed.version || 1,
+        // compat
+        day: parsed.date?.day,
+        month: parsed.date?.month,
+        year: parsed.date?.year,
+        ts: parsed.timestamp,
       });
-    } catch (e){
-      console.warn(`[SaveSystem] Save corrompido ignorado: ${key}`, e);
+    } catch (e) {
+      console.warn(`[SaveSystem] Save corrompido: ${key}`, e);
     }
   }
   return saves.sort((a, b) => b.timestamp - a.timestamp);
@@ -259,7 +250,6 @@ export function deleteSave(slotId: string) {
 
 export function clearAllSaves() {
   listSaves().forEach(s => deleteSave(s.id));
-  localStorage.removeItem(SAVE_PREFIX + AUTO_SAVE_KEY);
 }
 
 export function isAutoSaveEnabled(): boolean {
