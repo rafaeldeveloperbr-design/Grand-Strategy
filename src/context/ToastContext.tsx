@@ -8,7 +8,9 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { ToastMessage, ToastType, GameNotificationLog } from '../types/toast';
 
-interface ToastContextType {
+export type { ToastType }; // <- adiciona isso
+
+export interface ToastContextType {
   toasts: ToastMessage[];
   notificationHistory: GameNotificationLog[];
   unreadCount: number;

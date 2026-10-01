@@ -127,8 +127,7 @@ const App: React.FC = () => {
   const [playerCountryTag] = useState('IMP');
   const [date, setDate] = useState<GameDate>({ year: 1444, month: 11, day: 11 });
   const [gameSpeed, setGameSpeed] = useState(0);
-  const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p => ({ ...p, buildings: [...p.buildings], unrest: 0, originalOwner: p.owner } as any)));
-  const [allCountries, setAllCountries] = useState<Country[]>(() => initialCountries.map(c => ({ ...c, resources: { ...c.resources }, economy: { ...c.economy } } as any)));
+const [provinces, setProvinces] = useState<Province[]>(() => provincesData.map(p => ({...p, buildings: [...p.buildings], unrest: 0, originalOwner: p.owner } as Province)));  const [allCountries, setAllCountries] = useState<Country[]>(() => initialCountries.map(c => ({ ...c, resources: { ...c.resources }, economy: { ...c.economy } } as any)));
   const [armies, setArmies] = useState<Army[]>(createInitialArmies);
   const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
   const [buildingConstructions, setBuildingConstructions] = useState<BuildingConstruction[]>([]);

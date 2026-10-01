@@ -3,6 +3,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import type { Army, Province, Country } from '../../types';
+import type { ToastType } from '../../types/toast';
 
 type CheatAPI = {
   addGold: (n: number) => void;
@@ -35,8 +36,7 @@ type Params = {
   provincesRef: React.MutableRefObject<Province[]>;
   armiesRef: React.MutableRefObject<Army[]>;
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: string, title?: string) => void;
-  setGameSpeed: (n: number) => void;
+addToast: (message: string, type?: ToastType, title?: string, dateString?: string, duration?: number) => void;  setGameSpeed: (n: number) => void;
   setDate: React.Dispatch<React.SetStateAction<{ day: number; month: number; year: number }>>;
   selectedProvince: string | null;
 };

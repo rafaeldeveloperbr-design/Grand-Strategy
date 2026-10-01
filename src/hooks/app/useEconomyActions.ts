@@ -8,6 +8,7 @@ import { getRecruitmentCost } from '../../data/units';
 import { getBuildingCost, getBuildingTime } from '../../data/buildings';
 import { LAWS } from '../../constants/laws';
 import type { BuildingType, UnitType, Recruitment, Province, Country } from '../../types';
+import type { ToastType } from '../../types/toast';
 
 type LawWithBonuses = {
   bonuses: { armyCostMultiplier?: number };
@@ -24,8 +25,7 @@ export function useEconomyActions(params: {
   setAllCountries: React.Dispatch<React.SetStateAction<Country[]>>;
   setRecruitments: React.Dispatch<React.SetStateAction<Recruitment[]>>;
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: string, title?: string, date?: string) => void;
-  formatGameDate: (d: any) => string;
+addToast: (message: string, type?: ToastType, title?: string, dateString?: string, duration?: number) => void;  formatGameDate: (d: any) => string;
   dateRef: React.MutableRefObject<any>;
   recruitments: Recruitment[];
 }) {
