@@ -99,40 +99,34 @@ export interface Recruitment {
   count: number;
 }
 
+export interface RetreatInfo {
+  retreated: boolean;
+  to: string;
+  toName: string;
+  troops: number;
+  owner: string;
+}
+
 /**
  * Resultado de um combate
  */
 export interface CombatResult {
-  /** Exército atacante */
   attacker: Army;
-  /** Exército defensor */
   defender: Army;
-  /** Exército atacante original (antes do combate) */
   attackerOriginal: Army;
-  /** Exército defensor original (antes do combate) */
   defenderOriginal: Army;
-  /** Baixas do atacante */
   attackerCasualties: number;
-  /** Baixas do defensor */
   defenderCasualties: number;
-  /** Vencedor ('attacker' ou 'defender') */
   winner: 'attacker' | 'defender';
-  /** Província onde ocorreu o combate */
   provinceId: string;
-  /** Nome da província */
   provinceName: string;
-  /** Duração do combate em dias */
   duration: number;
-  /** Se houve mudança territorial */
   territoryChanged: boolean;
-  /** Novo dono da província (se mudou) */
   newOwner?: string;
-  /** Se o defensor teve bônus de defesa territorial */
   territorialDefenseBonus: boolean;
-  /** Ratio de poder (Vencedor / Perdedor) */
   powerRatio: number;
-  /** Data em que a batalha ocorreu */
   date: GameDate;
-  
-  isStackwipe?: boolean; // <- ADICIONA ESSA LINHA
+
+  isStackwipe?: boolean;
+  retreatInfo?: RetreatInfo | null;
 }

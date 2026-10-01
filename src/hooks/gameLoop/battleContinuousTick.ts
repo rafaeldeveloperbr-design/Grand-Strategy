@@ -5,7 +5,7 @@ import { processDailyBattle, finalizeBattle } from '../../engine/combat';
 import { checkRebelTerritoryReturn } from '../../engine/rebellions';
 import { applyConquestUnrest } from '../../engine/unrest';
 import { applyStabilityPrestigeChanges } from '../../engine/stability';
-import type { Army, Province, Country, War, ActiveBattle, Recruitment, BuildingConstruction } from '../../types';
+import type { Army, Province, Country, War, ActiveBattle, Recruitment, BuildingConstruction, RetreatInfo } from '../../types';
 import type { GameDate } from '../../types/date';
 import { calculateArmySize, applyTroopLoss } from '../../engine/combat/combatCalculations';
 
@@ -21,13 +21,6 @@ type BattleExtended = ActiveBattle & {
   defenderCurrentTroops: number;
 };
 
-type RetreatInfo = {
-  retreated: boolean;
-  to: string;
-  toName: string;
-  troops: number;
-  owner: string;
-};
 
 type ArmyWithMovement = Army & {
   movementProgress?: number;

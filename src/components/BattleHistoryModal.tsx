@@ -23,8 +23,10 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
     return `${date.day}/${date.month}/${date.year}`;
   };
 
-  const safeNum = (v: any) => (v ?? 0).toLocaleString();
-  const safeRatio = (v: any) => (v ?? 1).toFixed(2);
+  const safeNum = (v: number | null | undefined): string =>
+    (v ?? 0).toLocaleString();
+  const safeRatio = (v: number | null | undefined): string =>
+    (v ?? 1).toFixed(2);
 
   return (
     <div className="battle-history-overlay">
@@ -44,10 +46,10 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
             </div>
           ) : (
             <div className="battle-history-list">
-              {battleHistory.map((battle: any, index) => {
+              {battleHistory.map((battle, index) => {
                 const attackerCountry = getCountryByTag(battle.attackerOriginal?.owner || battle.attacker?.owner);
                 const defenderCountry = getCountryByTag(battle.defenderOriginal?.owner || battle.defender?.owner);
-                const playerWon = 
+                const playerWon =
                   (battle.winner === 'attacker' && (battle.attackerOriginal?.owner === 'IMP' || battle.attacker?.owner === 'IMP')) ||
                   (battle.winner === 'defender' && (battle.defenderOriginal?.owner === 'IMP' || battle.defender?.owner === 'IMP'));
 
@@ -64,7 +66,7 @@ export const BattleHistoryModal: React.FC<BattleHistoryModalProps> = ({
                         📅 {formatDate(battle.date)}
                       </span>
                       <span className="battle-history-location">
-                        📍 {battle.provinceName || (battle as any).province?.name || '---'}
+                        📍 {battle.provinceName || '---'}
                       </span>
                       {retreatInfo?.retreated && (
                         <span className="battle-history-retreat" style={{ marginLeft: 8, color: '#fbbf24', fontSize: '0.8em' }}>
