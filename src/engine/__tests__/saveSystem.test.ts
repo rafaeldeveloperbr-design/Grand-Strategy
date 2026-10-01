@@ -63,4 +63,16 @@ describe('SAVE/LOAD', () => {
     expect(loaded?.technology.bots instanceof Map).toBe(true);
     expect(loaded?.technology.bots.get('ARG')).toBeDefined();
   });
+
+
+});
+it('rejeita save corrompido sem crash', () => {
+  localStorage.setItem('save_corrompido', JSON.stringify({ id: 'x', name: 'lixo' })); // sem date
+  localStorage.setItem('save_corrompido2', '{ json invalido');
+
+  const saves = listSaves();
+  expect(saves.find(s => s.id === 'corrompido')).toBeUndefined();
+
+  const loaded = loadGame('corrompido');
+  expect(loaded).toBeNull();
 });
