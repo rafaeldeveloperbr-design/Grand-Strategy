@@ -9,6 +9,7 @@ import type { Army, Province, Country, War, ActiveBattle, CombatResult } from '.
 import type { GameDate } from '../../types/date';
 import type { DiplomaticRelation } from '../../types/diplomacy';
 import type { GameStats, EndGameType } from '../../engine/gameConditions';
+import type { ToastType } from '../../types/toast';
 
 type Params = {
   provinces: Province[];
@@ -17,19 +18,47 @@ type Params = {
   wars: War[];
   relations: DiplomaticRelation[];
   currentActiveBattles: ActiveBattle[];
-  snapshot: { date: GameDate };
+
+  snapshot: {
+    date: GameDate;
+  };
+
   playerCountryTag: string;
   hasTriggeredEndGame: boolean;
   battleHistory: CombatResult[];
+
   dateRef: React.MutableRefObject<GameDate>;
+
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: any, title?: string, date?: string) => void;
-  setActiveBattles: any;
+
+  addToast: (
+    msg: string,
+    type?: ToastType,
+    title?: string,
+    date?: string
+  ) => void;
+
+  setActiveBattles: React.Dispatch<
+    React.SetStateAction<ActiveBattle[]>
+  >;
+
   activeBattlesRef: React.MutableRefObject<ActiveBattle[]>;
-  setEndGameType: any;
-  setGameStats: any;
-  setHasTriggeredEndGame: any;
-  setIsPaused: any;
+
+  setEndGameType: React.Dispatch<
+    React.SetStateAction<EndGameType>
+  >;
+
+  setGameStats: React.Dispatch<
+    React.SetStateAction<GameStats | null>
+  >;
+
+  setHasTriggeredEndGame: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+
+  setIsPaused: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 };
 
 export function processRebelTick(p: Params) {

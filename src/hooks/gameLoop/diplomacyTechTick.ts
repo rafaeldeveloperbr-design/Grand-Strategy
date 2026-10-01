@@ -10,6 +10,8 @@ import type { CountryTechState } from '../../types/technology';
 import type { DiplomaticRelation } from '../../types/diplomacy';
 import type { AIDifficulty } from '../../types/difficulty';
 import type { GameDate } from '../../types/date';
+import type { ToastType } from '../../types/toast';
+import type { AIActionType } from '../../types/aiLog';
 
 type Params = {
   countries: Country[];
@@ -25,8 +27,20 @@ type Params = {
   playerTechStateRef: React.MutableRefObject<CountryTechState>;
   botTechStatesRef: React.MutableRefObject<Map<string, CountryTechState>>;
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: any, title?: string, date?: string) => void;
-  addAILog: (countryName: string, type: any, message: string, date: string, color: string) => void;
+  addToast: (
+    msg: string,
+    type?: ToastType,
+    title?: string,
+    date?: string
+  ) => void;
+
+  addAILog: (
+    countryName: string,
+    type: AIActionType,
+    message: string,
+    date: string,
+    color?: string
+  ) => void;
   formatGameDate: (date: GameDate) => string;
 };
 

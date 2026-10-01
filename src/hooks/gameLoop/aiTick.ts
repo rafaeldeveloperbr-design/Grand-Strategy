@@ -10,6 +10,7 @@ import type { CountryTechState } from '../../types/technology';
 import type { DiplomaticRelation } from '../../types/diplomacy';
 import type { AIDifficulty } from '../../types/difficulty';
 import type { GameDate } from '../../types/date';
+import type { AIActionType } from '../../types/aiLog';
 
 type Params = {
   countries: Country[];
@@ -25,7 +26,13 @@ type Params = {
   ceilingLogRef: React.MutableRefObject<Set<string>>;
   snapshot: { date: GameDate };
   allCountries: Country[];
-  addAILog: (countryName: string, type: any, message: string, date: string, color: string) => void;
+  addAILog: (
+    countryName: string,
+    type: AIActionType,
+    message: string,
+    date: string,
+    color?: string
+  ) => void;
   formatGameDate: (date: GameDate) => string;
 };
 
@@ -57,8 +64,14 @@ export function processAiTick(p: Params) {
       currentBotTechStates.set(country.tag, economicResult.techState);
       buildingConstructions = economicResult.buildingConstructions;
       recruitments = economicResult.recruitments;
-      economicResult.logs.forEach((log: any) => {
-        addAILog(country.name, log.actionType, log.message, dateString, country.color);
+      economicResult.logs.forEach(log => {
+        addAILog(
+          country.name,
+          log.actionType,
+          log.message,
+          dateString,
+          country.color
+        );
       });
     }
 

@@ -2,12 +2,24 @@
  * CheatPanel.tsx - Painel visual de cheats
  * Coloca em src/components/CheatPanel.tsx
  */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 interface CheatPanelProps {
-  cheats: any;
+  cheats: CheatActions;
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface CheatActions {
+  addGold: (amount: number) => void;
+  addManpower: (amount: number) => void;
+  addAllResources: () => void;
+  instantRecruit: () => void;
+  instantBuild: () => void;
+  spawnArmy: (provinceId?: string) => void;
+  killAllEnemiesInProvince: () => void;
+  fastForward: (days?: number) => void;
+  godMode: () => void;
 }
 
 export const CheatPanel: React.FC<CheatPanelProps> = ({ cheats, isOpen, onClose }) => {

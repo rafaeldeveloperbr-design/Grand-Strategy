@@ -187,6 +187,8 @@ export function startTechnologyResearch(
     cost: tech.costGold
   };
 }
+
+
 /**
  * Calcula os bônus acumulados de todas as tecnologias e focos completados
  */

@@ -7,6 +7,7 @@ import { applyConquestUnrest } from '../../engine/unrest';
 import type { Army, Province, Country, War, ActiveBattle } from '../../types';
 import type { GameDate } from '../../types/date';
 import type { Recruitment, BuildingConstruction } from '../../types';
+import type { ToastType } from '../../types/toast';
 
 type Params = {
   arrivedArmies: Army[];
@@ -22,9 +23,27 @@ type Params = {
   allCountries: Country[];
   activeBattlesRef: React.MutableRefObject<ActiveBattle[]>;
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: any, title?: string, date?: string) => void;
-  setActiveBattles: any;
-  cancelProvinceActivities: (provinceId: string, oldOwner: string, newOwner: string, rec: Recruitment[], cons: BuildingConstruction[], provs: Province[]) => any;
+  addToast: (
+    msg: string,
+    type?: ToastType,
+    title?: string,
+    date?: string
+  ) => void;
+  setActiveBattles: React.Dispatch<
+    React.SetStateAction<ActiveBattle[]>
+  >;
+  cancelProvinceActivities: (
+    provinceId: string,
+    oldOwner: string,
+    newOwner: string,
+    rec: Recruitment[],
+    cons: BuildingConstruction[],
+    provs: Province[]
+  ) => {
+    recruitments: Recruitment[];
+    constructions: BuildingConstruction[];
+    provinces: Province[];
+  };
 };
 
 export function processBattleArrival(p: Params) {
@@ -41,7 +60,7 @@ export function processBattleArrival(p: Params) {
 
     const isInWar = wars.some(
       w => (w.attacker === arrived.owner && w.defender === province.owner) ||
-           (w.defender === arrived.owner && w.attacker === province.owner)
+        (w.defender === arrived.owner && w.attacker === province.owner)
     );
 
     const isHostile = (ownerA: string, ownerB: string, origA?: string, origB?: string): boolean => {
@@ -52,7 +71,7 @@ export function processBattleArrival(p: Params) {
       if (bRebel) return ownerA !== (origB || '');
       return wars.some(
         w => (w.attacker === ownerA && w.defender === ownerB) ||
-             (w.defender === ownerA && w.attacker === ownerB)
+          (w.defender === ownerA && w.attacker === ownerB)
       );
     };
 
@@ -70,10 +89,10 @@ export function processBattleArrival(p: Params) {
       const oldOwner = province.owner;
       const newOwner = arrived.owner;
 
-      provinces = provinces.map(pr => pr.id === province.id ? {...pr, owner: newOwner, originalOwner: pr.originalOwner || oldOwner } : pr);
+      provinces = provinces.map(pr => pr.id === province.id ? { ...pr, owner: newOwner, originalOwner: pr.originalOwner || oldOwner } : pr);
       countries = countries.map(c => {
-        if (c.tag === newOwner) return {...c, provinces: [...c.provinces, province.id] };
-        if (c.tag === oldOwner) return {...c, provinces: c.provinces.filter(pid => pid !== province.id) };
+        if (c.tag === newOwner) return { ...c, provinces: [...c.provinces, province.id] };
+        if (c.tag === oldOwner) return { ...c, provinces: c.provinces.filter(pid => pid !== province.id) };
         return c;
       });
 
@@ -96,7 +115,7 @@ export function processBattleArrival(p: Params) {
   // Usa o ref mais atualizado
   const battlesToCheck = activeBattlesRef.current.length > 0 ? activeBattlesRef.current : currentActiveBattles;
   const autoCombatResult = checkAllProvinceCombats(armies, provinces, wars, snapshot.date, battlesToCheck);
-  
+
   armies = autoCombatResult.armies;
   currentActiveBattles = [...autoCombatResult.updatedBattles, ...autoCombatResult.newBattles];
 

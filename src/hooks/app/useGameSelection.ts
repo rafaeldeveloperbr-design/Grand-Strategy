@@ -3,8 +3,15 @@
  * Seleção de província, exército, hover e painel
  */
 import { useState, useCallback } from 'react';
+import type { RefObject } from 'react';
+import type { Province, Army } from '../../types';
 
-export function useGameSelection(playerCountryTag: string, provincesRef: any, armiesRef: any, handleOpenDiplomacy: (tag: string) => void) {
+export function useGameSelection(
+  playerCountryTag: string,
+  provincesRef: RefObject<Province[]>,
+  armiesRef: RefObject<Army[]>,
+  handleOpenDiplomacy: (tag: string) => void
+) {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [hoveredProvince, setHoveredProvince] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -13,7 +20,9 @@ export function useGameSelection(playerCountryTag: string, provincesRef: any, ar
   const [splitSelection, setSplitSelection] = useState<Set<number>>(new Set());
 
   const handleProvinceClick = useCallback((provinceId: string) => {
-    const province = provincesRef.current.find((p: any) => p.id === provinceId);
+    const province = provincesRef.current?.find(
+      p => p.id === provinceId
+    );
     if (province && province.owner !== playerCountryTag) {
       handleOpenDiplomacy(province.owner);
     } else {
@@ -27,7 +36,9 @@ export function useGameSelection(playerCountryTag: string, provincesRef: any, ar
   const handleClosePanel = useCallback(() => { setIsPanelOpen(false); setSelectedProvince(null); }, []);
 
   const handleArmyClick = useCallback((armyId: string) => {
-    const army = armiesRef.current.find((a: any) => a.id === armyId);
+    const army = armiesRef.current?.find(
+      a => a.id === armyId
+    );
     if (army && army.owner === playerCountryTag) {
       setSelectedArmy(armyId);
       setSelectedProvince(null);

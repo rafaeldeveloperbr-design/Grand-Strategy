@@ -3,10 +3,11 @@
  * Todos os booleans de modal e handlers de open/close
  */
 import { useState, useCallback } from 'react';
+import type { CombatResult } from '../../types';
 
 export function useGameModals() {
   const [showWarPanel, setShowWarPanel] = useState(false);
-  const [battleReport, setBattleReport] = useState<any | null>(null);
+  const [battleReport, setBattleReport] = useState<CombatResult | null>(null);
   const [showBattleHistory, setShowBattleHistory] = useState(false);
   const [showTechModal, setShowTechModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);

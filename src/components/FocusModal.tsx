@@ -1,7 +1,10 @@
 import React from 'react';
-import { CountryTechState } from '../types/technology';
+import type {
+  CountryTechState,
+  NationalFocus,
+} from '../types/technology';
 import { NATIONAL_FOCUSES } from '../data/technology';
-import '../styles/tech-modal.css';
+import '../styles/tech-modal.css'; 
 
 interface Props {
   techState: CountryTechState;
@@ -21,7 +24,9 @@ export const FocusModal: React.FC<Props> = ({ techState, onStartFocus, onCancelF
     };
 
     // SEPARA EM 3 COLUNAS - IGUAL PESQUISA
-    const getColumn = (focus: any): 'military' | 'economy' | 'political' => {
+    const getColumn = (
+  focus: NationalFocus
+): 'military' | 'economy' | 'political' =>{
         const t = focus.title.toLowerCase();
         if (t.includes('militar') || t.includes('cavalaria') || t.includes('exército') || t.includes('exercito') || t.includes('fortificação') || t.includes('fortificacao') || t.includes('fronteira')) {
             return 'military';
@@ -38,7 +43,7 @@ export const FocusModal: React.FC<Props> = ({ techState, onStartFocus, onCancelF
         political: NATIONAL_FOCUSES.filter(f => getColumn(f) === 'political'),
     };
 
-    const renderCard = (focus: any) => {
+    const renderCard = (focus: NationalFocus) => {
         const isActive = techState.activeFocusId === focus.id;
         const isDone = techState.completedFocuses.includes(focus.id);
         const progressDays = isActive ? techState.focusProgressDays : 0;

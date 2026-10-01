@@ -9,6 +9,8 @@ import { processDailyTick } from '../../engine/economy';
 import { getBuildingName, getUnitName } from '../../utils/translations';
 import type { Province, Country, Army, Recruitment, BuildingConstruction } from '../../types';
 import type { GameDate } from '../../types/date';
+import type { ToastType } from '../../types/toast';
+import type { AIActionType } from '../../types/aiLog';
 
 type Params = {
   recruitments: Recruitment[];
@@ -19,8 +21,20 @@ type Params = {
   playerCountryTag: string;
   date: GameDate;
   allCountries: Country[];
-  addToast: (msg: string, type: any, title?: string, date?: string) => void;
-  addAILog: (countryName: string, type: any, message: string, date: string, color: string) => void;
+  addToast: (
+    msg: string,
+    type?: ToastType,
+    title?: string,
+    date?: string
+  ) => void;
+
+  addAILog: (
+    countryName: string,
+    type: AIActionType,
+    message: string,
+    date: string,
+    color?: string
+  ) => void;
   addLog: (msg: string) => void;
   formatGameDate: (date: GameDate) => string;
 };
