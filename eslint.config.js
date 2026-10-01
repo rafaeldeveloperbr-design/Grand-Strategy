@@ -15,7 +15,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off", // desliga essa chatice por enquanto
       "prefer-const": "off", // desliga essa chatice por enquanto
       "react-hooks/exhaustive-deps": "warn", // desliga a dependência de hook que tá te dando 2 warnings
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "on",
 
     },
   },

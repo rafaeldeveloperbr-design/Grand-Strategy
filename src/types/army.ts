@@ -133,4 +133,6 @@ export interface CombatResult {
   powerRatio: number;
   /** Data em que a batalha ocorreu */
   date: GameDate;
+  
+  isStackwipe?: boolean; // <- ADICIONA ESSA LINHA
 }

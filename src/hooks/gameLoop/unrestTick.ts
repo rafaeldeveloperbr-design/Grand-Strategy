@@ -1,5 +1,5 @@
 /**
- * unrestTick.ts - 65 linhas - PASSO 4.5
+ * unrestTick.ts - 65 linhas - PASSO 4.5 
  * Agitação provincial e revoltas + Paz automática por anexação
  */
 import { processDailyUnrestDecay } from '../../engine/unrest';
@@ -8,24 +8,27 @@ import type { Army, Province, Country, War } from '../../types';
 import type { GameDate } from '../../types/date';
 import type { DiplomaticRelation } from '../../types/diplomacy';
 
+type CountryWithAnnex = Country & {
+  isAnnexed?: boolean;
+};
+
 type Params = {
   provinces: Province[];
   armies: Army[];
-  countries: Country[];
+  countries: CountryWithAnnex[];
   wars: War[];
   relations: DiplomaticRelation[];
   snapshot: { date: GameDate };
   playerCountryTag: string;
   allCountries: Country[];
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: any, title?: string, date?: string) => void;
+  addToast: (msg: string, type: string, title?: string, date?: string) => void;
 };
 
 export function processUnrestTick(p: Params) {
   let { provinces, armies, countries, wars, relations } = p;
-  const { snapshot, playerCountryTag, allCountries, addLog, addToast } = p;
+  const { snapshot, playerCountryTag, addLog, addToast } = p;
 
-  // PASSO D.5: AGITAÇÃO PROVINCIAL E REVOLTAS
   const { updatedProvinces: provincesWithDecay, revoltedProvinces } =
     processDailyUnrestDecay(provinces, snapshot.date, armies);
   provinces = provincesWithDecay;
@@ -49,20 +52,19 @@ export function processUnrestTick(p: Params) {
     });
   }
 
-  // PASSO D.6: PAZ AUTOMÁTICA POR ANEXAÇÃO TOTAL
   const countriesWithoutProvinces = countries.filter(c => {
-    if ((c as any).isAnnexed) return false;
+    if (c.isAnnexed) return false;
     const ownedProvinces = provinces.filter(pr => pr.owner === c.tag);
-    return ownedProvinces.length === 0 && c.tag !== playerCountryTag;
+    return ownedProvinces.length === 0 && c.tag!== playerCountryTag;
   });
 
   if (countriesWithoutProvinces.length > 0) {
     for (const defeatedCountry of countriesWithoutProvinces) {
-      countries = countries.map(c => c.tag === defeatedCountry.tag ? { ...c, isAnnexed: true } as any : c);
+      countries = countries.map(c => c.tag === defeatedCountry.tag? {...c, isAnnexed: true } : c);
       addLog(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
       addToast(`${defeatedCountry.name} foi totalmente anexado!`, 'warning', 'Anexação Total');
-      wars = wars.filter(w => w.attacker !== defeatedCountry.tag && w.defender !== defeatedCountry.tag);
-      relations = relations.filter(r => r.countryA !== defeatedCountry.tag && r.countryB !== defeatedCountry.tag);
+      wars = wars.filter(w => w.attacker!== defeatedCountry.tag && w.defender!== defeatedCountry.tag);
+      relations = relations.filter(r => r.countryA!== defeatedCountry.tag && r.countryB!== defeatedCountry.tag);
     }
   }
 

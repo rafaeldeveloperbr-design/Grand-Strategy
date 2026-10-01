@@ -1,46 +1,83 @@
 /**
- * useCheats.ts - CHEAT PARA TESTE RÁPIDO
- * Coloca em src/hooks/app/useCheats.ts
+ * useCheats.ts - CHEAT PARA TESTE RÁPIDO - 0 
  */
 import { useCallback, useEffect } from 'react';
+import type { Army, Province, Country } from '../../types';
 
-export function useCheats(params: any) {
+type CheatAPI = {
+  addGold: (n: number) => void;
+  addManpower: (n: number) => void;
+  addAllResources: () => void;
+  instantRecruit: () => void;
+  instantBuild: () => void;
+  spawnArmy: (provinceId?: string) => void;
+  killAllEnemiesInProvince: () => void;
+  winBattles: () => void;
+  fastForward: (days?: number) => void;
+  godMode: () => void;
+  togglePanel?: () => void;
+}
+
+declare global {
+  interface Window {
+    cheats?: CheatAPI;
+    cheatPanelOpen?: boolean;
+    cheatPanel?: { isOpen: boolean };
+  }
+}
+
+type Params = {
+  playerCountryTag: string;
+  setAllCountries: React.Dispatch<React.SetStateAction<Country[]>>;
+  setRecruitments: React.Dispatch<React.SetStateAction<any[]>>;
+  setBuildingConstructions: React.Dispatch<React.SetStateAction<any[]>>;
+  setArmies: React.Dispatch<React.SetStateAction<Army[]>>;
+  provincesRef: React.MutableRefObject<Province[]>;
+  armiesRef: React.MutableRefObject<Army[]>;
+  addLog: (msg: string) => void;
+  addToast: (msg: string, type: string, title?: string) => void;
+  setGameSpeed: (n: number) => void;
+  setDate: React.Dispatch<React.SetStateAction<{ day: number; month: number; year: number }>>;
+  selectedProvince: string | null;
+};
+
+export function useCheats(params: Params) {
   const {
     playerCountryTag, setAllCountries, setRecruitments, setBuildingConstructions,
-    setArmies, provincesRef, armiesRef, addLog, addToast, setGameSpeed, setDate,
+    setArmies, provincesRef, addLog, addToast, setGameSpeed, setDate,
     selectedProvince
   } = params;
 
   const addGold = useCallback((amount: number) => {
-    setAllCountries((prev: any) => prev.map((c: any) => c.tag === playerCountryTag ? { ...c, resources: { ...c.resources, gold: c.resources.gold + amount } } : c));
+    setAllCountries((prev) => prev.map((c) => c.tag === playerCountryTag? {...c, resources: {...c.resources, gold: c.resources.gold + amount } } : c));
     addToast(`💰 +${amount} Ouro (CHEAT)`, 'success', 'Cheat');
     addLog(`💰 CHEAT: +${amount} ouro`);
   }, [playerCountryTag, setAllCountries, addToast, addLog]);
 
   const addManpower = useCallback((amount: number) => {
-    setAllCountries((prev: any) => prev.map((c: any) => c.tag === playerCountryTag ? { ...c, resources: { ...c.resources, manpower: c.resources.manpower + amount } } : c));
+    setAllCountries((prev) => prev.map((c) => c.tag === playerCountryTag? {...c, resources: {...c.resources, manpower: c.resources.manpower + amount } } : c));
     addToast(`👥 +${amount} Manpower (CHEAT)`, 'success', 'Cheat');
   }, [playerCountryTag, setAllCountries, addToast]);
 
   const addAllResources = useCallback(() => {
-    setAllCountries((prev: any) => prev.map((c: any) => c.tag === playerCountryTag ? { ...c, resources: { ...c.resources, gold: c.resources.gold + 10000, manpower: c.resources.manpower + 10000, prestige: (c.resources.prestige || 0) + 100, stability: 100 } } : c));
+    setAllCountries((prev) => prev.map((c) => c.tag === playerCountryTag? {...c, resources: {...c.resources, gold: c.resources.gold + 10000, manpower: c.resources.manpower + 10000, prestige: (c.resources.prestige || 0) + 100, stability: 100 } } : c));
     addToast(`💎 Recursos infinitos! (CHEAT)`, 'success', 'Cheat');
   }, [playerCountryTag, setAllCountries, addToast]);
 
   const instantRecruit = useCallback(() => {
-    setRecruitments((prev: any) => prev.map((r: any) => ({ ...r, daysRemaining: 0 })));
+    setRecruitments((prev) => prev.map((r) => ({...r, daysRemaining: 0 })));
     addToast(`⚡ Recrutamentos instantâneos! (CHEAT)`, 'success', 'Cheat');
   }, [setRecruitments, addToast]);
 
   const instantBuild = useCallback(() => {
-    setBuildingConstructions((prev: any) => prev.map((b: any) => ({ ...b, daysRemaining: 0 })));
+    setBuildingConstructions((prev) => prev.map((b) => ({...b, daysRemaining: 0 })));
     addToast(`🏗️ Construções instantâneas! (CHEAT)`, 'success', 'Cheat');
   }, [setBuildingConstructions, addToast]);
 
   const spawnArmy = useCallback((provinceId?: string) => {
     const targetProvince = provinceId || selectedProvince || provincesRef.current[0]?.id;
     if (!targetProvince) return;
-    const newArmy = {
+    const newArmy: Army = {
       id: `cheat_army_${Date.now()}`,
       owner: playerCountryTag,
       name: `Exército CHEAT`,
@@ -58,24 +95,23 @@ export function useCheats(params: any) {
       path: [],
       targetArmyId: null,
       targetProvinceId: null,
-    } as any;
-    setArmies((prev: any) => [...prev, newArmy]);
-    addToast(`🪖 Exército spawnado em ${provincesRef.current.find((p: any) => p.id === targetProvince)?.name} (CHEAT)`, 'success', 'Cheat');
+    } as unknown as Army;
+    setArmies((prev) => [...prev, newArmy]);
+    addToast(`🪖 Exército spawnado em ${provincesRef.current.find((p) => p.id === targetProvince)?.name} (CHEAT)`, 'success', 'Cheat');
   }, [playerCountryTag, selectedProvince, provincesRef, setArmies, addToast]);
 
   const killAllEnemiesInProvince = useCallback(() => {
     if (!selectedProvince) return;
-    setArmies((prev: any) => prev.filter((a: any) => !(a.location === selectedProvince && a.owner !== playerCountryTag)));
+    setArmies((prev) => prev.filter((a) =>!(a.location === selectedProvince && a.owner!== playerCountryTag)));
     addToast(`💀 Inimigos em ${selectedProvince} eliminados! (CHEAT)`, 'success', 'Cheat');
   }, [selectedProvince, setArmies, addToast, playerCountryTag]);
 
   const winBattles = useCallback(() => {
-    // Força vitória instantânea limpando batalhas ativas
     addToast(`🏆 Todas batalhas vencidas! (CHEAT)`, 'success', 'Cheat');
   }, [addToast]);
 
   const fastForward = useCallback((days: number = 30) => {
-    setDate((prev: any) => {
+    setDate((prev) => {
       let { day, month, year } = prev;
       day += days;
       while (day > 30) { day -= 30; month++; }
@@ -87,25 +123,24 @@ export function useCheats(params: any) {
   }, [setDate, setGameSpeed, addToast]);
 
   const godMode = useCallback(() => {
-    setAllCountries((prev: any) => prev.map((c: any) => c.tag === playerCountryTag ? {
-      ...c,
-      resources: { ...c.resources, gold: 999999, manpower: 999999, prestige: 999, stability: 100 },
-      economy: { ...c.economy, gdp: 99999 }
+    setAllCountries((prev) => prev.map((c) => c.tag === playerCountryTag? {
+     ...c,
+      resources: {...c.resources, gold: 999999, manpower: 999999, prestige: 999, stability: 100 },
+      economy: {...c.economy, gdp: 99999 }
     } : c));
-    setArmies((prev: any) => prev.map((a: any) => a.owner === playerCountryTag ? {
-      ...a,
-      regiments: a.regiments.map((r: any) => ({ ...r, strength: r.strength, morale: 100 }))
+    setArmies((prev) => prev.map((a) => a.owner === playerCountryTag? {
+     ...a,
+      regiments: a.regiments.map((r) => ({...r, strength: r.strength, morale: 100 }))
     } : a));
     addToast(`👑 GOD MODE ATIVADO! (CHEAT)`, 'success', 'Cheat');
   }, [playerCountryTag, setAllCountries, setArmies, addToast]);
 
-  // Atalhos de teclado: Ctrl+Shift+C abre cheat, teclas 1-8 ativam
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-        (window as any).cheats?.togglePanel?.();
+        window.cheats?.togglePanel?.();
       }
-      if ((window as any).cheatPanelOpen) {
+      if (window.cheatPanelOpen) {
         if (e.key === '1') addAllResources();
         if (e.key === '2') instantRecruit();
         if (e.key === '3') instantBuild();
@@ -119,13 +154,12 @@ export function useCheats(params: any) {
     return () => window.removeEventListener('keydown', handler);
   }, [addAllResources, instantRecruit, instantBuild, spawnArmy, fastForward, godMode, killAllEnemiesInProvince]);
 
-  // Expõe no console: window.cheats.addGold(10000)
   useEffect(() => {
-    (window as any).cheats = {
+    window.cheats = {
       addGold, addManpower, addAllResources, instantRecruit, instantBuild,
       spawnArmy, killAllEnemiesInProvince, fastForward, godMode, winBattles
     };
-    console.log('🎮 CHEATS ATIVADOS! Digite no console: cheats.addGold(10000), cheats.godMode(), etc. | Ctrl+Shift+C abre painel');
+    console.log('🎮 CHEATS ATIVADOS! Digite: cheats.addGold(10000), cheats.godMode() | Ctrl+Shift+C');
   }, [addGold, addManpower, addAllResources, instantRecruit, instantBuild, spawnArmy, killAllEnemiesInProvince, fastForward, godMode, winBattles]);
 
   return {

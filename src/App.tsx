@@ -44,16 +44,82 @@ import { UNIT_DEFINITIONS } from './data/units';
 import { loadGame, saveGame, isAutoSaveEnabled, setAutoSaveEnabled, listSaves, deleteSave, clearAllSaves } from './engine/saveSystem';
 import { useSaveSystem } from './hooks/app/useSaveSystem';
 
-function createInitialArmies(): Army[] {
+type InitialRegiment = {
+  type: 'infantry' | 'cavalry' | 'artillery';
+  strength: number;
+  morale: number;
+};
+
+const createInitialArmies = (): Army[] => {
+  const base = {
+    destination: null as string | null,
+    targetDestination: null as string | null,
+    movementProgress: 0,
+    movementSpeed: 1.0,
+    position: null as any,
+    path: [] as string[],
+    targetArmyId: null as string | null,
+    targetProvinceId: null as string | null,
+  };
+
   return [
-    { id: 'army_init_1', owner: 'IMP', name: '1º Exército Imperial', regiments: [{ type: 'infantry', strength: 3000, morale: 90 } as any, { type: 'infantry', strength: 2000, morale: 85 } as any, { type: 'cavalry', strength: 1000, morale: 80 } as any], location: 'p1', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_2', owner: 'REP', name: 'Legião Valoriana', regiments: [{ type: 'infantry', strength: 2500, morale: 88 } as any, { type: 'cavalry', strength: 800, morale: 82 } as any], location: 'p6', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_3', owner: 'RNO', name: 'Guarda Nordiana', regiments: [{ type: 'infantry', strength: 2000, morale: 92 } as any, { type: 'artillery', strength: 500, morale: 85 } as any], location: 'p10', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 0.5, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_4', owner: 'KHA', name: 'Horda Dourada', regiments: [{ type: 'cavalry', strength: 4000, morale: 95 } as any, { type: 'cavalry', strength: 2000, morale: 90 } as any], location: 'p14', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.5, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_5', owner: 'THC', name: 'Guardiões de Solara', regiments: [{ type: 'infantry', strength: 1800, morale: 80 } as any, { type: 'artillery', strength: 300, morale: 75 } as any], location: 'p17', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-    { id: 'army_init_6', owner: 'LIG', name: 'Mercenários de Portus', regiments: [{ type: 'infantry', strength: 1500, morale: 75 } as any, { type: 'cavalry', strength: 500, morale: 70 } as any], location: 'p20', destination: null, targetDestination: null, movementProgress: 0, movementSpeed: 1.0, position: null, path: [], targetArmyId: null, targetProvinceId: null } as any,
-  ];
-}
+    {
+      ...base,
+      id: 'army_init_1', owner: 'IMP', name: '1º Exército Imperial',
+      location: 'p1', movementSpeed: 1.0,
+      regiments: [
+        { type: 'infantry', strength: 3000, morale: 90 },
+        { type: 'infantry', strength: 2000, morale: 85 },
+        { type: 'cavalry', strength: 1000, morale: 80 },
+      ] as InitialRegiment[] as any, // só 1 as any por exército agora, não 4
+    },
+    {
+      ...base,
+      id: 'army_init_2', owner: 'REP', name: 'Legião Valoriana',
+      location: 'p6', movementSpeed: 1.0,
+      regiments: [
+        { type: 'infantry', strength: 2500, morale: 88 },
+        { type: 'cavalry', strength: 800, morale: 82 },
+      ] as InitialRegiment[] as any,
+    },
+    {
+      ...base,
+      id: 'army_init_3', owner: 'RNO', name: 'Guarda Nordiana',
+      location: 'p10', movementSpeed: 0.5,
+      regiments: [
+        { type: 'infantry', strength: 2000, morale: 92 },
+        { type: 'artillery', strength: 500, morale: 85 },
+      ] as InitialRegiment[] as any,
+    },
+    {
+      ...base,
+      id: 'army_init_4', owner: 'KHA', name: 'Horda Dourada',
+      location: 'p14', movementSpeed: 1.5,
+      regiments: [
+        { type: 'cavalry', strength: 4000, morale: 95 },
+        { type: 'cavalry', strength: 2000, morale: 90 },
+      ] as InitialRegiment[] as any,
+    },
+    {
+      ...base,
+      id: 'army_init_5', owner: 'THC', name: 'Guardiões de Solara',
+      location: 'p17', movementSpeed: 1.0,
+      regiments: [
+        { type: 'infantry', strength: 1800, morale: 80 },
+        { type: 'artillery', strength: 300, morale: 75 },
+      ] as InitialRegiment[] as any,
+    },
+    {
+      ...base,
+      id: 'army_init_6', owner: 'LIG', name: 'Mercenários de Portus',
+      location: 'p20', movementSpeed: 1.0,
+      regiments: [
+        { type: 'infantry', strength: 1500, morale: 75 },
+        { type: 'cavalry', strength: 500, morale: 70 },
+      ] as InitialRegiment[] as any,
+    },
+  ] as Army[];
+};
 
 const App: React.FC = () => {
   const { addToast, notificationHistory, unreadCount, markAllAsRead } = useToast();
