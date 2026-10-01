@@ -13,6 +13,7 @@ import { processUnrestTick } from './gameLoop/unrestTick';
 import { processDiplomacyTechTick } from './gameLoop/diplomacyTechTick';
 import { processAiTick } from './gameLoop/aiTick';
 import { processRebelTick } from './gameLoop/rebelTick';
+import { saveGame, isAutoSaveEnabled } from '../engine/saveSystem';
 
 const SPEED_INTERVALS: Record<number, number> = { 0: 0, 1: 1000, 2: 500, 3: 250, 4: 125, 5: 60 };
 
@@ -45,9 +46,9 @@ export function useGameLoop(props: Props) {
 
   const cancelProvinceActivities = useCallback((provinceId: string, oldOwner: string, newOwner: string, rec: any, cons: any, provs: any) => {
     return {
-      recruitments: rec.filter((r: any) => r.provinceId !== provinceId),
-      constructions: cons.filter((c: any) => c.provinceId !== provinceId),
-      provinces: provs.map((p: any) => p.id === provinceId ? { ...p, originalOwner: p.originalOwner || oldOwner } : p)
+      recruitments: rec.filter((r: any) => r.provinceId!== provinceId),
+      constructions: cons.filter((c: any) => c.provinceId!== provinceId),
+      provinces: provs.map((p: any) => p.id === provinceId? {...p, originalOwner: p.originalOwner || oldOwner } : p)
     };
   }, []);
 
@@ -56,11 +57,15 @@ export function useGameLoop(props: Props) {
   }, []);
 
   const processTick = useCallback(() => {
+     if (hasTriggeredEndGame) return; 
     const snapshot = {
       provinces: provincesRef.current, countries: countriesRef.current, armies: armiesRef.current,
       recruitments: recruitmentsRef.current, wars: warsRef.current, relations: diplomaticRelationsRef.current,
       date: dateRef.current, buildingConstructions: buildingConstructionsRef.current,
     };
+
+    
+    
 
     let armies = [...snapshot.armies], provinces = [...snapshot.provinces], countries = [...snapshot.countries];
     let wars = [...snapshot.wars], relations = [...snapshot.relations], recruitments = [...snapshot.recruitments];
@@ -102,15 +107,19 @@ export function useGameLoop(props: Props) {
     warsRef.current = wars; diplomaticRelationsRef.current = relations; recruitmentsRef.current = recruitments;
     activeBattlesRef.current = currentActiveBattles; buildingConstructionsRef.current = buildingConstructions;
     playerTechStateRef.current = currentPlayerTechState; botTechStatesRef.current = currentBotTechStates;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addLog, playerCountryTag]);
+
+    // AUTOSAVE - todo dia 1
+     if (dateRef.current.day === 1 && isAutoSaveEnabled()) {
+      saveGame({ provincesRef, countriesRef, armiesRef, warsRef, diplomaticRelationsRef, recruitmentsRef, buildingConstructionsRef, playerTechStateRef, botTechStatesRef, activeBattlesRef, dateRef });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addLog, playerCountryTag, advanceDate, cancelProvinceActivities, hasTriggeredEndGame]);
 
   useEffect(() => {
     if (gameLoopRef.current) { clearInterval(gameLoopRef.current); gameLoopRef.current = null; }
-    if (gameSpeed > 0 && !isPaused) {
+    if (gameSpeed > 0 &&!isPaused) {
       gameLoopRef.current = window.setInterval(processTick, SPEED_INTERVALS[gameSpeed]);
     }
     return () => { if (gameLoopRef.current) clearInterval(gameLoopRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameSpeed, processTick, isPaused]);
+  }, [gameSpeed, processTick, isPaused, gameLoopRef]);
 }

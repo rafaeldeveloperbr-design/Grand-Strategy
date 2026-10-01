@@ -878,3 +878,13 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
 }
+
+.settings-modal__section { margin-top: 20px; padding-top: 16px; border-top: 1px solid #444; }
+.settings-modal__section h3 { margin-bottom: 12px; }
+.settings-modal__save-actions { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.settings-modal__hint { font-size: 12px; opacity: 0.7; }
+.settings-modal__toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 20px; }
+.settings-modal__danger-zone { background: rgba(192, 57, 43, 0.1); padding: 12px; border-radius: 6px; border: 1px solid rgba(192, 57, 43, 0.3); }
+.settings-modal__danger-zone h4 { margin: 0 0 8px 0; color: #e74c3c; font-size: 13px; }
+.settings-modal__btn--primary { background: #27ae60; color: white; }
+.settings-modal__btn--danger { background: #c0392b; color: white; }

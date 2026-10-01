@@ -2,7 +2,6 @@
  * ============================================================
  * MODAL DE CONFIGURAÇÕES
  * ============================================================
- * Permite ao jogador ajustar configurações do jogo, incluindo dificuldade da IA
  */
 
 import React from 'react';
@@ -14,16 +13,21 @@ interface SettingsModalProps {
   onClose: () => void;
   aiDifficulty: AIDifficulty;
   onDifficultyChange: (difficulty: AIDifficulty) => void;
+  onManualSave: () => void;
+  autoSaveEnabled: boolean;
+  onToggleAutoSave: (v: boolean) => void;
+  onNewGame: () => void;
 }
 
-/**
- * Modal de configurações do jogo
- */
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   aiDifficulty,
-  onDifficultyChange
+  onDifficultyChange,
+  onManualSave,
+  autoSaveEnabled,
+  onToggleAutoSave,
+  onNewGame
 }) => {
   if (!isOpen) return null;
 
@@ -40,6 +44,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             currentDifficulty={aiDifficulty}
             onDifficultyChange={onDifficultyChange}
           />
+
+          <div className="settings-modal__section">
+            <h3>💾 Salvamento</h3>
+            
+            <div className="settings-modal__save-actions">
+              <button className="settings-modal__btn settings-modal__btn--primary" onClick={onManualSave}>
+                💾 Salvar Agora
+              </button>
+              <span className="settings-modal__hint">Salva no navegador</span>
+            </div>
+
+            <label className="settings-modal__toggle">
+              <input
+                type="checkbox"
+                checked={autoSaveEnabled}
+                onChange={(e) => onToggleAutoSave(e.target.checked)}
+              />
+              <span>Autosave todo dia 1 do mês</span>
+            </label>
+
+            <div className="settings-modal__danger-zone">
+              <h4>Zona de Perigo</h4>
+              <button className="settings-modal__btn settings-modal__btn--danger" onClick={() => {
+                if(confirm('Tem certeza? Isso vai apagar seu save atual e reiniciar o jogo.')) {
+                  onNewGame();
+                }
+              }}>
+                🗑️ Novo Jogo (apaga save)
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="settings-modal__footer">
