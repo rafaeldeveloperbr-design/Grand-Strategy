@@ -7,6 +7,7 @@ import { processRebelAccumulation, processSeparatistAI } from '../../engine/rebe
 import type { Army, Province, Country, War } from '../../types';
 import type { GameDate } from '../../types/date';
 import type { DiplomaticRelation } from '../../types/diplomacy';
+import type { ToastType } from '../../types/toast';
 
 type CountryWithAnnex = Country & {
   isAnnexed?: boolean;
@@ -22,7 +23,13 @@ type Params = {
   playerCountryTag: string;
   allCountries: Country[];
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: string, title?: string, date?: string) => void;
+  addToast: (
+    message: string,
+    type?: ToastType,
+    title?: string,
+    dateString?: string,
+    duration?: number
+  ) => void;
 };
 
 export function processUnrestTick(p: Params) {
@@ -55,16 +62,16 @@ export function processUnrestTick(p: Params) {
   const countriesWithoutProvinces = countries.filter(c => {
     if (c.isAnnexed) return false;
     const ownedProvinces = provinces.filter(pr => pr.owner === c.tag);
-    return ownedProvinces.length === 0 && c.tag!== playerCountryTag;
+    return ownedProvinces.length === 0 && c.tag !== playerCountryTag;
   });
 
   if (countriesWithoutProvinces.length > 0) {
     for (const defeatedCountry of countriesWithoutProvinces) {
-      countries = countries.map(c => c.tag === defeatedCountry.tag? {...c, isAnnexed: true } : c);
+      countries = countries.map(c => c.tag === defeatedCountry.tag ? { ...c, isAnnexed: true } : c);
       addLog(`🏳️ ${defeatedCountry.name} foi totalmente anexado!`);
       addToast(`${defeatedCountry.name} foi totalmente anexado!`, 'warning', 'Anexação Total');
-      wars = wars.filter(w => w.attacker!== defeatedCountry.tag && w.defender!== defeatedCountry.tag);
-      relations = relations.filter(r => r.countryA!== defeatedCountry.tag && r.countryB!== defeatedCountry.tag);
+      wars = wars.filter(w => w.attacker !== defeatedCountry.tag && w.defender !== defeatedCountry.tag);
+      relations = relations.filter(r => r.countryA !== defeatedCountry.tag && r.countryB !== defeatedCountry.tag);
     }
   }
 

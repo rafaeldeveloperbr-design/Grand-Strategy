@@ -5,9 +5,20 @@ import { processDailyBattle, finalizeBattle } from '../../engine/combat';
 import { checkRebelTerritoryReturn } from '../../engine/rebellions';
 import { applyConquestUnrest } from '../../engine/unrest';
 import { applyStabilityPrestigeChanges } from '../../engine/stability';
-import type { Army, Province, Country, War, ActiveBattle, Recruitment, BuildingConstruction, RetreatInfo } from '../../types';
+import type {
+  Army,
+  Province,
+  Country,
+  War,
+  ActiveBattle,
+  Recruitment,
+  BuildingConstruction, CombatResult,
+  RetreatInfo
+} from '../../types';
 import type { GameDate } from '../../types/date';
+import type { ToastType } from '../../types/toast';
 import { calculateArmySize, applyTroopLoss } from '../../engine/combat/combatCalculations';
+
 
 // ===== TIPOS QUE FALTAVAM =====
 type BattleExtended = ActiveBattle & {
@@ -30,26 +41,21 @@ type ArmyWithMovement = Army & {
 
 type ProvinceWithOriginal = Province & { originalOwner?: string };
 
-type FinalResultEnriched = {
-  attacker: Army;
-  defender: Army;
-  attackerOriginal: Army;
-  defenderOriginal: Army;
-  winner: 'attacker' | 'defender';
-  provinceId: string;
-  provinceName: string;
-  duration: number;
-  powerRatio: number;
-  date: GameDate;
+type FinalResultEnriched = CombatResult & {
   retreatInfo?: RetreatInfo | null;
-  isStackwipe: boolean;
-  totalAttackerInitial: number;
-  totalDefenderInitial: number;
-  attackerReinfInitial: number;
-  defenderReinfInitial: number;
-  attackerCurrentTroops: number;
-  defenderCurrentTroops: number;
-  participantDetails: Array<{
+
+  isStackwipe?: boolean;
+
+  totalAttackerInitial?: number;
+  totalDefenderInitial?: number;
+
+  attackerReinfInitial?: number;
+  defenderReinfInitial?: number;
+
+  attackerCurrentTroops?: number;
+  defenderCurrentTroops?: number;
+
+  participantDetails?: Array<{
     id: string;
     name: string;
     owner: string;
@@ -58,9 +64,8 @@ type FinalResultEnriched = {
     final: number;
     loss: number;
   }>;
-  reinforcementInitialSize: Record<string, number>;
-  territoryChanged?: boolean;
-  newOwner?: string;
+
+  reinforcementInitialSize?: Record<string, number>;
 };
 
 type Params = {
@@ -75,11 +80,22 @@ type Params = {
   playerCountryTag: string;
   allCountries: Country[];
   addLog: (msg: string) => void;
-  addToast: (msg: string, type: string, title?: string, date?: string) => void;
+  addToast: (
+    message: string,
+    type?: ToastType,
+    title?: string,
+    dateString?: string,
+    duration?: number
+  ) => void;
   setActiveBattles: (b: BattleExtended[]) => void;
   setArmies: (a: Army[]) => void;
-  setBattleHistory: (fn: (prev: FinalResultEnriched[]) => FinalResultEnriched[]) => void;
-  setBattleReport: (r: FinalResultEnriched) => void;
+  setBattleHistory: React.Dispatch<
+    React.SetStateAction<CombatResult[]>
+  >;
+
+  setBattleReport: React.Dispatch<
+    React.SetStateAction<CombatResult | null>
+  >;
   setIsPaused: (p: boolean) => void;
   activeBattlesRef: React.MutableRefObject<BattleExtended[]>;
   cancelProvinceActivities: (provinceId: string, oldOwner: string, newOwner: string, rec: Recruitment[], cons: BuildingConstruction[], provs: Province[]) => { recruitments: Recruitment[]; constructions: BuildingConstruction[]; provinces: Province[] };
@@ -147,24 +163,41 @@ export function processBattleContinuous(p: Params) {
 
     if (retreatInfo?.retreated) {
       console.log(`🏃 Processando recuo: ${retreatInfo.owner} com ${retreatInfo.troops} para ${retreatInfo.toName}`);
-      
+
       const winner = fb.attackerCurrentTroops > fb.defenderCurrentTroops ? 'attacker' as const : 'defender' as const;
       finalResult = {
         attacker,
         defender,
         attackerOriginal: fb.attackerInitialSnapshot || attacker,
         defenderOriginal: fb.defenderInitialSnapshot || defender,
+
+        attackerCasualties: Math.max(
+          0,
+          fb.attackerInitialTroops - fb.attackerCurrentTroops
+        ),
+
+        defenderCasualties: Math.max(
+          0,
+          fb.defenderInitialTroops - fb.defenderCurrentTroops
+        ),
+
         winner,
+
         provinceId: province.id,
         provinceName: province.name,
         duration: fb.daysTotal,
+
+        territoryChanged: false,
+        territorialDefenseBonus: false,
+
         powerRatio: 1,
         date: snapshot.date,
+
         retreatInfo,
         isStackwipe: false,
       };
       rawUpdatedArmies = [...armies];
-      
+
       rawUpdatedArmies = rawUpdatedArmies.map(a => {
         if (a.owner === retreatInfo.owner && (a.id === fb.attackerArmyId || a.id === fb.defenderArmyId || fb.participantArmyIds.includes(a.id))) {
           if (calculateArmySize(a) === retreatInfo.troops || a.id === (retreatInfo.owner === attacker.owner ? fb.attackerArmyId : fb.defenderArmyId)) {
@@ -211,7 +244,7 @@ export function processBattleContinuous(p: Params) {
       const initial = reinfSizes[id] || (id === fb.attackerArmyId ? fb.attackerInitialTroops : id === fb.defenderArmyId ? fb.defenderInitialTroops : 0);
       let finalSize = calculateArmySize(finalArmy);
       const isLoserArmy = finalArmy.owner === (finalResult.winner === 'attacker' ? defender.owner : attacker.owner);
-      
+
       if (retreatInfo?.retreated && isLoserArmy && finalArmy.owner === retreatInfo.owner) {
         finalSize = retreatInfo.troops;
       } else if (isStackwipe && isLoserArmy) {

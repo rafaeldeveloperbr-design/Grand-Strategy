@@ -1,9 +1,16 @@
-import { useCallback, useEffect } from 'react';
+import {
+  useCallback,
+  useEffect,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import type { Province, Country, GameDate, Army, Recruitment, CombatResult, BuildingConstruction, ActiveBattle } from '../types';
 import type { CountryTechState } from '../types/technology';
 import type { DiplomaticRelation, War } from '../types/diplomacy';
 import type { AIDifficulty } from '../types/difficulty';
 import type { EndGameType, GameStats } from '../engine/gameConditions';
+import type { ToastType } from '../types/toast';
 
 import { processEconomyTick } from './gameLoop/economyTick';
 import { processMovementTick } from './gameLoop/movementTick';
@@ -33,18 +40,87 @@ import { saveGame, isAutoSaveEnabled } from '../engine/saveSystem';
 const SPEED_INTERVALS: Record<number, number> = { 0: 0, 1: 1000, 2: 500, 3: 250, 4: 125, 5: 60 };
 
 type Props = {
-  provincesRef: any; countriesRef: any; armiesRef: any; recruitmentsRef: any; warsRef: any;
-  diplomaticRelationsRef: any; dateRef: any; buildingConstructionsRef: any;
-  playerTechStateRef: any; botTechStatesRef: any; aiDifficultyRef: any;
-  activeBattlesRef: any; ceilingLogRef: any; gameLoopRef: any;
-  playerCountryTag: string; battleHistory: CombatResult[]; hasTriggeredEndGame: boolean;
-  gameSpeed: number; isPaused: boolean; allCountries: Country[];
-  setProvinces: any; setAllCountries: any; setArmies: any; setWars: any;
-  setDiplomaticRelations: any; setRecruitments: any; setBuildingConstructions: any;
-  setPlayerTechState: any; setBotTechStates: any; setDate: any; setActiveBattles: any;
-  setEndGameType: any; setGameStats: any; setHasTriggeredEndGame: any;
-  setIsPaused: any; setBattleHistory: any; setBattleReport: any;
-  addLog: any; addToast: any; addAILog: any; formatGameDate: any;
+  // Refs principais do jogo
+  provincesRef: MutableRefObject<Province[]>;
+  countriesRef: MutableRefObject<Country[]>;
+  armiesRef: MutableRefObject<Army[]>;
+  recruitmentsRef: MutableRefObject<Recruitment[]>;
+  warsRef: MutableRefObject<War[]>;
+  diplomaticRelationsRef: MutableRefObject<DiplomaticRelation[]>;
+  dateRef: MutableRefObject<GameDate>;
+  buildingConstructionsRef: MutableRefObject<BuildingConstruction[]>;
+
+  // Tecnologia / IA
+  playerTechStateRef: MutableRefObject<CountryTechState>;
+  botTechStatesRef: MutableRefObject<Map<string, CountryTechState>>;
+  aiDifficultyRef: MutableRefObject<AIDifficulty>;
+
+  // Batalhas / loop
+  activeBattlesRef: MutableRefObject<ActiveBattle[]>;
+  ceilingLogRef: MutableRefObject<Set<string>>;
+  gameLoopRef: MutableRefObject<number | null>;
+
+  // Estado geral
+  playerCountryTag: string;
+  battleHistory: CombatResult[];
+  hasTriggeredEndGame: boolean;
+  gameSpeed: number;
+  isPaused: boolean;
+  allCountries: Country[];
+
+  // Setters principais
+  setProvinces: Dispatch<SetStateAction<Province[]>>;
+  setAllCountries: Dispatch<SetStateAction<Country[]>>;
+  setArmies: Dispatch<SetStateAction<Army[]>>;
+  setWars: Dispatch<SetStateAction<War[]>>;
+  setDiplomaticRelations: Dispatch<
+    SetStateAction<DiplomaticRelation[]>
+  >;
+  setRecruitments: Dispatch<SetStateAction<Recruitment[]>>;
+  setBuildingConstructions: Dispatch<
+    SetStateAction<BuildingConstruction[]>
+  >;
+
+  // Tecnologia
+  setPlayerTechState: Dispatch<SetStateAction<CountryTechState>>;
+  setBotTechStates: Dispatch<
+    SetStateAction<Map<string, CountryTechState>>
+  >;
+
+  // Data / batalha
+  setDate: Dispatch<SetStateAction<GameDate>>;
+  setActiveBattles: Dispatch<SetStateAction<ActiveBattle[]>>;
+
+  // Fim de jogo
+  setEndGameType: Dispatch<SetStateAction<EndGameType | null>>;
+  setGameStats: Dispatch<SetStateAction<GameStats | null>>;
+  setHasTriggeredEndGame: Dispatch<SetStateAction<boolean>>;
+  setIsPaused: Dispatch<SetStateAction<boolean>>;
+
+  // Histórico / relatório
+  setBattleHistory: Dispatch<SetStateAction<CombatResult[]>>;
+  setBattleReport: Dispatch<SetStateAction<CombatResult | null>>;
+
+  // Logs
+  addLog: (msg: string) => void;
+
+  addToast: (
+    message: string,
+    type?: ToastType,
+    title?: string,
+    dateString?: string,
+    duration?: number
+  ) => void;
+
+  addAILog: (
+    countryName: string,
+    actionType: import('../types/aiLog').AIActionType,
+    message: string,
+    dateString: string,
+    countryColor?: string
+  ) => void;
+
+  formatGameDate: (date: GameDate) => string;
 };
 
 export function useGameLoop(props: Props) {
@@ -59,11 +135,35 @@ export function useGameLoop(props: Props) {
     addLog, addToast, addAILog, formatGameDate,
   } = props;
 
-  const cancelProvinceActivities = useCallback((provinceId: string, oldOwner: string, newOwner: string, rec: any, cons: any, provs: any) => {
+  const cancelProvinceActivities = useCallback((
+    provinceId: string,
+    oldOwner: string,
+    _newOwner: string,
+    rec: Recruitment[],
+    cons: BuildingConstruction[],
+    provs: Province[]
+  ): {
+    recruitments: Recruitment[];
+    constructions: BuildingConstruction[];
+    provinces: Province[];
+  } => {
     return {
-      recruitments: rec.filter((r: any) => r.provinceId!== provinceId),
-      constructions: cons.filter((c: any) => c.provinceId!== provinceId),
-      provinces: provs.map((p: any) => p.id === provinceId? {...p, originalOwner: p.originalOwner || oldOwner } : p)
+      recruitments: rec.filter(
+        r => r.provinceId !== provinceId
+      ),
+
+      constructions: cons.filter(
+        c => c.provinceId !== provinceId
+      ),
+
+      provinces: provs.map(p =>
+        p.id === provinceId
+          ? {
+            ...p,
+            originalOwner: p.originalOwner || oldOwner,
+          }
+          : p
+      ),
     };
   }, []);
 
@@ -72,7 +172,7 @@ export function useGameLoop(props: Props) {
   }, []);
 
   const processTick = useCallback(() => {
-     if (hasTriggeredEndGame) return;
+    if (hasTriggeredEndGame) return;
     const snapshot = {
       provinces: provincesRef.current, countries: countriesRef.current, armies: armiesRef.current,
       recruitments: recruitmentsRef.current, wars: warsRef.current, relations: diplomaticRelationsRef.current,
@@ -135,12 +235,12 @@ export function useGameLoop(props: Props) {
         'Autosave'
       );
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addLog, playerCountryTag, advanceDate, cancelProvinceActivities, hasTriggeredEndGame]);
 
   useEffect(() => {
     if (gameLoopRef.current) { clearInterval(gameLoopRef.current); gameLoopRef.current = null; }
-    if (gameSpeed > 0 &&!isPaused) {
+    if (gameSpeed > 0 && !isPaused) {
       gameLoopRef.current = window.setInterval(processTick, SPEED_INTERVALS[gameSpeed]);
     }
     return () => { if (gameLoopRef.current) clearInterval(gameLoopRef.current); };
