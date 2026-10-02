@@ -8,8 +8,13 @@ import {
   getOrCreateRelation,
   DIPLOMATIC_COSTS
 } from '../diplomacy';
+import type { GameDate } from '../../types/date';
 
-const date = { year: 1836, month: 1, day: 1 } as any;
+const date: GameDate = {
+  year: 1836,
+  month: 1,
+  day: 1,
+};
 
 describe('DIPLOMACIA', () => {
   it('declareWar - cria guerra e coloca status war', () => {

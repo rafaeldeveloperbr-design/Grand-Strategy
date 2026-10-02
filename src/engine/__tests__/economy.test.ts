@@ -8,34 +8,53 @@ import {
 } from '../economy';
 import { processConstructions } from '../buildings';
 
-const baseProvince = {
+import type {
+  Province,
+  Country,
+  BuildingConstruction,
+} from '../../types';
+
+
+const baseProvince: Province = {
   id: 'p1',
+  name: 'Província Teste',
   owner: 'BRA',
+  color: '#00ff00',
+  neighbors: [],
   population: 10000,
   maxPopulation: 50000,
   development: 1,
-  unrest: 0,
   buildings: [],
-} as any;
+  defense: 0,
+  center: { x: 0, y: 0 },
+  path: '',
+  unrest: 0,
+};
+
 
 const baseCountry = {
   tag: 'BRA',
   provinces: ['p1'],
-  resources: { gold: 100, manpower: 500, maxManpower: 10000, stability: 60 },
+  resources: {
+    gold: 100,
+    manpower: 500,
+    maxManpower: 10000,
+    stability: 60,
+  },
   activeLaws: {},
-} as any;
+} as Country;
 
 describe('ECONOMIA', () => {
   it('renda - população maior gera mais ouro', () => {
-    const small = calculateProvinceGoldIncome({...baseProvince, population: 1000 } as any);
-    const big = calculateProvinceGoldIncome({...baseProvince, population: 10000 } as any);
+    const small = calculateProvinceGoldIncome({ ...baseProvince, population: 1000 });
+    const big = calculateProvinceGoldIncome({ ...baseProvince, population: 10000 });
     expect(big).toBeGreaterThan(small);
     expect(big).toBeGreaterThan(0);
   });
 
   it('manutenção - mais províncias = mais despesa', () => {
-    const cheap = calculateCountryExpenses({...baseCountry, provinces: ['p1'] } as any, [baseProvince]);
-    const expensive = calculateCountryExpenses({...baseCountry, provinces: ['p1','p2','p3'] } as any, [baseProvince, baseProvince, baseProvince]);
+    const cheap = calculateCountryExpenses({ ...baseCountry, provinces: ['p1'] }, [baseProvince]);
+    const expensive = calculateCountryExpenses({ ...baseCountry, provinces: ['p1', 'p2', 'p3'] }, [baseProvince, baseProvince, baseProvince]);
     expect(expensive).toBeGreaterThan(cheap);
   });
 
@@ -46,7 +65,7 @@ describe('ECONOMIA', () => {
   });
 
   it('crescimento - trava no maxPopulation', () => {
-    const almostFull = {...baseProvince, population: 49900, maxPopulation: 50000 } as any;
+    const almostFull = { ...baseProvince, population: 49900, maxPopulation: 50000 };
     const growth = calculatePopulationGrowth(almostFull, 60);
     expect(almostFull.population + growth).toBeLessThanOrEqual(50000);
   });
@@ -64,7 +83,7 @@ describe('ECONOMIA', () => {
   });
 
   it('construção - finaliza obra', () => {
-    const constructions = [{ id: 'c1', daysRemaining: 0, provinceId: 'p1', buildingType: 'farm' } as any];
+    const constructions = [{ id: 'c1', daysRemaining: 0, provinceId: 'p1', buildingType: 'farm' } as BuildingConstruction];
     const result = processConstructions(constructions, [baseProvince]);
     expect(result.completedConstructions.length).toBe(1);
   });

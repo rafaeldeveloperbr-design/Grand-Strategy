@@ -1,18 +1,35 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { saveGame, loadGame, listSaves } from '../saveSystem';
-import type { GameDate } from '../../types';
+import type { Army, GameDate } from '../../types';
+import type { CountryTechState } from '../../types/technology';
+
+type SaveGameRefs = Parameters<typeof saveGame>[0];
 
 // Polyfill pra rodar mesmo em Node
 if (typeof localStorage === 'undefined') {
   const store = new Map<string, string>();
-  (globalThis as any).localStorage = {
-    get length() { return store.size; },
-    key: (i: number) => Array.from(store.keys())[i] || null,
-    getItem: (k: string) => store.get(k) || null,
-    setItem: (k: string, v: string) => { store.set(k, v); },
-    removeItem: (k: string) => { store.delete(k); },
-    clear: () => { store.clear(); },
-  };
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: {
+      get length() {
+        return store.size;
+      },
+      key: (i: number) =>
+        Array.from(store.keys())[i] ?? null,
+      getItem: (k: string) =>
+        store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+      clear: () => {
+        store.clear();
+      },
+    },
+    configurable: true,
+  });
 }
 
 describe('SAVE/LOAD', () => {
@@ -24,15 +41,31 @@ describe('SAVE/LOAD', () => {
       dateRef: { current: date },
       provincesRef: { current: [] },
       countriesRef: { current: [] },
-      armiesRef: { current: [{ id: 'a1', tag: 'BRA' } as any] },
+      armiesRef: {
+        current: [
+          {
+            id: 'a1',
+          } as Army,
+        ],
+      },
       warsRef: { current: [] },
       diplomaticRelationsRef: { current: [] },
       recruitmentsRef: { current: [] },
       buildingConstructionsRef: { current: [] },
-      playerTechStateRef: { current: { techs: {} } as any },
+      playerTechStateRef: {
+        current: {
+          countryTag: 'BRA',
+          activeFocusId: null,
+          activeResearchId: null,
+          completedFocuses: [],
+          completedTechnologies: [],
+          focusProgressDays: 0,
+          researchProgressDays: 0,
+        },
+      },
       botTechStatesRef: { current: new Map() },
       activeBattlesRef: { current: [] },
-    } as any;
+    } as SaveGameRefs;
 
     saveGame(refs, 'test1', 'Teste');
     const loaded = loadGame('test1');
@@ -42,7 +75,19 @@ describe('SAVE/LOAD', () => {
   });
 
   it('reconstruir Map de bots', () => {
-    const botMap = new Map([['ARG', { points: 100 } as any]]);
+    const botTechState: CountryTechState = {
+      countryTag: 'ARG',
+      activeFocusId: null,
+      activeResearchId: null,
+      completedFocuses: [],
+      completedTechnologies: [],
+      focusProgressDays: 0,
+      researchProgressDays: 0,
+    };
+
+    const botMap = new Map<string, CountryTechState>([
+      ['ARG', botTechState],
+    ]);
     const refs = {
       dateRef: { current: { day: 1, month: 1, year: 1836 } },
       provincesRef: { current: [] },
@@ -52,10 +97,20 @@ describe('SAVE/LOAD', () => {
       diplomaticRelationsRef: { current: [] },
       recruitmentsRef: { current: [] },
       buildingConstructionsRef: { current: [] },
-      playerTechStateRef: { current: {} as any },
+      playerTechStateRef: {
+        current: {
+          countryTag: 'BRA',
+          activeFocusId: null,
+          activeResearchId: null,
+          completedFocuses: [],
+          completedTechnologies: [],
+          focusProgressDays: 0,
+          researchProgressDays: 0,
+        },
+      },
       botTechStatesRef: { current: botMap },
       activeBattlesRef: { current: [] },
-    } as any;
+    } as SaveGameRefs;
 
     saveGame(refs, 'testMap', 'MapTest');
     const loaded = loadGame('testMap');

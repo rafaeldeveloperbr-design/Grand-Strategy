@@ -6,6 +6,8 @@ import {
   processDailyTechProgress,
   calculateTechBonuses
 } from '../technology';
+import type { Country } from '../../types';
+import type { AIDifficulty } from '../../types/difficulty';
 
 // Mock de um foco e tech básico do seu data/technology
 // Se seu TECHNOLOGIES estiver vazio, esses testes de start vão retornar null e tudo bem
@@ -23,7 +25,7 @@ vi.mock('../../data/technology', () => ({
 const baseCountry = {
   tag: 'BRA',
   resources: { gold: 1000 },
-} as any;
+} as Country;
 
 describe('TECNOLOGIA', () => {
   it('initial state - cria estado zerado', () => {
@@ -43,7 +45,7 @@ describe('TECNOLOGIA', () => {
   });
 
   it('startFocus - bloqueia se já completou', () => {
-    const state = {...createInitialTechState('BRA'), completedFocuses: ['focus_1'] };
+    const state = { ...createInitialTechState('BRA'), completedFocuses: ['focus_1'] };
     const next = startNationalFocus(state, 'focus_1');
     expect(next).toBeNull();
   });
@@ -56,7 +58,10 @@ describe('TECNOLOGIA', () => {
 
   it('startResearch - bloqueia se ouro insuficiente', () => {
     const state = createInitialTechState('BRA');
-    const poor = { tag: 'BRA', resources: { gold: 10 } } as any;
+    const poor = {
+      tag: 'BRA',
+      resources: { gold: 10 },
+    } as Country;
     const result = startTechnologyResearch(state, 'tech_1', poor);
     expect(result.techState).toBeNull();
     expect(result.cost).toBe(100);
@@ -81,7 +86,6 @@ describe('TECNOLOGIA', () => {
     let state = createInitialTechState('BRA');
     state = startNationalFocus(state, 'focus_1')!;
     state.focusProgressDays = 9;
-
     const result = processDailyTechProgress(state, baseCountry, 'medium', true);
     expect(result.techState.completedFocuses).toContain('focus_1');
     expect(result.techState.activeFocusId).toBeNull();
@@ -93,14 +97,19 @@ describe('TECNOLOGIA', () => {
     state = startNationalFocus(state, 'focus_1')!;
 
     const player = processDailyTechProgress(state, baseCountry, 'medium', true);
-    const aiEasy = processDailyTechProgress(state, baseCountry, 'easy' as any, false);
+    const aiEasy = processDailyTechProgress(
+      state,
+      baseCountry,
+      'easy' as AIDifficulty,
+      false
+    );
 
     // easy = multiplicador menor que 1.0 no seu DIFFICULTY_SPEED_MULTIPLIERS
     expect(player.techState.focusProgressDays).not.toEqual(aiEasy.techState.focusProgressDays);
   });
 
   it('bonuses - focos completados geram bônus de ouro', () => {
-    const state = {...createInitialTechState('BRA'), completedFocuses: ['focus_1'] };
+    const state = { ...createInitialTechState('BRA'), completedFocuses: ['focus_1'] };
     const bonuses = calculateTechBonuses(state);
     expect(bonuses.goldIncomeMultiplier).toBeGreaterThan(1.0);
   });
